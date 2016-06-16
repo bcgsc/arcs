@@ -261,13 +261,13 @@ int calcMultiplicity(const ARCS::ScafMap sm) {
     return mult;
 }
 
-/* 
+    /* 
  * Iterate through IndexMap and for every pair of scaffolds
  * that align to the same index, store in PairMap. PairMap 
  * is a map with a key of pairs of saffold names, and value
  * of number of links between the pair. (Each link is one index).
  */
-void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap) {
+void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap, ARCS::LinkMap& lmap) {
 
     /* Iterate through each index in IndexMap */
     for(auto it = imap.begin(); it != imap.end(); ++it) {
@@ -279,12 +279,15 @@ void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap) {
            /* Iterate through all the scafNames in ScafMap */ 
             for (auto o = it->second.begin(); o != it->second.end(); ++o) {
                 for (auto p = it->second.begin(); p != it->second.end(); ++p) {
-
                     /* Only insert into PairMap if o->first less than p->first to avoid duplicates */
                     if (o->second >= params.min_reads && p->second >= params.min_reads 
                             && o->first < p->first) {
+
                         std::pair<int, int> pair (o->first, p->first);
                         pmap[pair]++;
+                        lmap[pair].insert(it->first);
+                        //lmap[o->first].insert(it->first);
+                        //lmap[p->first].insert(it->first);
                     }
                 }
             }
@@ -298,7 +301,7 @@ void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap) {
  * between the scafNames.
  * VidVdes is a mapping of vertex descriptors to scafNames (vertex id).
  */
-void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
+void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g, ARCS::LinkMap& lmap, ARCS::EdgeMap& emap) {
 
     ARCS::VidVdesMap vmap;
 
@@ -327,8 +330,10 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
             /* Add the edge representing the pair */
             std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-            if (inserted)
+            if (inserted) {
                 g[e].weight = it->second;
+                emap[e] = lmap[it->first];
+            }
         }
     }
 } 
@@ -353,7 +358,6 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
 /*
 void readGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
     std::ifstream in(graphFile_dot.c_str());
-    assert(in);
 
     boost::dynamic_properties dp;
     dp.property("id", get(&ARCS::VertexProperties::id, g));
@@ -448,7 +452,7 @@ void getConnectedComponents(ARCS::Graph& g, ARCS::VertexDescMap& compMap) {
  * Output a fasta file with the group each scaffold belongs too
  * written in the header.
  */
-void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string scafOut, const std::string postRemoval) {
+void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string scafOut, const std::string postRemoval,  ARCS::LinkMap& lmap) {
 
     std::ofstream scafOut_stream(scafOut);
     if (!scafOut_stream) {
@@ -489,6 +493,8 @@ void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string s
         }
     }
     
+    std::unordered_map<int, std::set<std::string>> indicies;
+    
     FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
     for (FastaRecord rec; in >> rec;) {
 
@@ -510,9 +516,49 @@ void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string s
                     rec.comment = "";
                     scafOut_stream << rec;
                     assert(scafOut_stream);
+
+                    ARCS::Graph::adjacency_iterator neighbourIt, neighbourEnd;
+                    boost::tie(neighbourIt, neighbourEnd) = boost::adjacent_vertices(vertex_des, g);
+                    for(; neighbourIt != neighbourEnd; ++neighbourIt) {
+                        ARCS::VertexDes vNeighbour = *neighbourIt;
+                        int vNeighbourId = g[vNeighbour].id; 
+                        std::pair<int, int> pair;
+                        if (vNeighbourId < vertex_id) {
+                            pair = std::make_pair(vNeighbourId, vertex_id);
+                        } else {
+                            pair = std::make_pair(vertex_id, vNeighbourId);
+                        }
+                        indicies[compNum].insert(lmap[pair].begin(), lmap[pair].end());
+
+                    }
+
+                    //ARCS::Graph::out_edge_iterator outEdgeIt, outEdgeEnd;
+                    //boost::tie(outEdgeIt, outEdgeEnd) = out_edges(vertex_des, g);
+                    //for(; outEdgeIt != outEdgeEnd; ++outEdgeIt) {
+                    //    ARCS::Graph::edge_descriptor e = *outEdgeIt;
+                    //    indicies[compNum].insert(emap[e].begin(), emap[e].end());
+                    //}
                 }
             }
         }
+    }
+
+
+
+    std::ofstream indicies_stream("group_indicies.csv");
+    if (!indicies_stream) {
+        std::cerr << "Could not open " << "group_indicies.csv"
+            << " for writting...fatal.\n";
+        exit(EXIT_FAILURE);
+    }
+
+    std::unordered_map<int, std::set<std::string>>::iterator it;
+    for(it = indicies.begin(); it != indicies.end(); ++it) {
+        indicies_stream << it->first << '\t';
+        for (std::set<std::string>::iterator it2=it->second.begin(); it2!=it->second.end(); ++it2){
+            indicies_stream << *it2 << '\t';
+        }
+        indicies_stream << '\n';
     }
 }
 
@@ -541,6 +587,9 @@ void runArcs() {
     ARCS::PairMap pmap;
     ARCS::Graph g;
 
+    ARCS::LinkMap lmap;
+    ARCS::EdgeMap emap;
+
     std::time_t rawtime;
 
     /* Check if graphFile_checkpoint exists. */
@@ -562,11 +611,11 @@ void runArcs() {
 
         time(&rawtime);
         std::cout << "=>Starting pairing of scaffolds... " << ctime(&rawtime) << "\n";
-        pairContigs(imap, pmap);
+        pairContigs(imap, pmap, lmap);
 
         time(&rawtime);
         std::cout << "=>Starting to create graph... " << ctime(&rawtime) << "\n";
-        createGraph(pmap, g);
+        createGraph(pmap, g, lmap, emap);
 
         time(&rawtime);
         std::cout << "=>Starting to write graph file... " << ctime(&rawtime) << "\n";
@@ -576,7 +625,7 @@ void runArcs() {
 
     time(&rawtime);
     std::cout << "=>Writting scaffold groups... " << ctime(&rawtime) << "\n";
-    writeScafGroups(g, params.file, scafOut, graphFile_postRemoval); 
+    writeScafGroups(g, params.file, scafOut, graphFile_postRemoval, lmap); 
 
     time(&rawtime);
     std::cout << "=>Done. " << ctime(&rawtime) << "\n";

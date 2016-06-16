@@ -58,6 +58,7 @@ namespace ARCS {
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
     /* PairMap: key = pair(first < second) of scaf sequences, value = num links*/
     typedef std::map<std::pair<int, int>, int> PairMap; 
+    typedef std::map<std::pair<int, int>, std::set<std::string>> LinkMap; 
 
     struct VertexProperties {
         int id;
@@ -71,6 +72,7 @@ namespace ARCS {
     typedef std::map<Graph::vertex_descriptor, std::size_t> VertexDescMap;
     typedef std::unordered_map<int, Graph::vertex_descriptor> VidVdesMap;
     typedef boost::graph_traits<ARCS::Graph>::vertex_descriptor VertexDes;
+    typedef std::map<Graph::edge_descriptor, std::set<std::string>> EdgeMap; 
 
 
 }
