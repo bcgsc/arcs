@@ -42,12 +42,17 @@ autoscan-*.log
 aclocal.m4
 compile
 config.h.in
+config.*
 configure
 configure.scan
 depcomp
 install-sh
 missing
-stamp-h1
+stamp-h?
+.deps
+.dirstamp
+Makefile
+Makefile.in
 
 
 ### Vim ###
