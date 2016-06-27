@@ -128,6 +128,22 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
     return si;
 }
 
+int getIntFromScafName(const std::string& scafName) {
+    std::stringstream ss;
+    for (auto i = scafName.begin(); i != scafName.end(); ++i) {
+        if (isdigit(*i)) {
+            ss << *i;
+        }
+    }
+    
+    //if (scafName.compare("Super-Scaffold_962476") == 0 || scafName.compare("Super-Scaffold_962661") == 0 || scafName.compare("Super-Scaffold_963983") == 0 || scafName.compare("Super-Scaffold_963663") == 0) {
+    //    ss << 0;
+    //}
+
+    int numb;
+    ss >> numb;
+    return numb;
+}
 
 /* 
  * Read BAM file, if sequence identity greater than threashold
@@ -158,11 +174,13 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
 
             /* Read each line of the BAM file */
             std::stringstream ss(line);
-            std::string readName, cigar, rnext, seq, qual;
+            std::string readName, scafNameString, cigar, rnext, seq, qual;
             int flag, scafName, pos, mapq, pnext, tlen;
 
-            ss >> readName >> flag >> scafName >> pos >> mapq >> cigar
+            ss >> readName >> flag >> scafNameString >> pos >> mapq >> cigar
                 >> rnext >> pnext >> tlen >> seq >> qual;
+
+            scafName = getIntFromScafName(scafNameString);
 
             /* Parse the index from the readName */
             std::string index = "", readNameSpl = "";
@@ -492,9 +510,9 @@ void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string s
     FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
     for (FastaRecord rec; in >> rec;) {
 
-        std::istringstream ss(rec.id);
-        int vertex_id;
-        ss >> vertex_id;
+        //std::istringstream ss(rec.id);
+        int vertex_id = getIntFromScafName(rec.id);
+        //ss >> vertex_id;
 
         if (vmap.count(vertex_id) != 0) {
             ARCS::VertexDes vertex_des = vmap[vertex_id];
