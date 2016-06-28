@@ -39,6 +39,7 @@ namespace ARCS {
         int min_reads;
         int min_links;
         std::string base_name;
+        std::string original_file;
         int min_mult;
         int max_mult;
         int max_grpSize;

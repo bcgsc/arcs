@@ -23,6 +23,7 @@ static const char USAGE_MESSAGE[] =
 "   -b  Base name for your output files (optional)\n"
 "   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 1000-2000)\n"
 "   -g  Maximum number of scaffolds in a group (default: 100)\n"
+"   -o  Path to previously generated original graph file (optional)\n"
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final groups. For no node removal, set to 0 (default: 0)\n"
 "   -i  Length (bp) of index sequence (default: 14)\n"
 "   -v  Runs in verbose mode (optional, default: 0)\n";
@@ -30,7 +31,7 @@ static const char USAGE_MESSAGE[] =
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:a:s:c:l:b:m:g:d:i:v";
+static const char shortopts[] = "f:a:s:c:l:b:o:m:g:d:i:v";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -41,6 +42,7 @@ static const struct option longopts[] = {
     {"min_reads", required_argument, NULL, 'c'},
     {"min_links", required_argument, NULL, 'l'},
     {"base_name", required_argument, NULL, 'b'},
+    {"original_file", required_argument, NULL, 'o'},
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_groupSize", required_argument, NULL, 'g'},
     {"max_degree", required_argument, NULL, 'd'},
@@ -322,32 +324,30 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
     ARCS::PairMap::const_iterator it;
     for(it = pmap.begin(); it != pmap.end(); ++it) {
-        if (it->second >= params.min_links) {
-            int scaf1, scaf2;
-            std::tie (scaf1, scaf2) = it->first;
+        int scaf1, scaf2;
+        std::tie (scaf1, scaf2) = it->first;
 
-            /* If scaf1 is not a node in the graph, add it */
-            if (vmap.count(scaf1) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf1;
-                vmap[scaf1] = v;
-            }
-
-            /* If scaf2 is not a node in the graph, add it */
-            if (vmap.count(scaf2) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf2;
-                vmap[scaf2] = v;
-            }
-
-            ARCS::Graph::edge_descriptor e;
-            bool inserted;
-
-            /* Add the edge representing the pair */
-            std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-            if (inserted)
-                g[e].weight = it->second;
+        /* If scaf1 is not a node in the graph, add it */
+        if (vmap.count(scaf1) == 0) {
+            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+            g[v].id = scaf1;
+            vmap[scaf1] = v;
         }
+
+        /* If scaf2 is not a node in the graph, add it */
+        if (vmap.count(scaf2) == 0) {
+            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+            g[v].id = scaf2;
+            vmap[scaf2] = v;
+        }
+
+        ARCS::Graph::edge_descriptor e;
+        bool inserted;
+
+        /* Add the edge representing the pair */
+        std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
+        if (inserted)
+            g[e].weight = it->second;
     }
 } 
 
@@ -368,22 +368,24 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
     out.close();
 }
 
-/*
-void readGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
-    std::ifstream in(graphFile_dot.c_str());
+void readGraph(const std::string& graphFile, ARCS::Graph& g) {
+    std::ifstream in(graphFile.c_str());
     assert(in);
 
     boost::dynamic_properties dp;
-    dp.property("id", get(&ARCS::VertexProperties::id, g));
-    dp.property("weight", get(&ARCS::EdgeProperties::weight, g));
-    dp.property("node_id", get(boost::vertex_index, g));
-    boost::read_graphviz(in, g, dp);
-    assert(in);
+    dp.property("id", boost::get(&ARCS::VertexProperties::id, g));
+    dp.property("weight", boost::get(&ARCS::EdgeProperties::weight, g));
+    dp.property("node_id", boost::get(boost::vertex_index, g));
+    bool status = boost::read_graphviz(in, g, dp);
+    if (!status) {
+        std::cerr << "Error reading " << graphFile
+            << "...fatal.\n";
+        exit(EXIT_FAILURE);
+    }
 
+    std::cout << "      Finished reading graph file." << std::endl;
     in.close();
 }
-*/
-    
 
 /*
  * Output a .gv file with all the nodes and edges in the graph.
@@ -421,7 +423,7 @@ void buildGroups(const ARCS::PairMap& pmap, const std::string graphFile_checkpoi
 } 
 */
 
-void removeDegreeNodes(ARCS::Graph& g) {
+void removeDegreeNodes(ARCS::Graph& g, int max_degree, bool greater) {
 
     boost::graph_traits<ARCS::Graph>::vertex_iterator vi, vi_end, next;
 
@@ -441,8 +443,14 @@ void removeDegreeNodes(ARCS::Graph& g) {
     std::vector<ARCS::VertexDes> dVertex;
     for (next = vi; vi != vi_end; vi = next) {
         ++next;
-        if (static_cast<int>(boost::degree(*vi, g)) > params.max_degree) {
-            dVertex.push_back(*vi);
+        if (greater) {
+            if (static_cast<int>(boost::degree(*vi, g)) > max_degree) {
+                dVertex.push_back(*vi);
+            }
+        } else {
+            if (static_cast<int>(boost::degree(*vi, g)) < max_degree) {
+                dVertex.push_back(*vi);
+            }
         }
     }
 
@@ -454,6 +462,23 @@ void removeDegreeNodes(ARCS::Graph& g) {
 
 }
 
+void removeWeightEdges(ARCS::Graph& g, int min_links) {
+
+    boost::graph_traits<ARCS::Graph>::edge_iterator ei, ei_end, next;
+
+    boost::tie(ei, ei_end) = boost::edges(g);
+    std::vector<ARCS::VertexDes> dVertex;
+    for (next = ei; ei != ei_end; ei = next) {
+        ++next;
+        if (g[*ei].weight < min_links) {
+            boost::remove_edge(*ei, g);
+        }
+    }
+    boost::renumber_indices(g);
+    removeDegreeNodes(g, 1, false);
+}
+
+
 
 void getConnectedComponents(ARCS::Graph& g, ARCS::VertexDescMap& compMap) {
     boost::associative_property_map<ARCS::VertexDescMap> componentMap(compMap);
@@ -462,30 +487,37 @@ void getConnectedComponents(ARCS::Graph& g, ARCS::VertexDescMap& compMap) {
         std::cout << "Number of connected components: " << compNum << std::endl; 
 }
 
+
+void writePostRemovalGraph(ARCS::Graph& g, const std::string postRemoval) {
+    if (params.min_links != 0) {
+        std::cout << "      Deleting edges with weight < " << params.min_links <<"... \n";
+        removeWeightEdges(g, params.min_links);
+    } else {
+        std::cout << "      Min links (-l) set to: " << params.min_links << ". Will not delete any edges from graph.\n";
+    }
+
+    if (params.max_degree != 0) {
+        std::cout << "      Deleting nodes with degree > " << params.max_degree <<"... \n";
+        removeDegreeNodes(g, params.max_degree, true);
+    } else {
+        std::cout << "      Max Degree (-d) set to: " << params.max_degree << ". Will not delete any verticies from graph.\n";
+    }
+
+    std::cout << "      Writting graph file to " << postRemoval << "...\n";
+    writeGraph(postRemoval, g);
+}
+
 /*
  * Output a fasta file with the group each scaffold belongs too
  * written in the header.
  */
-void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string scafOut, const std::string postRemoval) {
+void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string scafOut) {
 
     std::ofstream scafOut_stream(scafOut);
     if (!scafOut_stream) {
         std::cerr << "Could not open " << scafOut
             << " for writting...fatal.\n";
         exit(EXIT_FAILURE);
-    }
-
-    if (params.max_degree != 0) {
-        std::cout << "=> Deleting nodes with degree: " << params.max_degree <<" ... \n";
-        removeDegreeNodes(g);
-        if (params.verbose)
-            std::cout << "Finish removing nodes. Now writting graph..." << std::endl;
-        writeGraph(postRemoval, g);
-        if (params.verbose)
-            std::cout << "Finished writing "<< postRemoval << std::endl;
-    } else {
-        if (params.verbose)
-            std::cout << "Max Degree (-d) set to: " << params.max_degree << ". Will not delete any verticies from graph.\n";
     }
 
     ARCS::VertexDescMap compMap;
@@ -550,11 +582,18 @@ void runArcs() {
         << "\n -i " << params.indexLen << "\n";
 
     /* Setting output file names */
-    std::string scaffold = params.base_name + ".scaffold";
-    std::string scafOut = params.base_name + "_d" + std::to_string(static_cast<long long>(params.max_degree)) + "_scaffolds.fa";
-    std::string graphFile_checkpoint = params.base_name + "_groups.gv";
-    std::string graphFile_postRemoval = params.base_name + "_groups-postNodeRemoval_d" + std::to_string(static_cast<long long>(params.max_degree)) + ".gv";
+    std::string scafOut = params.base_name + "_scaffolds.fa";
+    std::string graphFile_postRemoval = params.base_name + "_groups.gv";
 
+    std::string graphFile_original = params.original_file;
+    if (params.original_file.empty()) {
+        std::ostringstream filename;
+        filename << params.file << ".scaff" 
+            << "_s" << params.seq_id 
+            << "_c" << params.min_reads;
+        graphFile_original = filename.str() + "_original.gv";
+    }
+    
     ARCS::IndexMap imap;
     ARCS::PairMap pmap;
     ARCS::Graph g;
@@ -562,42 +601,47 @@ void runArcs() {
     std::time_t rawtime;
 
     /* Check if graphFile_checkpoint exists. */
-    std::ifstream graphFile_checkpoint_stream(graphFile_checkpoint.c_str());
-    if (graphFile_checkpoint_stream.good()) {
-        std::cout << "\n Graph file " << graphFile_checkpoint 
+    std::ifstream graphFile_original_stream(graphFile_original.c_str());
+    if (graphFile_original_stream.good()) {
+        std::cout << "\n=> Graph file " << graphFile_original 
             << " found. Skipping reading BAM, pairing, writing graph file. \n";
-        graphFile_checkpoint_stream.close();
-
-        //TODO read .gv file
-        //readGraph(graphFile_checkpoint, g);
-
-    } else {
-        graphFile_checkpoint_stream.close();
+        graphFile_original_stream.close();
 
         time(&rawtime);
-        std::cout << "=>Starting to read BAM files... " << ctime(&rawtime) << "\n";
+        std::cout << "\n=>Reading graph file from " << graphFile_original << "... " << ctime(&rawtime);
+        readGraph(graphFile_original, g);
+
+    } else {
+        graphFile_original_stream.close();
+
+        time(&rawtime);
+        std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
         readBAMS(params.fofName, imap);
 
         time(&rawtime);
-        std::cout << "=>Starting pairing of scaffolds... " << ctime(&rawtime) << "\n";
+        std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
         pairContigs(imap, pmap);
 
         time(&rawtime);
-        std::cout << "=>Starting to create graph... " << ctime(&rawtime) << "\n";
+        std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
         createGraph(pmap, g);
 
         time(&rawtime);
-        std::cout << "=>Starting to write graph file... " << ctime(&rawtime) << "\n";
-        writeGraph(graphFile_checkpoint, g);
+        std::cout << "\n=>Starting to write graph file... " << ctime(&rawtime) << "\n";
+        writeGraph(graphFile_original, g);
         //buildGroups(pmap, graphFile_checkpoint);
     }
 
     time(&rawtime);
-    std::cout << "=>Writting scaffold groups... " << ctime(&rawtime) << "\n";
-    writeScafGroups(g, params.file, scafOut, graphFile_postRemoval); 
+    std::cout << "\n=>Starting to create post removal graph file... " << ctime(&rawtime);
+    writePostRemovalGraph(g, graphFile_postRemoval);
 
     time(&rawtime);
-    std::cout << "=>Done. " << ctime(&rawtime) << "\n";
+    std::cout << "\n=>Writting scaffold groups... " << ctime(&rawtime);
+    writeScafGroups(g, params.file, scafOut); 
+
+    time(&rawtime);
+    std::cout << "\n=>Done. " << ctime(&rawtime);
 }
 
 int main(int argc, char** argv) {
@@ -620,6 +664,8 @@ int main(int argc, char** argv) {
                 arg >> params.min_links; break;
             case 'b':
                 arg >> params.base_name; break;
+            case 'o':
+                arg >> params.original_file; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
@@ -674,6 +720,7 @@ int main(int argc, char** argv) {
             << "_l" << params.min_links 
             << "_s" << params.seq_id 
             << "_c" << params.min_reads
+            << "_d" << params.max_degree 
             << "_pid" << ::getpid(); 
         params.base_name = filename.str();
     }
