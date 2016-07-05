@@ -499,6 +499,7 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string postRemoval) {
     if (params.max_degree != 0) {
         std::cout << "      Deleting nodes with degree > " << params.max_degree <<"... \n";
         removeDegreeNodes(g, params.max_degree, true);
+        //removeDegreeNodes(g, 1, false);
     } else {
         std::cout << "      Max Degree (-d) set to: " << params.max_degree << ". Will not delete any verticies from graph.\n";
     }
