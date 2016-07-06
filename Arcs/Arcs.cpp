@@ -24,13 +24,14 @@ static const char USAGE_MESSAGE[] =
 "   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 1000-2000)\n"
 "   -g  Maximum number of scaffolds in a group (default: 100)\n"
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final groups. For no node removal, set to 0 (default: 0)\n"
+"   -e  Length (bp) of ends of read to consider (optional)\n"
 "   -i  Length (bp) of index sequence (default: 14)\n"
 "   -v  Runs in verbose mode (optional, default: 0)\n";
 
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:a:s:c:l:b:m:g:d:i:v";
+static const char shortopts[] = "f:a:s:c:l:b:m:g:d:e:i:v";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -44,6 +45,7 @@ static const struct option longopts[] = {
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_groupSize", required_argument, NULL, 'g'},
     {"max_degree", required_argument, NULL, 'd'},
+    {"end_length", required_argument, NULL, 'e'},
     {"index_length", required_argument, NULL, 'i'},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
@@ -161,7 +163,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
     }
 
     std::string prevRN = "", readyToAddIndex = "";
-    int prevSI = 0, prevFlag = 0, prevRef = 0, readyToAddRefName = 0;
+    int prevSI = 0, prevFlag = 0, prevRef = 0, readyToAddRefName = 0, prevPos = 0, readyToAddPos = 0;
     int ct = 1; 
 
     std::string line;
@@ -201,21 +203,29 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
                     prevSI = si;
                     prevFlag = flag;
                     prevRef = scafName;
+                    prevPos = pos;
 
                     /* 
                      * Read names are different so we can add the previous index and scafName as
                      * long as there were only two mappings (one for each read)
                      */
-                    if (!readyToAddIndex.empty() && readyToAddRefName != 0) {
+                    if (!readyToAddIndex.empty() && readyToAddRefName != 0 && readyToAddPos != 0) {
                         //addToMap(imap, readyToAddIndex, readyToAddRefName);
-                        imap[readyToAddIndex][readyToAddRefName]++;
+                        std::pair<int, bool> key;
+                        if (readyToAddPos < params.end_length)
+                            key = std::make_pair(readyToAddRefName, true); 
+                        else
+                            key = std::make_pair(readyToAddRefName, false); 
+                        imap[readyToAddIndex][key]++;
                         readyToAddIndex = "";
                         readyToAddRefName = 0;
+                        readyToAddPos = 0;
                     }
                 } else {
                     ct = 0;
                     readyToAddIndex = "";
                     readyToAddRefName = 0;
+                    readyToAddPos = 0;
                 }
             } else if (ct == 2) {
                 if (prevRN.compare(readName) != 0) {
@@ -228,6 +238,11 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
                     if ((prevRef == scafName) && scafName != 0 && !index.empty()) {
                         readyToAddIndex = index;
                         readyToAddRefName = scafName;
+                        /* Take right most read position */
+                        if (prevPos < pos)
+                            readyToAddPos = pos;
+                        else
+                            readyToAddPos = prevPos;
                     }
                 }
             }
@@ -633,6 +648,8 @@ int main(int argc, char** argv) {
                 arg >> params.max_grpSize; break;
             case 'd':
                 arg >> params.max_degree; break;
+            case 'e':
+                arg >> params.end_length; break;
             case 'i':
                 arg >> params.indexLen; break;
             case 'v':

@@ -43,6 +43,7 @@ namespace ARCS {
         int max_mult;
         int max_grpSize;
         int max_degree;
+        int end_length;
         int indexLen;
         int verbose;
 
@@ -52,7 +53,7 @@ namespace ARCS {
 
     };
 
-    /* Scaffold counts: <scaffold, count>, cout =  # times index maps to scaffold (c) */
+    /* Scaffold counts: <pair(scaffold, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
     typedef std::unordered_map<int, int> ScafMap;
     /* indexMap: key = index sequence, value = scaffold counts */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
