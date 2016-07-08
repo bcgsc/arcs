@@ -152,7 +152,7 @@ int getIntFromScafName(const std::string& scafName) {
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
  */
-void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
+void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap) {
 
     /* Open BAM file */
     std::ifstream bamName_stream;
@@ -182,6 +182,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
             ss >> readName >> flag >> scafNameString >> pos >> mapq >> cigar
                 >> rnext >> pnext >> tlen >> seq >> qual;
 
+            /* If there are no numbers in name, will return 0 - ie "*" */
             scafName = getIntFromScafName(scafNameString);
 
             /* Parse the index from the readName */
@@ -191,6 +192,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
                 readNameSpl = readName.substr(found+1);
             if (checkIndex(readNameSpl))
                 index = readNameSpl;
+
+            if (!index.empty())
+                indexMultMap[index]++;
 
             /* Calculate the sequence identity */
             int si = calcSequenceIdentity(line, cigar, seq);
@@ -249,7 +253,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap) {
 /* 
  * Reading each BAM file from fofName
  */
-void readBAMS(const std::string& fofName, ARCS::IndexMap& imap) {
+void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap) {
 
     std::ifstream fofName_stream(fofName.c_str());
     if (!fofName_stream) {
@@ -261,7 +265,7 @@ void readBAMS(const std::string& fofName, ARCS::IndexMap& imap) {
     while (getline(fofName_stream, bamName)) {
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
-        readBAM(bamName, imap);
+        readBAM(bamName, imap, indexMultMap);
         assert(fofName_stream);
     }
     fofName_stream.close();
@@ -287,12 +291,14 @@ int calcMultiplicity(const ARCS::ScafMap sm) {
  * is a map with a key of pairs of saffold names, and value
  * of number of links between the pair. (Each link is one index).
  */
-void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap) {
+void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<std::string, int>& indexMultMap) {
 
     /* Iterate through each index in IndexMap */
     for(auto it = imap.begin(); it != imap.end(); ++it) {
 
-        int indexMult = calcMultiplicity(it->second);
+        //int indexMult = calcMultiplicity(it->second);
+        std::string index = it->first;
+        int indexMult = indexMultMap[index];
 
         if (indexMult >= params.min_mult && indexMult <= params.max_mult) {
 
@@ -615,13 +621,14 @@ void runArcs() {
     } else {
         graphFile_original_stream.close();
 
+        std::unordered_map<std::string, int> indexMultMap;
         time(&rawtime);
         std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
-        readBAMS(params.fofName, imap);
+        readBAMS(params.fofName, imap, indexMultMap);
 
         time(&rawtime);
         std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
-        pairContigs(imap, pmap);
+        pairContigs(imap, pmap, indexMultMap);
 
         time(&rawtime);
         std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
