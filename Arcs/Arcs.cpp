@@ -300,6 +300,7 @@ int calcMultiplicity(const ARCS::ScafMap sm) {
     return mult;
 }
 
+
 /* 
  * Iterate through IndexMap and for every pair of scaffolds
  * that align to the same index, store in PairMap. PairMap 
@@ -322,16 +323,49 @@ void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered
                 for (auto p = it->second.begin(); p != it->second.end(); ++p) {
 
                     /* Only insert into PairMap if o->first less than p->first to avoid duplicates */
+                    int scafA, scafB;
+                    bool scafAhead, scafBhead;
+                    std::tie (scafA, scafAhead) = o->first;
+                    std::tie (scafB, scafBhead) = p->first;
                     if (o->second >= params.min_reads && p->second >= params.min_reads 
-                            && o->first < p->first) {
-                        std::pair<int, int> pair (o->first, p->first);
-                        pmap[pair]++;
+                            && scafA < scafB) {
+                        std::pair<int, int> pair (scafA, scafB);
+                        if (pmap.count(pair) == 0) {
+                            std::vector<int> init(4,0); 
+                            pmap[pair] = init;
+                        }
+                        // Head - Head
+                        if (scafAhead && scafBhead)
+                            pmap[pair][0]++;
+                        // Head - Tail
+                        if (scafAhead && !scafBhead)
+                            pmap[pair][1]++;
+                        // Tail - Head
+                        if (!scafAhead && scafBhead)
+                            pmap[pair][2]++;
+                        // Tail - Tail
+                        if (!scafAhead && !scafBhead)
+                            pmap[pair][3]++;
                     }
                 }
             }
         }
     }
 }  
+
+std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
+    int max = 0;
+    int index = 0;
+    for (int i = 0; i < int(array.size()); i++) {
+        if (array[i] > max) {
+            max = array[i];
+            index = i;
+        }
+    }
+
+    std::pair<int, int> result(max, index);
+    return result;
+}
 
 /*
  * Construct a boost graph from PairMap. Each pair represents an
@@ -367,8 +401,13 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
         /* Add the edge representing the pair */
         std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-        if (inserted)
-            g[e].weight = it->second;
+        if (inserted){
+            int max, index;
+            std::vector<int> count = it->second;
+            std::tie(max, index) = getMaxValueAndIndex(count);
+            g[e].weight = max;
+            g[e].orientation = index;
+        }
     }
 } 
 
@@ -382,6 +421,7 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
     boost::dynamic_properties dp;
     dp.property("id", get(&ARCS::VertexProperties::id, g));
     dp.property("weight", get(&ARCS::EdgeProperties::weight, g));
+    dp.property("label", get(&ARCS::EdgeProperties::orientation, g));
     dp.property("node_id", get(boost::vertex_index, g));
     boost::write_graphviz_dp(out, g, dp);
     assert(out);
@@ -393,9 +433,10 @@ void readGraph(const std::string& graphFile, ARCS::Graph& g) {
     std::ifstream in(graphFile.c_str());
     assert(in);
 
-    boost::dynamic_properties dp;
+    boost::dynamic_properties dp(boost::ignore_other_properties);
     dp.property("id", boost::get(&ARCS::VertexProperties::id, g));
     dp.property("weight", boost::get(&ARCS::EdgeProperties::weight, g));
+    dp.property("label", boost::get(&ARCS::EdgeProperties::orientation, g));
     dp.property("node_id", boost::get(boost::vertex_index, g));
     bool status = boost::read_graphviz(in, g, dp);
     if (!status) {

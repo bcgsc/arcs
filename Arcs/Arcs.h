@@ -16,8 +16,8 @@
 #include <vector>
 #include <iterator>
 #include <time.h> 
-#include <boost/graph/graph_traits.hpp>
-#include <boost/graph/adjacency_list.hpp>
+//#include <boost/graph/graph_traits.hpp>
+//#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/connected_components.hpp>
 #include <boost/graph/graphviz.hpp>
@@ -55,26 +55,27 @@ namespace ARCS {
     };
 
     /* Scaffold counts: <pair(scaffold, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
-    typedef std::unordered_map<int, int> ScafMap;
+    typedef std::map<std::pair<int, bool>, int> ScafMap;
     /* indexMap: key = index sequence, value = scaffold counts */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
     /* PairMap: key = pair(first < second) of scaf sequences, value = num links*/
-    typedef std::map<std::pair<int, int>, int> PairMap; 
+    typedef std::map<std::pair<int, int>, std::vector<int>> PairMap; 
 
     struct VertexProperties {
         int id;
     };
 
     struct EdgeProperties {
+        int orientation;
         int weight;
+        EdgeProperties(): orientation(0), weight(0) {}
     };
+
 	// Define the type of the graph - this specifies a bundled property for vertices
 	typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;
     typedef std::map<Graph::vertex_descriptor, std::size_t> VertexDescMap;
     typedef std::unordered_map<int, Graph::vertex_descriptor> VidVdesMap;
     typedef boost::graph_traits<ARCS::Graph>::vertex_descriptor VertexDes;
-
-
 }
 
 #endif
