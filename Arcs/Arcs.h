@@ -50,7 +50,7 @@ namespace ARCS {
 
         ArcsParams() : file(), fofName(), seq_id(90), min_reads(2), min_links(5), 
         base_name(""), min_mult(1000), max_mult(2000), 
-        max_grpSize(100), max_degree(0), indexLen(14), verbose(0) {}
+        max_grpSize(100), max_degree(0), end_length(0), indexLen(14), verbose(0) {}
 
     };
 

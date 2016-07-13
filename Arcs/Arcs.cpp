@@ -56,6 +56,7 @@ static const struct option longopts[] = {
 };
 
 
+
 /* Returns true if seqence only contains ATGC and is of length indexLen */
 bool checkIndex(std::string seq) {
     for (int i = 0; i < static_cast<int>(seq.length()); i++) {
@@ -149,12 +150,30 @@ int getIntFromScafName(const std::string& scafName) {
     return numb;
 }
 
+void getScaffSizes(std::string file, std::unordered_map<int, int>& sMap) {
+
+    int counter = 0;
+    FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
+    for (FastaRecord rec; in >> rec;) {
+        counter++;
+        int scafName = getIntFromScafName(rec.id);
+        int size = rec.seq.length();
+        assert(sMap.count(scafName) == 0);
+        sMap[scafName] = size;
+        if (params.verbose)
+            std::cout << "Sequence " << scafName << " has size " << size << ".\n";
+    }
+    
+    if (params.verbose)
+        std::cout << "Saw " << counter << " sequences.\n";
+}
+
 /* 
  * Read BAM file, if sequence identity greater than threashold
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
  */
-void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap) {
+void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<int, int> sMap) {
 
     /* Open BAM file */
     std::ifstream bamName_stream;
@@ -165,7 +184,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     }
 
     std::string prevRN = "", readyToAddIndex = "";
-    int prevSI = 0, prevFlag = 0, prevRef = 0, readyToAddRefName = 0, prevPos = 0, readyToAddPos = 0;
+    int prevSI = 0, prevFlag = 0, prevRef = 0, readyToAddRefName = 0, prevPos = -1, readyToAddPos = -1;
     int ct = 1; 
 
     std::string line;
@@ -215,23 +234,29 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                      * Read names are different so we can add the previous index and scafName as
                      * long as there were only two mappings (one for each read)
                      */
-                    if (!readyToAddIndex.empty() && readyToAddRefName != 0 && readyToAddPos != 0) {
-                        //addToMap(imap, readyToAddIndex, readyToAddRefName);
+                    if (!readyToAddIndex.empty() && readyToAddRefName != 0 && readyToAddPos != -1) {
                         std::pair<int, bool> key;
-                        if (readyToAddPos < params.end_length)
-                            key = std::make_pair(readyToAddRefName, true); 
-                        else
-                            key = std::make_pair(readyToAddRefName, false); 
-                        imap[readyToAddIndex][key]++;
+                        int size = sMap[readyToAddRefName];
+                        if (size >= 500) {
+                            int cutOff = params.end_length;
+                            if (cutOff == 0 || size < cutOff * 2)
+                                cutOff = size/2;
+
+                            if (readyToAddPos < cutOff)
+                                key = std::make_pair(readyToAddRefName, true); 
+                            else
+                                key = std::make_pair(readyToAddRefName, false); 
+                            imap[readyToAddIndex][key]++;
+                        }
                         readyToAddIndex = "";
                         readyToAddRefName = 0;
-                        readyToAddPos = 0;
+                        readyToAddPos = -1;
                     }
                 } else {
                     ct = 0;
                     readyToAddIndex = "";
                     readyToAddRefName = 0;
-                    readyToAddPos = 0;
+                    readyToAddPos = -1;
                 }
             } else if (ct == 2) {
                 if (prevRN.compare(readName) != 0) {
@@ -268,7 +293,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 /* 
  * Reading each BAM file from fofName
  */
-void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap) {
+void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<int, int> sMap) {
 
     std::ifstream fofName_stream(fofName.c_str());
     if (!fofName_stream) {
@@ -280,7 +305,7 @@ void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_m
     while (getline(fofName_stream, bamName)) {
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
-        readBAM(bamName, imap, indexMultMap);
+        readBAM(bamName, imap, indexMultMap, sMap);
         assert(fofName_stream);
     }
     fofName_stream.close();
@@ -322,30 +347,37 @@ void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered
             for (auto o = it->second.begin(); o != it->second.end(); ++o) {
                 for (auto p = it->second.begin(); p != it->second.end(); ++p) {
 
-                    /* Only insert into PairMap if o->first less than p->first to avoid duplicates */
                     int scafA, scafB;
                     bool scafAhead, scafBhead;
                     std::tie (scafA, scafAhead) = o->first;
                     std::tie (scafB, scafBhead) = p->first;
-                    if (o->second >= params.min_reads && p->second >= params.min_reads 
-                            && scafA < scafB) {
-                        std::pair<int, int> pair (scafA, scafB);
-                        if (pmap.count(pair) == 0) {
-                            std::vector<int> init(4,0); 
-                            pmap[pair] = init;
+
+                    std::pair<int, int> oppositeA (scafA, !scafAhead);
+                    std::pair<int, int> oppositeB (scafB, !scafBhead);
+
+                    if (it->second.count(oppositeA) == 0 && it->second.count(oppositeB) == 0) {
+                        /* Only insert into PairMap if o->first less than p->first to avoid duplicates */
+                        if (o->second >= params.min_reads && p->second >= params.min_reads 
+                                && scafA < scafB) {
+
+                            std::pair<int, int> pair (scafA, scafB);
+                            if (pmap.count(pair) == 0) {
+                                std::vector<int> init(4,0); 
+                                pmap[pair] = init;
+                            }
+                            // Head - Head
+                            if (scafAhead && scafBhead)
+                                pmap[pair][0]++;
+                            // Head - Tail
+                            else if (scafAhead && !scafBhead)
+                                pmap[pair][1]++;
+                            // Tail - Head
+                            else if (!scafAhead && scafBhead)
+                                pmap[pair][2]++;
+                            // Tail - Tail
+                            else if (!scafAhead && !scafBhead)
+                                pmap[pair][3]++;
                         }
-                        // Head - Head
-                        if (scafAhead && scafBhead)
-                            pmap[pair][0]++;
-                        // Head - Tail
-                        if (scafAhead && !scafBhead)
-                            pmap[pair][1]++;
-                        // Tail - Head
-                        if (!scafAhead && scafBhead)
-                            pmap[pair][2]++;
-                        // Tail - Tail
-                        if (!scafAhead && !scafBhead)
-                            pmap[pair][3]++;
                     }
                 }
             }
@@ -379,34 +411,46 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
     ARCS::PairMap::const_iterator it;
     for(it = pmap.begin(); it != pmap.end(); ++it) {
-        int scaf1, scaf2;
-        std::tie (scaf1, scaf2) = it->first;
+        int max, index;
+        std::vector<int> count = it->second;
+        std::tie(max, index) = getMaxValueAndIndex(count);
+        if (max > 4) {
+            int scaf1, scaf2;
+            std::tie (scaf1, scaf2) = it->first;
 
-        /* If scaf1 is not a node in the graph, add it */
-        if (vmap.count(scaf1) == 0) {
-            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-            g[v].id = scaf1;
-            vmap[scaf1] = v;
-        }
+            /* If scaf1 is not a node in the graph, add it */
+            if (vmap.count(scaf1) == 0) {
+                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                g[v].id = scaf1;
+                vmap[scaf1] = v;
+            }
 
-        /* If scaf2 is not a node in the graph, add it */
-        if (vmap.count(scaf2) == 0) {
-            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-            g[v].id = scaf2;
-            vmap[scaf2] = v;
-        }
+            /* If scaf2 is not a node in the graph, add it */
+            if (vmap.count(scaf2) == 0) {
+                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                g[v].id = scaf2;
+                vmap[scaf2] = v;
+            }
 
-        ARCS::Graph::edge_descriptor e;
-        bool inserted;
+            ARCS::Graph::edge_descriptor e;
+            bool inserted;
 
-        /* Add the edge representing the pair */
-        std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-        if (inserted){
-            int max, index;
-            std::vector<int> count = it->second;
-            std::tie(max, index) = getMaxValueAndIndex(count);
-            g[e].weight = max;
-            g[e].orientation = index;
+            /* Add the edge representing the pair */
+            std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
+            if (inserted){
+//                int max, index;
+//                std::vector<int> count = it->second;
+//                std::tie(max, index) = getMaxValueAndIndex(count);
+                g[e].weight = max;
+                g[e].orientation = index;
+
+                if (params.verbose && max > 5) {
+                    std::cout << "Edge between: " << scaf1  << " and " << scaf2 << ". Labels: ";
+                    for (auto i = count.begin(); i != count.end(); ++i)
+                        std::cout << *i << ' ';
+                    std::cout << "\n";
+                }
+            }
         }
     }
 } 
@@ -677,10 +721,15 @@ void runArcs() {
     } else {
         graphFile_original_stream.close();
 
+        std::unordered_map<int, int> scaffSizeMap;
+        time(&rawtime);
+        std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
+        getScaffSizes(params.file, scaffSizeMap);
+
         std::unordered_map<std::string, int> indexMultMap;
         time(&rawtime);
         std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
-        readBAMS(params.fofName, imap, indexMultMap);
+        readBAMS(params.fofName, imap, indexMultMap, scaffSizeMap);
 
         time(&rawtime);
         std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
