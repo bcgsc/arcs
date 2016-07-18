@@ -160,8 +160,6 @@ void getScaffSizes(std::string file, std::unordered_map<int, int>& sMap) {
         int size = rec.seq.length();
         assert(sMap.count(scafName) == 0);
         sMap[scafName] = size;
-        if (params.verbose)
-            std::cout << "Sequence " << scafName << " has size " << size << ".\n";
     }
     
     if (params.verbose)
@@ -235,13 +233,13 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                      * long as there were only two mappings (one for each read)
                      */
                     if (!readyToAddIndex.empty() && readyToAddRefName != 0 && readyToAddPos != -1) {
-                        std::pair<int, bool> key;
                         int size = sMap[readyToAddRefName];
                         if (size >= 500) {
                             int cutOff = params.end_length;
                             if (cutOff == 0 || size < cutOff * 2)
                                 cutOff = size/2;
 
+                            std::pair<int, bool> key;
                             if (readyToAddPos < cutOff)
                                 key = std::make_pair(readyToAddRefName, true); 
                             else
@@ -352,13 +350,13 @@ void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered
                     std::tie (scafA, scafAhead) = o->first;
                     std::tie (scafB, scafBhead) = p->first;
 
-                    std::pair<int, int> oppositeA (scafA, !scafAhead);
-                    std::pair<int, int> oppositeB (scafB, !scafBhead);
+                    /* Only insert into PairMap if o->first less than p->first to avoid duplicates */
+                    if (o->second >= params.min_reads && p->second >= params.min_reads 
+                            && scafA < scafB) {
+                        std::pair<int, int> oppositeA (scafA, !scafAhead);
+                        std::pair<int, int> oppositeB (scafB, !scafBhead);
 
-                    if (it->second.count(oppositeA) == 0 && it->second.count(oppositeB) == 0) {
-                        /* Only insert into PairMap if o->first less than p->first to avoid duplicates */
-                        if (o->second >= params.min_reads && p->second >= params.min_reads 
-                                && scafA < scafB) {
+                        if (it->second.count(oppositeA) == 0 && it->second.count(oppositeB) == 0) {
 
                             std::pair<int, int> pair (scafA, scafB);
                             if (pmap.count(pair) == 0) {
@@ -411,45 +409,40 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
     ARCS::PairMap::const_iterator it;
     for(it = pmap.begin(); it != pmap.end(); ++it) {
-        int max, index;
-        std::vector<int> count = it->second;
-        std::tie(max, index) = getMaxValueAndIndex(count);
-        if (max > 4) {
-            int scaf1, scaf2;
-            std::tie (scaf1, scaf2) = it->first;
+        int scaf1, scaf2;
+        std::tie (scaf1, scaf2) = it->first;
 
-            /* If scaf1 is not a node in the graph, add it */
-            if (vmap.count(scaf1) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf1;
-                vmap[scaf1] = v;
-            }
+        /* If scaf1 is not a node in the graph, add it */
+        if (vmap.count(scaf1) == 0) {
+            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+            g[v].id = scaf1;
+            vmap[scaf1] = v;
+        }
 
-            /* If scaf2 is not a node in the graph, add it */
-            if (vmap.count(scaf2) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf2;
-                vmap[scaf2] = v;
-            }
+        /* If scaf2 is not a node in the graph, add it */
+        if (vmap.count(scaf2) == 0) {
+            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+            g[v].id = scaf2;
+            vmap[scaf2] = v;
+        }
 
-            ARCS::Graph::edge_descriptor e;
-            bool inserted;
+        ARCS::Graph::edge_descriptor e;
+        bool inserted;
 
-            /* Add the edge representing the pair */
-            std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-            if (inserted){
-//                int max, index;
-//                std::vector<int> count = it->second;
-//                std::tie(max, index) = getMaxValueAndIndex(count);
-                g[e].weight = max;
-                g[e].orientation = index;
+        /* Add the edge representing the pair */
+        std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
+        if (inserted){
+            int max, index;
+            std::vector<int> count = it->second;
+            std::tie(max, index) = getMaxValueAndIndex(count);
+            g[e].weight = max;
+            g[e].orientation = index;
 
-                if (params.verbose && max > 5) {
-                    std::cout << "Edge between: " << scaf1  << " and " << scaf2 << ". Labels: ";
-                    for (auto i = count.begin(); i != count.end(); ++i)
-                        std::cout << *i << ' ';
-                    std::cout << "\n";
-                }
+            if (params.verbose && max > 5) {
+                std::cout << "Edge between: " << scaf1  << " and " << scaf2 << ". Labels: ";
+                for (auto i = count.begin(); i != count.end(); ++i)
+                    std::cout << *i << ' ';
+                std::cout << "\n";
             }
         }
     }
