@@ -38,6 +38,7 @@ namespace ARCS {
         int seq_id;
         int min_reads;
         int min_links;
+        int min_size;
         std::string base_name;
         std::string original_file;
         int min_mult;
@@ -48,9 +49,7 @@ namespace ARCS {
         int indexLen;
         int verbose;
 
-        ArcsParams() : file(), fofName(), seq_id(90), min_reads(2), min_links(5), 
-        base_name(""), min_mult(1000), max_mult(2000), 
-        max_grpSize(100), max_degree(0), end_length(0), indexLen(14), verbose(0) {}
+        ArcsParams() : file(), fofName(), seq_id(90), min_reads(2), min_links(5), min_size(500), base_name(""), min_mult(1000), max_mult(2000), max_grpSize(100), max_degree(0), end_length(0), indexLen(14), verbose(0) {}
 
     };
 

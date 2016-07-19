@@ -20,6 +20,7 @@ static const char USAGE_MESSAGE[] =
 "   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 90)\n"
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 2)\n"
 "   -l  Minimum number of links to connect scaffolds (default: 5)\n"
+"   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
 "   -b  Base name for your output files (optional)\n"
 "   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 1000-2000)\n"
 "   -g  Maximum number of scaffolds in a group (default: 100)\n"
@@ -32,7 +33,7 @@ static const char USAGE_MESSAGE[] =
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:a:s:c:l:b:om:g:d:e:i:v";
+static const char shortopts[] = "f:a:s:c:l:z:b:om:g:d:e:i:v";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -42,6 +43,7 @@ static const struct option longopts[] = {
     {"seq_id", required_argument, NULL, 's'}, 
     {"min_reads", required_argument, NULL, 'c'},
     {"min_links", required_argument, NULL, 'l'},
+    {"min_size", required_argument, NULL, 'z'},
     {"base_name", required_argument, NULL, 'b'},
     {"original_file", required_argument, NULL, 'o'},
     {"index_multiplicity", required_argument, NULL, 'm'},
@@ -234,7 +236,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                      */
                     if (!readyToAddIndex.empty() && readyToAddRefName != 0 && readyToAddPos != -1) {
                         int size = sMap[readyToAddRefName];
-                        if (size >= 500) {
+                        if (size >= params.min_size) {
                             int cutOff = params.end_length;
                             if (cutOff == 0 || size < cutOff * 2)
                                 cutOff = size/2;
@@ -768,6 +770,8 @@ int main(int argc, char** argv) {
                 arg >> params.min_reads; break;
             case 'l':
                 arg >> params.min_links; break;
+            case 'z':
+                arg >> params.min_size; break;
             case 'b':
                 arg >> params.base_name; break;
             case 'o':
