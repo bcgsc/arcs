@@ -27,13 +27,14 @@ static const char USAGE_MESSAGE[] =
 "   -o  Path to previously generated original graph file (optional)\n"
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final groups. For no node removal, set to 0 (default: 0)\n"
 "   -e  Length (bp) of ends of read to consider (optional)\n"
+"   -r  Must be greater than (%) from the middle (default: 0)\n"
 "   -i  Length (bp) of index sequence (default: 14)\n"
 "   -v  Runs in verbose mode (optional, default: 0)\n";
 
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:a:s:c:l:z:b:om:g:d:e:i:v";
+static const char shortopts[] = "f:a:s:c:l:z:b:om:g:d:e:r:i:v";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -50,6 +51,7 @@ static const struct option longopts[] = {
     {"max_groupSize", required_argument, NULL, 'g'},
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
+    {"error_percent", required_argument, NULL, 'r'},
     {"index_length", required_argument, NULL, 'i'},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
@@ -160,7 +162,7 @@ void getScaffSizes(std::string file, std::unordered_map<int, int>& sMap) {
         counter++;
         int scafName = getIntFromScafName(rec.id);
         int size = rec.seq.length();
-        assert(sMap.count(scafName) == 0);
+        //assert(sMap.count(scafName) == 0);
         sMap[scafName] = size;
     }
     
@@ -235,18 +237,29 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                      * long as there were only two mappings (one for each read)
                      */
                     if (!readyToAddIndex.empty() && readyToAddRefName != 0 && readyToAddPos != -1) {
+
                         int size = sMap[readyToAddRefName];
                         if (size >= params.min_size) {
-                            int cutOff = params.end_length;
-                            if (cutOff == 0 || size < cutOff * 2)
-                                cutOff = size/2;
 
                             std::pair<int, bool> key;
-                            if (readyToAddPos < cutOff)
-                                key = std::make_pair(readyToAddRefName, true); 
-                            else
-                                key = std::make_pair(readyToAddRefName, false); 
+                            key = std::make_pair(readyToAddRefName, true); 
+                            imap[readyToAddIndex][key]+= readyToAddPos;
+                            key = std::make_pair(readyToAddRefName, false); 
                             imap[readyToAddIndex][key]++;
+
+                        //    int cutOff = params.end_length;
+                        //    if (cutOff == 0 || size < cutOff * 2)
+                        //        cutOff = size/2;
+
+                        //    std::pair<int, bool> key;
+
+                        //    if (readyToAddPos < cutOff) {
+                        //        key = std::make_pair(readyToAddRefName, true); 
+                        //        imap[readyToAddIndex][key]++;
+                        //    } else if (readToAddPos > size - cutOff) {
+                        //        key = std::make_pair(readyToAddRefName, false); 
+                        //        imap[readyToAddIndex][key]++;
+                        //    }
                         }
                         readyToAddIndex = "";
                         readyToAddRefName = 0;
@@ -332,7 +345,7 @@ int calcMultiplicity(const ARCS::ScafMap sm) {
  * is a map with a key of pairs of saffold names, and value
  * of number of links between the pair. (Each link is one index).
  */
-void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<std::string, int>& indexMultMap) {
+void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<int, int>& sMap) {
 
     /* Iterate through each index in IndexMap */
     for(auto it = imap.begin(); it != imap.end(); ++it) {
@@ -348,17 +361,26 @@ void pairContigs(const ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered
                 for (auto p = it->second.begin(); p != it->second.end(); ++p) {
 
                     int scafA, scafB;
-                    bool scafAhead, scafBhead;
-                    std::tie (scafA, scafAhead) = o->first;
-                    std::tie (scafB, scafBhead) = p->first;
+                    bool scafAsum, scafBsum;
+                    std::tie (scafA, scafAsum) = o->first;
+                    std::tie (scafB, scafBsum) = p->first;
 
                     /* Only insert into PairMap if o->first less than p->first to avoid duplicates */
-                    if (o->second >= params.min_reads && p->second >= params.min_reads 
-                            && scafA < scafB) {
-                        std::pair<int, int> oppositeA (scafA, !scafAhead);
-                        std::pair<int, int> oppositeB (scafB, !scafBhead);
+                    if (!scafAsum && !scafBsum && o->second >= params.min_reads && p->second >= params.min_reads && scafA < scafB) {
+                        std::pair<int, int> scafAsum (scafA, true);
+                        std::pair<int, int> scafBsum (scafB, true);
 
-                        if (it->second.count(oppositeA) == 0 && it->second.count(oppositeB) == 0) {
+                        float scafAavg = (float) it->second[scafAsum] / o->second;
+                        float scafBavg = (float) it->second[scafBsum] / p->second;
+
+                        float percentA = scafAavg / sMap[scafA];
+                        float percentB = scafBavg / sMap[scafB]; 
+
+                        float error = (float) params.error_percent / 100;
+
+                        if (std::abs(percentA - 0.5) > error && std::abs(percentB - 0.5) > error) { 
+                            bool scafAhead = (percentA < 0.5);
+                            bool scafBhead = (percentB < 0.5);
 
                             std::pair<int, int> pair (scafA, scafB);
                             if (pmap.count(pair) == 0) {
@@ -414,37 +436,44 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
         int scaf1, scaf2;
         std::tie (scaf1, scaf2) = it->first;
 
-        /* If scaf1 is not a node in the graph, add it */
-        if (vmap.count(scaf1) == 0) {
-            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-            g[v].id = scaf1;
-            vmap[scaf1] = v;
-        }
+        int max, index;
+        std::vector<int> count = it->second;
+        std::tie(max, index) = getMaxValueAndIndex(count);
 
-        /* If scaf2 is not a node in the graph, add it */
-        if (vmap.count(scaf2) == 0) {
-            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-            g[v].id = scaf2;
-            vmap[scaf2] = v;
-        }
+        if (max > 1) {
 
-        ARCS::Graph::edge_descriptor e;
-        bool inserted;
+            /* If scaf1 is not a node in the graph, add it */
+            if (vmap.count(scaf1) == 0) {
+                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                g[v].id = scaf1;
+                vmap[scaf1] = v;
+            }
 
-        /* Add the edge representing the pair */
-        std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-        if (inserted){
-            int max, index;
-            std::vector<int> count = it->second;
-            std::tie(max, index) = getMaxValueAndIndex(count);
-            g[e].weight = max;
-            g[e].orientation = index;
+            /* If scaf2 is not a node in the graph, add it */
+            if (vmap.count(scaf2) == 0) {
+                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                g[v].id = scaf2;
+                vmap[scaf2] = v;
+            }
 
-            if (params.verbose && max > 5) {
-                std::cout << "Edge between: " << scaf1  << " and " << scaf2 << ". Labels: ";
-                for (auto i = count.begin(); i != count.end(); ++i)
-                    std::cout << *i << ' ';
-                std::cout << "\n";
+            ARCS::Graph::edge_descriptor e;
+            bool inserted;
+
+            /* Add the edge representing the pair */
+            std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
+            if (inserted){
+//                int max, index;
+//                std::vector<int> count = it->second;
+//                std::tie(max, index) = getMaxValueAndIndex(count);
+                g[e].weight = max;
+                g[e].orientation = index;
+
+                if (params.verbose && max > 5) {
+                    std::cout << "Edge between: " << scaf1  << " and " << scaf2 << ". Labels: ";
+                    for (auto i = count.begin(); i != count.end(); ++i)
+                        std::cout << *i << ' ';
+                    std::cout << "\n";
+                }
             }
         }
     }
@@ -692,7 +721,8 @@ void runArcs() {
         std::ostringstream filename;
         filename << params.file << ".scaff" 
             << "_s" << params.seq_id 
-            << "_c" << params.min_reads;
+            << "_c" << params.min_reads
+            << "_r" << params.error_percent;
         graphFile_original = filename.str() + "_original.gv";
     }
     
@@ -728,7 +758,7 @@ void runArcs() {
 
         time(&rawtime);
         std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
-        pairContigs(imap, pmap, indexMultMap);
+        pairContigs(imap, pmap, indexMultMap, scaffSizeMap);
 
         time(&rawtime);
         std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
@@ -789,6 +819,8 @@ int main(int argc, char** argv) {
                 arg >> params.max_grpSize; break;
             case 'd':
                 arg >> params.max_degree; break;
+            case 'r':
+                arg >> params.error_percent; break;
             case 'e':
                 arg >> params.end_length; break;
             case 'i':
@@ -833,6 +865,7 @@ int main(int argc, char** argv) {
             << "_s" << params.seq_id 
             << "_c" << params.min_reads
             << "_d" << params.max_degree 
+            << "_r" << params.error_percent 
             << "_pid" << ::getpid(); 
         params.base_name = filename.str();
     }
