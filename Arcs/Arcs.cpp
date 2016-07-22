@@ -282,11 +282,8 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     if ((prevRef == scafName) && scafName != 0 && !index.empty()) {
                         readyToAddIndex = index;
                         readyToAddRefName = scafName;
-                        /* Take right most read position */
-                        if (prevPos < pos)
-                            readyToAddPos = pos;
-                        else
-                            readyToAddPos = prevPos;
+                        /* Take read position */
+                        readyToAddPos = (prevPos + pos)/2;
                     }
                 }
             }
@@ -339,6 +336,26 @@ int calcMultiplicity(const ARCS::ScafMap sm) {
 }
 
 
+/* First bool is if index is valid or not, second is if head or tail */
+std::pair<bool, bool> headOrTail(float average, int size) {
+    /* Longer than twice end lengths - use absolute bp position to determine head or tail */
+    if (size > 2*params.end_length) {
+        /* Check if the average read alignment position is within end_length of the ends of seq */
+        int remainder = size/2 - std::abs(average - size/2);
+        if (remainder < params.end_length)
+            /* If average read alignment position is less than end_length it is the head */
+            return std::make_pair(true, (average < size/2));
+    } else {
+        /* Too short - use relative percent from middle to determing head or tail */
+        float percent = average/size;
+        float error = (float) params.error_percent / 100;
+        if (std::abs(percent - 0.5) > error)
+            return std::make_pair(true, (percent < 0.5));
+    }
+
+    return std::make_pair(false, false);
+}
+
 /* 
  * Iterate through IndexMap and for every pair of scaffolds
  * that align to the same index, store in PairMap. PairMap 
@@ -372,16 +389,12 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
 
                         float scafAavg = (float) it->second[scafAsum] / o->second;
                         float scafBavg = (float) it->second[scafBsum] / p->second;
+                        
+                        bool validA, validB, scafAhead, scafBhead;
+                        std::tie(validA, scafAhead) = headOrTail(scafAavg, sMap[scafA]);
+                        std::tie(validB, scafBhead) = headOrTail(scafBavg, sMap[scafB]);
 
-                        float percentA = scafAavg / sMap[scafA];
-                        float percentB = scafBavg / sMap[scafB]; 
-
-                        float error = (float) params.error_percent / 100;
-
-                        if (std::abs(percentA - 0.5) > error && std::abs(percentB - 0.5) > error) { 
-                            bool scafAhead = (percentA < 0.5);
-                            bool scafBhead = (percentB < 0.5);
-
+                        if (validA && validB) {
                             std::pair<int, int> pair (scafA, scafB);
                             if (pmap.count(pair) == 0) {
                                 std::vector<int> init(4,0); 
@@ -440,7 +453,7 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
         std::vector<int> count = it->second;
         std::tie(max, index) = getMaxValueAndIndex(count);
 
-        if (max > 1) {
+        if (max > params.min_links) {
 
             /* If scaf1 is not a node in the graph, add it */
             if (vmap.count(scaf1) == 0) {
@@ -707,6 +720,8 @@ void runArcs() {
         << "\n -s " << params.seq_id 
         << "\n -l " << params.min_links     
         << "\n -c " << params.min_reads 
+        << "\n -r " << params.error_percent
+        << "\n -z " << params.min_size
         << "\n Min index multiplicity: " << params.min_mult 
         << "\n Max index multiplicity: " << params.max_mult 
         << "\n -d " << params.max_degree 
@@ -714,7 +729,7 @@ void runArcs() {
 
     /* Setting output file names */
     std::string scafOut = params.base_name + "_scaffolds.fa";
-    std::string graphFile_postRemoval = params.base_name + "_groups.gv";
+    //std::string graphFile_postRemoval = params.base_name + "_groups.gv";
 
     std::string graphFile_original = params.original_file;
     if (params.original_file.empty()) {
@@ -722,6 +737,7 @@ void runArcs() {
         filename << params.file << ".scaff" 
             << "_s" << params.seq_id 
             << "_c" << params.min_reads
+            << "_l" << params.min_links
             << "_r" << params.error_percent;
         graphFile_original = filename.str() + "_original.gv";
     }
@@ -733,18 +749,18 @@ void runArcs() {
     std::time_t rawtime;
 
     /* Check if graphFile_checkpoint exists. */
-    std::ifstream graphFile_original_stream(graphFile_original.c_str());
-    if (graphFile_original_stream.good()) {
-        std::cout << "\n=> Graph file " << graphFile_original 
-            << " found. Skipping reading BAM, pairing, writing graph file. \n";
-        graphFile_original_stream.close();
+    //std::ifstream graphFile_original_stream(graphFile_original.c_str());
+    //if (graphFile_original_stream.good()) {
+    //    std::cout << "\n=> Graph file " << graphFile_original 
+    //        << " found. Skipping reading BAM, pairing, writing graph file. \n";
+    //    graphFile_original_stream.close();
 
-        time(&rawtime);
-        std::cout << "\n=>Reading graph file from " << graphFile_original << "... " << ctime(&rawtime);
-        readGraph(graphFile_original, g);
-
+    //    time(&rawtime);
+    //    std::cout << "\n=>Reading graph file from " << graphFile_original << "... " << ctime(&rawtime);
+    //    readGraph(graphFile_original, g);
+    if (false) {
     } else {
-        graphFile_original_stream.close();
+        //graphFile_original_stream.close();
 
         std::unordered_map<int, int> scaffSizeMap;
         time(&rawtime);
@@ -770,13 +786,13 @@ void runArcs() {
         //buildGroups(pmap, graphFile_checkpoint);
     }
 
-    time(&rawtime);
-    std::cout << "\n=>Starting to create post removal graph file... " << ctime(&rawtime);
-    writePostRemovalGraph(g, graphFile_postRemoval);
+    //time(&rawtime);
+    //std::cout << "\n=>Starting to create post removal graph file... " << ctime(&rawtime);
+    //writePostRemovalGraph(g, graphFile_postRemoval);
 
-    time(&rawtime);
-    std::cout << "\n=>Writting scaffold groups... " << ctime(&rawtime);
-    writeScafGroups(g, params.file, scafOut); 
+    //time(&rawtime);
+    //std::cout << "\n=>Writting scaffold groups... " << ctime(&rawtime);
+    //writeScafGroups(g, params.file, scafOut); 
 
     time(&rawtime);
     std::cout << "\n=>Done. " << ctime(&rawtime);
