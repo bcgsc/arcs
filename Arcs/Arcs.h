@@ -46,7 +46,7 @@ namespace ARCS {
         int max_mult;
         int max_grpSize;
         int max_degree;
-        int error_percent;
+        float error_percent;
         int end_length;
         int indexLen;
         int verbose;

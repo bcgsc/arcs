@@ -186,7 +186,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     }
 
     std::string prevRN = "", readyToAddIndex = "";
-    int prevSI = 0, prevFlag = 0, prevRef = 0, readyToAddRefName = 0, prevPos = -1, readyToAddPos = -1;
+    int prevSI = 0, prevFlag = 0, prevMapq = 0, prevRef = 0, readyToAddRefName = 0, prevPos = -1, readyToAddPos = -1;
     int ct = 1; 
 
     std::string line;
@@ -229,6 +229,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     prevRN = readName;
                     prevSI = si;
                     prevFlag = flag;
+                    prevMapq = mapq;
                     prevRef = scafName;
                     prevPos = pos;
 
@@ -241,38 +242,45 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                         int size = sMap[readyToAddRefName];
                         if (size >= params.min_size) {
 
-                            std::pair<int, bool> key;
-                            /* If sequence shorter than end_length*2, use the average read alignment position to determine orientation */
-                            if (size <= 2*params.end_length) {
-                                key = std::make_pair(readyToAddRefName, true); 
-                                imap[readyToAddIndex][key]+= readyToAddPos;
-                                key = std::make_pair(readyToAddRefName, false); 
-                                imap[readyToAddIndex][key]++;
-                            } else {
-                                /* If sequence longer than end_length*2, only consider reads that align to end to determine orientation */
-                                if (readyToAddPos <= params.end_length) {
-                                    key = std::make_pair(readyToAddRefName, true); 
-                                    imap[readyToAddIndex][key]++;
-                                } else if (readyToAddPos >= size - params.end_length) {
-                                    key = std::make_pair(readyToAddRefName, false); 
-                                    imap[readyToAddIndex][key]++;
-                                }
-                            }
+                           int cutOff = params.end_length;
+                           if (cutOff == 0 || size <= cutOff * 2)
+                               cutOff = size/2;
+
+                           std::pair<int, bool> key(readyToAddRefName, true);
+                           std::pair<int, bool> keyR(readyToAddRefName, false);
+
+                           if (readyToAddPos <= cutOff) {
+                               imap[readyToAddIndex][key]++;
+
+                               if (imap[readyToAddIndex].count(keyR) == 0)
+                                   imap[readyToAddIndex][keyR] = 0;
+
+                           } else if (readyToAddPos > size - cutOff) {
+                               imap[readyToAddIndex][keyR]++;
+
+                               if (imap[readyToAddIndex].count(key) == 0)
+                                   imap[readyToAddIndex][key] = 0;
+                           }
+
+
+                           // std::pair<int, bool> key;
+                           // /* If sequence shorter than end_length*2, use the average read alignment position to determine orientation */
+                           // if (size <= 2*params.end_length) {
+                           //     key = std::make_pair(readyToAddRefName, true); 
+                           //     imap[readyToAddIndex][key]+= readyToAddPos;
+                           //     key = std::make_pair(readyToAddRefName, false); 
+                           //     imap[readyToAddIndex][key]++;
+                           // } else {
+                           //     /* If sequence longer than end_length*2, only consider reads that align to end to determine orientation */
+                           //     if (readyToAddPos <= params.end_length) {
+                           //         key = std::make_pair(readyToAddRefName, true); 
+                           //         imap[readyToAddIndex][key]++;
+                           //     } else if (readyToAddPos >= size - params.end_length) {
+                           //         key = std::make_pair(readyToAddRefName, false); 
+                           //         imap[readyToAddIndex][key]++;
+                           //     }
+                           // }
                         }
-
-                        //    int cutOff = params.end_length;
-                        //    if (cutOff == 0 || size < cutOff * 2)
-                        //        cutOff = size/2;
-
-                        //    std::pair<int, bool> key;
-
-                        //    if (readyToAddPos < cutOff) {
-                        //        key = std::make_pair(readyToAddRefName, true); 
-                        //        imap[readyToAddIndex][key]++;
-                        //    } else if (readToAddPos > size - cutOff) {
-                        //        key = std::make_pair(readyToAddRefName, false); 
-                        //        imap[readyToAddIndex][key]++;
-                        //    }
                         readyToAddIndex = "";
                         readyToAddRefName = 0;
                         readyToAddPos = -1;
@@ -290,7 +298,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 }
 
                 if (!seq.empty() && checkFlag(flag) && checkFlag(prevFlag)
-                        && si >= params.seq_id && prevSI >= params.seq_id) {
+                        && mapq != 0 && prevMapq != 0 && si >= params.seq_id && prevSI >= params.seq_id) {
                     if ((prevRef == scafName) && scafName != 0 && !index.empty()) {
                         readyToAddIndex = index;
                         readyToAddRefName = scafName;
@@ -429,13 +437,40 @@ std::pair<bool, bool> getOrientation(std::pair<int, bool> key, ARCS::ScafMap& sc
     }
 }
 
+float normalEstimation(int x, float p, int n) {
+    float mean = n * p;
+    float sd = std::sqrt(n * p * (1 - p));
+    return 0.5 * (1 + std::erf((x - mean)/(sd * std::sqrt(2))));
+}
+
+
+std::pair<bool, bool> headOrTail(int head, int tail) {
+    int max = std::max(head, tail);
+    int sum = head + tail;
+    //std::cout << "Head: " << head << " Tail: " << tail;
+    if (sum < params.min_reads) {
+        //std::cout << " Too few reads: " << sum << std::endl;
+        return std::pair<bool, bool> (false, false);
+    }
+    float normalCdf = normalEstimation(max, 0.5, sum);
+    //std::cout << " Cdf: " << normalCdf;
+    if (1 - normalCdf < params.error_percent) {
+        bool isHead = (max == head);
+        //std::cout << " Cdf less than p-value. Orientation: " << isHead << std::endl;
+        return std::pair<bool, bool> (true, isHead);
+    } else {
+        //std::cout << " Cdf is more than p-vale. " << std::endl;
+        return std::pair<bool, bool> (false, false);
+    }
+}
+
 /* 
  * Iterate through IndexMap and for every pair of scaffolds
  * that align to the same index, store in PairMap. PairMap 
  * is a map with a key of pairs of saffold names, and value
  * of number of links between the pair. (Each link is one index).
  */
-void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<int, int>& sMap) {
+void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<std::string, int>& indexMultMap) {
 
     /* Iterate through each index in IndexMap */
     for(auto it = imap.begin(); it != imap.end(); ++it) {
@@ -455,11 +490,11 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
                     std::tie (scafB, scafBflag) = p->first;
 
                     /* Only insert into pmap if scafA < scafB to avoid duplicates */
-                    if (scafA < scafB) {
+                    if (scafA < scafB && scafAflag && scafBflag) {
                         bool validA, validB, scafAhead, scafBhead;
-                    
-                        std::tie(validA, scafAhead) = getOrientation(o->first, it->second, sMap);
-                        std::tie(validB, scafBhead) = getOrientation(p->first, it->second, sMap);
+
+                        std::tie(validA, scafAhead) = headOrTail(it->second[std::pair<int, bool>(scafA, true)], it->second[std::pair<int, bool>(scafA, false)]);
+                        std::tie(validB, scafBhead) = headOrTail(it->second[std::pair<int, bool>(scafB, true)], it->second[std::pair<int, bool>(scafB, false)]);
 
                         if (validA && validB) {
                             std::pair<int, int> pair (scafA, scafB);
@@ -501,6 +536,16 @@ std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
     return result;
 }
 
+bool checkSignificance(int max, int sum) {
+    if (max < params.min_links) {
+        //std::cout << "Max: " << max << " Sum: " << sum << " Too small " << std::endl; 
+        return false;
+    }
+    float normalCdf = normalEstimation(max, 0.5, sum);
+    //std::cout << "Max: " << max << " Sum: " << sum << " Cdf is " << normalCdf << std::endl;
+    return (1 - normalCdf < params.error_percent);
+}
+
 /*
  * Construct a boost graph from PairMap. Each pair represents an
  * edge in the graph. The weight of each edge is the number of links
@@ -520,7 +565,13 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
         std::vector<int> count = it->second;
         std::tie(max, index) = getMaxValueAndIndex(count);
 
-        if (max > params.min_links) {
+        int second = 0;
+        for (int i = 0; i < int(count.size()); i++) {
+            if (i != max && i > second)
+                second = i;
+        }
+
+        if (checkSignificance(max, second)) {
 
             /* If scaf1 is not a node in the graph, add it */
             if (vmap.count(scaf1) == 0) {
@@ -843,7 +894,7 @@ void runArcs() {
 
         time(&rawtime);
         std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
-        pairContigs(imap, pmap, indexMultMap, scaffSizeMap);
+        pairContigs(imap, pmap, indexMultMap);
 
         time(&rawtime);
         std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
