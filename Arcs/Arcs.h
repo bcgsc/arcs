@@ -22,6 +22,7 @@
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/connected_components.hpp>
 #include <boost/graph/graphviz.hpp>
+#include <boost/math/distributions/students_t.hpp>
 #include "Common/Uncompress.h"
 #include "DataLayer/FastaReader.h"
 #include "DataLayer/FastaReader.cpp"

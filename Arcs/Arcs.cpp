@@ -443,23 +443,48 @@ float normalEstimation(int x, float p, int n) {
     return 0.5 * (1 + std::erf((x - mean)/(sd * std::sqrt(2))));
 }
 
+float studentTtest(float t, int v) {
+    boost::math::students_t dist(v);
+    float pValue = boost::math::cdf(boost::math::complement(dist, std::fabs(t))); 
+    //std::cout << ", CDF: " << pValue << std::endl;
+    return pValue;
+}
+
+float standardDeviation(int head, int tail) {
+    //std::cout << "Head: " << head << " Tail: " << tail << std::endl;
+    float mean = (float) head / (head + tail);
+    //std::cout << "Mean: " << mean;
+    float sumDeviation = head * std::pow((1-mean), 2) + tail * std::pow((0-mean), 2);
+    //std::cout << " Sum Deviation: " << sumDeviation << std::endl;
+    return sqrt(sumDeviation/(head+tail));
+}
 
 std::pair<bool, bool> headOrTail(int head, int tail) {
-    int max = std::max(head, tail);
-    int sum = head + tail;
-    //std::cout << "Head: " << head << " Tail: " << tail;
-    if (sum < params.min_reads) {
-        //std::cout << " Too few reads: " << sum << std::endl;
+    int n = head + tail;
+    //std::cout << "Head: " << head << " Tail: " << tail << std::endl;
+    if (n < params.min_reads) {
+        //std::cout << " Too few reads: " << n << std::endl;
         return std::pair<bool, bool> (false, false);
     }
-    float normalCdf = normalEstimation(max, 0.5, sum);
-    //std::cout << " Cdf: " << normalCdf;
-    if (1 - normalCdf < params.error_percent) {
+
+    if (head == 0 || tail == 0) {
+        return std::pair<bool, bool> (true, tail == 0);
+    }
+
+    //int max = std::max(head, tail);
+    //int min = (max == head)? tail:head;
+    float t = (((float) head/n) - 0.5)/(standardDeviation(head, tail)/std::sqrt(n));
+    //std::cout << "Head: " << head << ", Tail: " << tail;
+    //std::cout << ", Standard deviation: " << standardDeviation(head, tail) << ", T value: " << t;
+    
+    float pValue = studentTtest(t, n-1 > 0? n-1: 1);
+    if (pValue < params.error_percent / 2) {
+        int max = std::max(head, tail);
         bool isHead = (max == head);
-        //std::cout << " Cdf less than p-value. Orientation: " << isHead << std::endl;
+        //std::cout << " Cdf less than a-value. Orientation: " << isHead << std::endl;
         return std::pair<bool, bool> (true, isHead);
     } else {
-        //std::cout << " Cdf is more than p-vale. " << std::endl;
+        //std::cout << " Cdf is more than a-vale. " << std::endl;
         return std::pair<bool, bool> (false, false);
     }
 }
