@@ -567,8 +567,8 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
         int second = 0;
         for (int i = 0; i < int(count.size()); i++) {
-            if (i != max && i > second)
-                second = i;
+            if (count[i] != max && count[i] > second)
+                second = count[i];
         }
 
         if (checkSignificance(max, second)) {
