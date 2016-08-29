@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string>
-#include <iostream>                  // for std::cout
-#include <utility>                   // for std::pair
-#include <algorithm>                 // for std::for_each
+#include <iostream>
+#include <utility>
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <unordered_map>
@@ -17,10 +17,7 @@
 #include <vector>
 #include <iterator>
 #include <time.h> 
-//#include <boost/graph/graph_traits.hpp>
-//#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/undirected_graph.hpp>
-#include <boost/graph/connected_components.hpp>
 #include <boost/graph/graphviz.hpp>
 #include "Common/Uncompress.h"
 #include "DataLayer/FastaReader.h"
@@ -41,40 +38,37 @@ namespace ARCS {
         int min_links;
         int min_size;
         std::string base_name;
-        std::string original_file;
         int min_mult;
         int max_mult;
-        int max_grpSize;
         int max_degree;
-        float error_percent;
         int end_length;
+        float error_percent;
         int indexLen;
         int verbose;
 
-        ArcsParams() : file(), fofName(), seq_id(90), min_reads(2), min_links(5), min_size(500), base_name(""), min_mult(1000), max_mult(2000), max_grpSize(100), max_degree(0), error_percent(0), end_length(0), indexLen(14), verbose(0) {}
+        ArcsParams() : file(), fofName(), seq_id(98), min_reads(5), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(1000), max_degree(0), end_length(0), error_percent(0.05), indexLen(16), verbose(0) {}
 
     };
 
-    /* Scaffold counts: <pair(scaffold, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
+    /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
     typedef std::map<std::pair<int, bool>, int> ScafMap;
-    /* indexMap: key = index sequence, value = scaffold counts */
+    /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
-    /* PairMap: key = pair(first < second) of scaf sequences, value = num links*/
+    /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
     typedef std::map<std::pair<int, int>, std::vector<int>> PairMap; 
 
     struct VertexProperties {
         int id;
     };
 
+    /* Orientation: 0-HH, 1-HT, 2-TH, 3-TT */
     struct EdgeProperties {
         int orientation;
         int weight;
         EdgeProperties(): orientation(0), weight(0) {}
     };
 
-	// Define the type of the graph - this specifies a bundled property for vertices
 	typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;
-    typedef std::map<Graph::vertex_descriptor, std::size_t> VertexDescMap;
     typedef std::unordered_map<int, Graph::vertex_descriptor> VidVdesMap;
     typedef boost::graph_traits<ARCS::Graph>::vertex_descriptor VertexDes;
 }

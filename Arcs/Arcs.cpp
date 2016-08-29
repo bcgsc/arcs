@@ -16,25 +16,25 @@ static const char VERSION_MESSAGE[] =
 static const char USAGE_MESSAGE[] =
 "Usage: [" PROGRAM " " VERSION "]\n"
 "   -f  Assembled Sequences to further scaffold (Multi-Fasta format, required)\n"
-"   -a  File of File Names listing all input BAM alignment files (required). NOTE: alignments must be sorted in order of name\n"
-"   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 90)\n"
-"   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 2)\n"
-"   -l  Minimum number of links to connect scaffolds (default: 5)\n"
+"   -a  File of File Names listing all input BAM alignment files (required). \n"
+"       NOTE: alignments must be sorted in order of name\n"
+"             index must be included in read name e.g read1_indexA\n"
+"   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 98)\n"
+"   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
+"   -l  Minimum number of links to create edge in graph (default: 0)\n"
 "   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
 "   -b  Base name for your output files (optional)\n"
-"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 1000-2000)\n"
-"   -g  Maximum number of scaffolds in a group (default: 100)\n"
-"   -o  Path to previously generated original graph file (optional)\n"
-"   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final groups. For no node removal, set to 0 (default: 0)\n"
-"   -e  Length (bp) of ends of read to consider (optional)\n"
-"   -r  Must be greater than (%) from the middle (default: 0)\n"
-"   -i  Length (bp) of index sequence (default: 14)\n"
+"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-1000)\n"
+"   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
+"   -e  Length (bp) of ends of read to consider (default: 30000)\n"
+"   -r  Maximum P-value for link orientation determination. Lower is more stringent (default: 0.05)\n"
+"   -i  Length (bp) of index sequence. 14 for GemCode, 16 for Chromium (default: 16)\n"
 "   -v  Runs in verbose mode (optional, default: 0)\n";
 
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:a:s:c:l:z:b:om:g:d:e:r:i:v";
+static const char shortopts[] = "f:a:s:c:l:z:b:m:d:e:r:i:v";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -46,9 +46,7 @@ static const struct option longopts[] = {
     {"min_links", required_argument, NULL, 'l'},
     {"min_size", required_argument, NULL, 'z'},
     {"base_name", required_argument, NULL, 'b'},
-    {"original_file", required_argument, NULL, 'o'},
     {"index_multiplicity", required_argument, NULL, 'm'},
-    {"max_groupSize", required_argument, NULL, 'g'},
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
     {"error_percent", required_argument, NULL, 'r'},
@@ -72,7 +70,7 @@ bool checkIndex(std::string seq) {
 }
 
 /*
- * Check if given SAM flag is one of the accepted ones.
+ * Check if SAM flag is one of the accepted ones.
  */
 bool checkFlag(int flag) {
     return (flag == 99 || flag == 163 || flag == 83 || flag == 147);
@@ -108,19 +106,7 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
             ss << *i;
         }
     }
-/*
-    std::smatch sm;
-    std::string s = cigar;
-    
-    while (std::regex_search (s, sm, e)) {
-        std::istringstream buffer(sm[1]);
-        int value;
-        buffer >> value;
-        qalen += value;
-        
-        s = sm.suffix().str();
-    }
-*/
+
     int edit_dist = 0;
     std::size_t found = line.find("NM:i:");
     if (found!=std::string::npos) {
@@ -137,6 +123,7 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
     return si;
 }
 
+/* Extract the integer scaffold id from scaffold name */
 int getIntFromScafName(const std::string& scafName) {
     std::stringstream ss;
     for (auto i = scafName.begin(); i != scafName.end(); ++i) {
@@ -144,16 +131,13 @@ int getIntFromScafName(const std::string& scafName) {
             ss << *i;
         }
     }
-    
-    //if (scafName.compare("Super-Scaffold_962476") == 0 || scafName.compare("Super-Scaffold_962661") == 0 || scafName.compare("Super-Scaffold_963983") == 0 || scafName.compare("Super-Scaffold_963663") == 0) {
-    //    ss << 0;
-    //}
 
     int numb;
     ss >> numb;
     return numb;
 }
 
+/* Get all scaffold sizes from FASTA file */
 void getScaffSizes(std::string file, std::unordered_map<int, int>& sMap) {
 
     int counter = 0;
@@ -191,13 +175,14 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
     std::string line;
     int linecount = 0;
-    //std::regex e("(\\d+)[M=XI]");
+
+    /* Read each line of the BAM file */
     while (getline(bamName_stream, line)) {
+        
         /* Check to make sure it is not the header */
         if (line.substr(0, 1).compare("@") != 0) {
             linecount++;
 
-            /* Read each line of the BAM file */
             std::stringstream ss(line);
             std::string readName, scafNameString, cigar, rnext, seq, qual;
             int flag, scafName, pos, mapq, pnext, tlen;
@@ -216,6 +201,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             if (checkIndex(readNameSpl))
                 index = readNameSpl;
 
+            /* Keep track of index multiplicity */
             if (!index.empty())
                 indexMultMap[index]++;
 
@@ -242,19 +228,29 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                         int size = sMap[readyToAddRefName];
                         if (size >= params.min_size) {
 
+                           /* 
+                            * If length of sequence is less than 2 x end_length, split
+                            * the sequence in half to determing head/tail 
+                            */
                            int cutOff = params.end_length;
                            if (cutOff == 0 || size <= cutOff * 2)
                                cutOff = size/2;
 
+                           /* 
+                            * pair <X, true> indicates read pair aligns to head,
+                            * pair <X, false> indicates read pair aligns to tail
+                            */
                            std::pair<int, bool> key(readyToAddRefName, true);
                            std::pair<int, bool> keyR(readyToAddRefName, false);
 
+                           /* Aligns to head */
                            if (readyToAddPos <= cutOff) {
                                imap[readyToAddIndex][key]++;
 
                                if (imap[readyToAddIndex].count(keyR) == 0)
                                    imap[readyToAddIndex][keyR] = 0;
 
+                            /* Aligns to tail */
                            } else if (readyToAddPos > size - cutOff) {
                                imap[readyToAddIndex][keyR]++;
 
@@ -262,24 +258,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                                    imap[readyToAddIndex][key] = 0;
                            }
 
-
-                           // std::pair<int, bool> key;
-                           // /* If sequence shorter than end_length*2, use the average read alignment position to determine orientation */
-                           // if (size <= 2*params.end_length) {
-                           //     key = std::make_pair(readyToAddRefName, true); 
-                           //     imap[readyToAddIndex][key]+= readyToAddPos;
-                           //     key = std::make_pair(readyToAddRefName, false); 
-                           //     imap[readyToAddIndex][key]++;
-                           // } else {
-                           //     /* If sequence longer than end_length*2, only consider reads that align to end to determine orientation */
-                           //     if (readyToAddPos <= params.end_length) {
-                           //         key = std::make_pair(readyToAddRefName, true); 
-                           //         imap[readyToAddIndex][key]++;
-                           //     } else if (readyToAddPos >= size - params.end_length) {
-                           //         key = std::make_pair(readyToAddRefName, false); 
-                           //         imap[readyToAddIndex][key]++;
-                           //     }
-                           // }
                         }
                         readyToAddIndex = "";
                         readyToAddRefName = 0;
@@ -302,7 +280,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     if ((prevRef == scafName) && scafName != 0 && !index.empty()) {
                         readyToAddIndex = index;
                         readyToAddRefName = scafName;
-                        /* Take read position */
+                        /* Take average read alignment position between read pairs */
                         readyToAddPos = (prevPos + pos)/2;
                     }
                 }
@@ -341,125 +319,29 @@ void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_m
     fofName_stream.close();
 }
 
-/*
- * Calculate how many times given index is seen
- * across all alignments.
- */
-int calcMultiplicity(const ARCS::ScafMap sm) {
-    int mult = 0;
-
-    ARCS::ScafMap::const_iterator it;
-    for(it = sm.begin(); it != sm.end(); ++it) {
-        mult += it->second;
-    }
-    return mult;
-}
-
-
-/* First bool is if index is valid or not, second is if head or tail */
-std::pair<bool, bool> headOrTailAverage(float average, int size) {
-    /* Longer than twice end lengths - use absolute bp position to determine head or tail */
-    //if (size > 2*params.end_length) {
-    if (false) {
-        /* Check if the average read alignment position is within end_length of the ends of seq */
-        int remainder = size/2 - std::abs(average - size/2);
-        if (remainder < params.end_length)
-            /* If average read alignment position is less than end_length it is the head */
-            return std::make_pair(true, (average < size/2));
-        std::cout << "ERROR!!!!" << std::endl;
-    } else {
-        /* Too short - use relative percent from middle to determing head or tail */
-        float percent = average/size;
-        float error = (float) params.error_percent / 100;
-        //std::cout << " Percent " << percent << " Error " << error;
-        if (std::abs(percent - 0.5) > error) {
-            //std::cout << " Orientation " << (percent < 0.5) << std::endl;
-            return std::make_pair(true, (percent < 0.5));
-        }
-    }
-
-    //std::cout << " - didnt pass error bounds " << std::endl;
-    return std::make_pair(false, false);
-}
-
-
-std::pair<bool, bool> getOrientation(std::pair<int, bool> key, ARCS::ScafMap& scafMap, std::unordered_map<int, int>& sMap) {
-    int scafNum;
-    bool scafFlag;
-    std::tie(scafNum, scafFlag) = key;
-
-    int scafSize = sMap[scafNum];
-    //std::cout << "Scaf : " << scafNum << " Size: " << scafSize;
-
-    /* If sequence shorter than end_length*2, use the average read alignment position to determine orientation */
-    if (scafSize <= 2*params.end_length) {
-        //std::cout << " SHORT";
-
-        if (scafFlag) {
-            //std::cout << " - was the sum" << std::endl;
-            return std::make_pair(false, false);
-        /* Represents the count */
-        } else {
-            /* Number of read pairs aligning to scaffold less than minimum */
-            //std::cout << " Count: " << scafMap[key];
-            if (scafMap[key] < params.min_reads) {
-                //std::cout << " - too little reads align" << std::endl;
-                return std::make_pair(false, false);
-            } else {
-                std::pair<int, bool> scafSum(scafNum, true);
-                float scafAvg = (float) scafMap[scafSum] / scafMap[key];
-                //std::cout << " Average: " << scafAvg;
-                return headOrTailAverage(scafAvg, scafSize);
-            }
-        }
-
-    /* If sequence longer than end_length*2, only consider reads that align to end to determine orientation */
-    } else {
-        //std::cout << " LONG";
-        /* Number of read pairs aligning to scaffold less than minimum */
-        //std::cout << " Count: " << scafMap[key];
-        if (scafMap[key] < params.min_reads) {
-            //std::cout << " - too little reads align" << std::endl;
-            return std::make_pair(false, false);
-        } else {
-            std::pair<int, bool> opposite(scafNum, !scafFlag);
-            if (scafMap.count(opposite) != 0) {
-                //std::cout << " Opposite was found ";
-                /* Ignore indicies that map to both ends */
-                if (scafMap[opposite] >= params.min_reads) {
-                    //std::cout << " Opposite cout " << scafMap[opposite] << " - mapped to both ends" << std::endl;
-                    return std::make_pair(false, false);
-                }
-            }
-            //std::cout << " Orientation " << scafFlag << std::endl;
-            return std::make_pair(true, scafFlag);
-        }
-    }
-}
-
+/* Normal approximation to the binomial distribution */
 float normalEstimation(int x, float p, int n) {
     float mean = n * p;
     float sd = std::sqrt(n * p * (1 - p));
     return 0.5 * (1 + std::erf((x - mean)/(sd * std::sqrt(2))));
 }
 
-
+/*
+ * Based on number of read pairs that align to the 
+ * head or tail of scaffold, determine if is significantly 
+ * different from a uniform distribution (p=0.5)
+ */
 std::pair<bool, bool> headOrTail(int head, int tail) {
     int max = std::max(head, tail);
     int sum = head + tail;
-    //std::cout << "Head: " << head << " Tail: " << tail;
     if (sum < params.min_reads) {
-        //std::cout << " Too few reads: " << sum << std::endl;
         return std::pair<bool, bool> (false, false);
     }
     float normalCdf = normalEstimation(max, 0.5, sum);
-    //std::cout << " Cdf: " << normalCdf;
     if (1 - normalCdf < params.error_percent) {
         bool isHead = (max == head);
-        //std::cout << " Cdf less than p-value. Orientation: " << isHead << std::endl;
         return std::pair<bool, bool> (true, isHead);
     } else {
-        //std::cout << " Cdf is more than p-vale. " << std::endl;
         return std::pair<bool, bool> (false, false);
     }
 }
@@ -475,7 +357,7 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
     /* Iterate through each index in IndexMap */
     for(auto it = imap.begin(); it != imap.end(); ++it) {
 
-        //int indexMult = calcMultiplicity(it->second);
+        /* Get index multiplicity from indexMultMap */
         std::string index = it->first;
         int indexMult = indexMultMap[index];
 
@@ -522,6 +404,10 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
     }
 }  
 
+/*
+ * Return the max value and its index position
+ * in the vector
+ */
 std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
     int max = 0;
     int index = 0;
@@ -536,13 +422,15 @@ std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
     return result;
 }
 
-bool checkSignificance(int max, int sum) {
+/* 
+ * Return true if the link orientation with the max support
+ * is dominant
+ */
+bool checkSignificance(int max, int second) {
     if (max < params.min_links) {
-        //std::cout << "Max: " << max << " Sum: " << sum << " Too small " << std::endl; 
         return false;
     }
-    float normalCdf = normalEstimation(max, 0.5, sum);
-    //std::cout << "Max: " << max << " Sum: " << sum << " Cdf is " << normalCdf << std::endl;
+    float normalCdf = normalEstimation(max, 0.5, second);
     return (1 - normalCdf < params.error_percent);
 }
 
@@ -571,6 +459,7 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
                 second = count[i];
         }
 
+        /* Only insert edge if orientation with max links is dominant */
         if (checkSignificance(max, second)) {
 
             /* If scaf1 is not a node in the graph, add it */
@@ -592,19 +481,9 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
             /* Add the edge representing the pair */
             std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-            if (inserted){
-//                int max, index;
-//                std::vector<int> count = it->second;
-//                std::tie(max, index) = getMaxValueAndIndex(count);
+            if (inserted) {
                 g[e].weight = max;
                 g[e].orientation = index;
-
-                if (params.verbose && max > 5) {
-                    std::cout << "Edge between: " << scaf1  << " and " << scaf2 << ". Labels: ";
-                    for (auto i = count.begin(); i != count.end(); ++i)
-                        std::cout << *i << ' ';
-                    std::cout << "\n";
-                }
             }
         }
     }
@@ -628,90 +507,21 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
     out.close();
 }
 
-void readGraph(const std::string& graphFile, ARCS::Graph& g) {
-    std::ifstream in(graphFile.c_str());
-    assert(in);
 
-    boost::dynamic_properties dp(boost::ignore_other_properties);
-    dp.property("id", boost::get(&ARCS::VertexProperties::id, g));
-    dp.property("weight", boost::get(&ARCS::EdgeProperties::weight, g));
-    dp.property("label", boost::get(&ARCS::EdgeProperties::orientation, g));
-    dp.property("node_id", boost::get(boost::vertex_index, g));
-    bool status = boost::read_graphviz(in, g, dp);
-    if (!status) {
-        std::cerr << "Error reading " << graphFile
-            << "...fatal.\n";
-        exit(EXIT_FAILURE);
-    }
-
-    std::cout << "      Finished reading graph file." << std::endl;
-    in.close();
-}
-
-/*
- * Output a .gv file with all the nodes and edges in the graph.
+/* 
+ * Remove all nodes from graph wich have a degree
+ * greater than max_degree
  */
-/*
-void buildGroups(const ARCS::PairMap& pmap, const std::string graphFile_checkpoint) {
-    std::ofstream graphFile_checkpoint_stream(graphFile_checkpoint);
-    if (!graphFile_checkpoint_stream) {
-        std::cerr << "Could not open " << graphFile_checkpoint 
-            << " for writting...fatal.\n";
-        exit(EXIT_FAILURE);
-    }
-
-    graphFile_checkpoint_stream << "graph scafGroups{\n" <<
-        "\tlabel=\"Scaffold Groupings\"\n\trankdir=LR;\n\tnode [shape = circle];\n\toverlap=scale;\n";
-    assert(graphFile_checkpoint_stream);
-
-    ARCS::PairMap::const_iterator it;
-    for (it = pmap.begin(); it != pmap.end(); ++it) { 
-        int scaf1, scaf2;
-        std::tie (scaf1, scaf2) = it->first;
-        if (it->second >= params.min_links) {
-            graphFile_checkpoint_stream << "\t" << scaf1 
-                << " [style=filled, fillcolor=deepskyblue, color=deepskyblue]\n";
-            graphFile_checkpoint_stream << "\t" << scaf2
-                << "[style=filled, fillcolor=deepskyblue, color=deepskyblue]\n";
-            graphFile_checkpoint_stream << "\t" << scaf1 << " -- " 
-                << scaf2 << " [label= \"l=" << it->second 
-                << " \", penwidth=2.0, color=deepskyblue]\n";
-            assert(graphFile_checkpoint_stream);
-        }
-    }
-    graphFile_checkpoint_stream << "}\n";
-    graphFile_checkpoint_stream.close();
-} 
-*/
-
-void removeDegreeNodes(ARCS::Graph& g, int max_degree, bool greater) {
+void removeDegreeNodes(ARCS::Graph& g, int max_degree) {
 
     boost::graph_traits<ARCS::Graph>::vertex_iterator vi, vi_end, next;
-
     boost::tie(vi, vi_end) = boost::vertices(g);
-    /*
-    for (next = vi; vi != vi_end; vi = next) {
-        ++next;
-        if (static_cast<int>(boost::degree(*vi, g)) > params.max_degree) {
-            boost::clear_vertex(*vi, g);
-            //boost::remove_vertex_and_renumber_indices(vi, g);
-            boost::remove_vertex(*vi, g);
-        }
-    }
-    
-    boost::renumber_indices(g);
-    */
+
     std::vector<ARCS::VertexDes> dVertex;
     for (next = vi; vi != vi_end; vi = next) {
         ++next;
-        if (greater) {
-            if (static_cast<int>(boost::degree(*vi, g)) > max_degree) {
-                dVertex.push_back(*vi);
-            }
-        } else {
-            if (static_cast<int>(boost::degree(*vi, g)) < max_degree) {
-                dVertex.push_back(*vi);
-            }
+        if (static_cast<int>(boost::degree(*vi, g)) > max_degree) {
+            dVertex.push_back(*vi);
         }
     }
 
@@ -720,114 +530,23 @@ void removeDegreeNodes(ARCS::Graph& g, int max_degree, bool greater) {
         boost::remove_vertex(dVertex[i], g);
     }
     boost::renumber_indices(g);
-
 }
 
-void removeWeightEdges(ARCS::Graph& g, int min_links) {
-
-    boost::graph_traits<ARCS::Graph>::edge_iterator ei, ei_end, next;
-
-    boost::tie(ei, ei_end) = boost::edges(g);
-    std::vector<ARCS::VertexDes> dVertex;
-    for (next = ei; ei != ei_end; ei = next) {
-        ++next;
-        if (g[*ei].weight < min_links) {
-            boost::remove_edge(*ei, g);
-        }
-    }
-    boost::renumber_indices(g);
-    removeDegreeNodes(g, 1, false);
-}
-
-
-
-void getConnectedComponents(ARCS::Graph& g, ARCS::VertexDescMap& compMap) {
-    boost::associative_property_map<ARCS::VertexDescMap> componentMap(compMap);
-    std::size_t compNum = boost::connected_components(g, componentMap);
-    if (params.verbose)
-        std::cout << "Number of connected components: " << compNum << std::endl; 
-}
-
-
-void writePostRemovalGraph(ARCS::Graph& g, const std::string postRemoval) {
-    if (params.min_links != 0) {
-        std::cout << "      Deleting edges with weight < " << params.min_links <<"... \n";
-        removeWeightEdges(g, params.min_links);
-    } else {
-        std::cout << "      Min links (-l) set to: " << params.min_links << ". Will not delete any edges from graph.\n";
-    }
-
+/* 
+ * Remove nodes that have a degree greater than max_degree
+ * Write graph
+ */
+void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
     if (params.max_degree != 0) {
         std::cout << "      Deleting nodes with degree > " << params.max_degree <<"... \n";
-        removeDegreeNodes(g, params.max_degree, true);
-        //removeDegreeNodes(g, 1, false);
+        removeDegreeNodes(g, params.max_degree);
     } else {
         std::cout << "      Max Degree (-d) set to: " << params.max_degree << ". Will not delete any verticies from graph.\n";
     }
 
-    std::cout << "      Writting graph file to " << postRemoval << "...\n";
-    writeGraph(postRemoval, g);
+    std::cout << "      Writting graph file to " << graphFile << "...\n";
+    writeGraph(graphFile, g);
 }
-
-/*
- * Output a fasta file with the group each scaffold belongs too
- * written in the header.
- */
-void writeScafGroups(ARCS::Graph& g, const std::string file, const std::string scafOut) {
-
-    std::ofstream scafOut_stream(scafOut);
-    if (!scafOut_stream) {
-        std::cerr << "Could not open " << scafOut
-            << " for writting...fatal.\n";
-        exit(EXIT_FAILURE);
-    }
-
-    ARCS::VertexDescMap compMap;
-    getConnectedComponents(g, compMap);
-
-    boost::graph_traits<ARCS::Graph>::vertices_size_type numVertex = boost::num_vertices(g);
-
-    ARCS::VidVdesMap vmap;
-    std::unordered_map<int, int> componentSize;
-
-    for (int i = 0; i < int(numVertex); i++) {
-        ARCS::VertexDes gv = boost::vertex(i, g);
-        int vid = g[gv].id;
-        vmap[vid] = gv;
-
-        if (compMap.count(gv) != 0) {
-            int compNum = compMap[gv];
-            componentSize[compNum]++;
-        }
-    }
-    
-    FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
-    for (FastaRecord rec; in >> rec;) {
-
-        //std::istringstream ss(rec.id);
-        int vertex_id = getIntFromScafName(rec.id);
-        //ss >> vertex_id;
-
-        if (vmap.count(vertex_id) != 0) {
-            ARCS::VertexDes vertex_des = vmap[vertex_id];
-            if (compMap.count(vertex_des) != 0) {
-
-                int compNum = compMap[vertex_des];
-                if (componentSize[compNum] < params.max_grpSize && componentSize[compNum] > 1) {
-
-                    /* output FASTQ record */
-                    std::ostringstream id;
-                    id << vertex_id << "_group" << compNum;
-                    rec.id = id.str();
-                    rec.comment = "";
-                    scafOut_stream << rec;
-                    assert(scafOut_stream);
-                }
-            }
-        }
-    }
-}
-
 
 
 void runArcs() {
@@ -835,84 +554,49 @@ void runArcs() {
     std::cout << "Running: " << PROGRAM << " " << VERSION 
         << "\n pid " << ::getpid()
         << "\n -f " << params.file 
+        << "\n -a " << params.fofName
         << "\n -s " << params.seq_id 
-        << "\n -l " << params.min_links     
         << "\n -c " << params.min_reads 
-        << "\n -r " << params.error_percent
-        << "\n -e " << params.end_length
+        << "\n -l " << params.min_links     
         << "\n -z " << params.min_size
+        << "\n -b " << params.base_name
         << "\n Min index multiplicity: " << params.min_mult 
         << "\n Max index multiplicity: " << params.max_mult 
         << "\n -d " << params.max_degree 
-        << "\n -i " << params.indexLen << "\n";
+        << "\n -e " << params.end_length
+        << "\n -r " << params.error_percent
+        << "\n -i " << params.indexLen 
+        << "\n -v " << params.verbose << "\n";
 
-    /* Setting output file names */
-    std::string scafOut = params.base_name + "_scaffolds.fa";
-    //std::string graphFile_postRemoval = params.base_name + "_groups.gv";
+    std::string graphFile = params.base_name + "_original.gv";
 
-    std::string graphFile_original = params.original_file;
-    if (params.original_file.empty()) {
-        std::ostringstream filename;
-        filename << params.file << ".scaff" 
-            << "_s" << params.seq_id 
-            << "_c" << params.min_reads
-            << "_l" << params.min_links
-            << "_r" << params.error_percent
-            << "_e" << params.end_length;
-        graphFile_original = filename.str() + "_original.gv";
-    }
-    
     ARCS::IndexMap imap;
     ARCS::PairMap pmap;
     ARCS::Graph g;
 
     std::time_t rawtime;
 
-    /* Check if graphFile_checkpoint exists. */
-    //std::ifstream graphFile_original_stream(graphFile_original.c_str());
-    //if (graphFile_original_stream.good()) {
-    //    std::cout << "\n=> Graph file " << graphFile_original 
-    //        << " found. Skipping reading BAM, pairing, writing graph file. \n";
-    //    graphFile_original_stream.close();
+    std::unordered_map<int, int> scaffSizeMap;
+    time(&rawtime);
+    std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
+    getScaffSizes(params.file, scaffSizeMap);
 
-    //    time(&rawtime);
-    //    std::cout << "\n=>Reading graph file from " << graphFile_original << "... " << ctime(&rawtime);
-    //    readGraph(graphFile_original, g);
-    if (false) {
-    } else {
-        //graphFile_original_stream.close();
+    std::unordered_map<std::string, int> indexMultMap;
+    time(&rawtime);
+    std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
+    readBAMS(params.fofName, imap, indexMultMap, scaffSizeMap);
 
-        std::unordered_map<int, int> scaffSizeMap;
-        time(&rawtime);
-        std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
-        getScaffSizes(params.file, scaffSizeMap);
+    time(&rawtime);
+    std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
+    pairContigs(imap, pmap, indexMultMap);
 
-        std::unordered_map<std::string, int> indexMultMap;
-        time(&rawtime);
-        std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
-        readBAMS(params.fofName, imap, indexMultMap, scaffSizeMap);
+    time(&rawtime);
+    std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
+    createGraph(pmap, g);
 
-        time(&rawtime);
-        std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
-        pairContigs(imap, pmap, indexMultMap);
-
-        time(&rawtime);
-        std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
-        createGraph(pmap, g);
-
-        time(&rawtime);
-        std::cout << "\n=>Starting to write graph file... " << ctime(&rawtime) << "\n";
-        writeGraph(graphFile_original, g);
-        //buildGroups(pmap, graphFile_checkpoint);
-    }
-
-    //time(&rawtime);
-    //std::cout << "\n=>Starting to create post removal graph file... " << ctime(&rawtime);
-    //writePostRemovalGraph(g, graphFile_postRemoval);
-
-    //time(&rawtime);
-    //std::cout << "\n=>Writting scaffold groups... " << ctime(&rawtime);
-    //writeScafGroups(g, params.file, scafOut); 
+    time(&rawtime);
+    std::cout << "\n=>Starting to write graph file... " << ctime(&rawtime) << "\n";
+    writePostRemovalGraph(g, graphFile);
 
     time(&rawtime);
     std::cout << "\n=>Done. " << ctime(&rawtime);
@@ -940,8 +624,6 @@ int main(int argc, char** argv) {
                 arg >> params.min_size; break;
             case 'b':
                 arg >> params.base_name; break;
-            case 'o':
-                arg >> params.original_file; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
@@ -951,14 +633,12 @@ int main(int argc, char** argv) {
                 ss >> params.min_mult >> params.max_mult;
                 }
                 break;
-            case 'g':
-                arg >> params.max_grpSize; break;
             case 'd':
                 arg >> params.max_degree; break;
-            case 'r':
-                arg >> params.error_percent; break;
             case 'e':
                 arg >> params.end_length; break;
+            case 'r':
+                arg >> params.error_percent; break;
             case 'i':
                 arg >> params.indexLen; break;
             case 'v':
@@ -997,15 +677,15 @@ int main(int argc, char** argv) {
     if (params.base_name.empty()) {
         std::ostringstream filename;
         filename << params.file << ".scaff" 
-            << "_l" << params.min_links 
             << "_s" << params.seq_id 
             << "_c" << params.min_reads
+            << "_l" << params.min_links 
             << "_d" << params.max_degree 
-            << "_r" << params.error_percent 
             << "_e" << params.end_length
-            << "_pid" << ::getpid(); 
+            << "_r" << params.error_percent;
         params.base_name = filename.str();
     }
+
 
     runArcs();
 
