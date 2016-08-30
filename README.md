@@ -16,5 +16,5 @@ To install ARCS in a specified directory:
 ```
 If your boost library headers are not in your PATH you can specify their location:
 ```
-./configure –-with-boost=/boost/path --prefix=/BBT/PATH && make install
+./configure –-with-boost=/boost/path --prefix=/ARCS/PATH && make install
 ```
