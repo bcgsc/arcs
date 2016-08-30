@@ -16,9 +16,11 @@ static const char VERSION_MESSAGE[] =
 static const char USAGE_MESSAGE[] =
 "Usage: [" PROGRAM " " VERSION "]\n"
 "   -f  Assembled Sequences to further scaffold (Multi-Fasta format, required)\n"
+"       NOTE: sequences must include a unique number (id) in the header\n"
 "   -a  File of File Names listing all input BAM alignment files (required). \n"
 "       NOTE: alignments must be sorted in order of name\n"
 "             index must be included in read name e.g read1_indexA\n"
+"             read name must include a number\n"
 "   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 98)\n"
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
 "   -l  Minimum number of links to create edge in graph (default: 0)\n"
