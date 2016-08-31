@@ -2,6 +2,11 @@
 
 Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data.
 
+### Dependencies
+* Boost (tested on 1.61)
+* GCC (tested on 4.4.7)
+* Autotools (if cloning directly from repository) 
+
 ### Compilation:
 If cloning directly from the repository run:
 ```
@@ -20,11 +25,11 @@ If your boost library headers are not in your PATH you can specify their locatio
 ./configure –-with-boost=/boost/path --prefix=/ARCS/PATH && make install
 ```
 
-### Pipeline 
+### ARCS+LINKS Pipeline 
 
 There are three steps to the pipeline:
 
-1. Run ARCS to generate a Graphviz Dot file (.gv). Nodes in the graph are the sequences to scaffold, and edges in the graph show that there is evidence to suggest nodes are linked based on the data obtained from the GemCode/Chromium reads.
+1. Run ARCS to generate a Graphviz Dot file (.gv). Nodes in the graph are the sequences to scaffold, and edges show that there is evidence to suggest nodes are linked based on the data obtained from the GemCode/Chromium reads.
 
 2. Run the python script Examples/makeTSVfile.py to generate a file named XXX.tigpair_checkpoint file from the ARCS graph file. The XXX.tigpair_checkpoint file will be provided to LINKS in step 3.
 
