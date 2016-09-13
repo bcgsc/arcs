@@ -36,3 +36,13 @@ There are three steps to the pipeline:
 3. Run LINKS with the XXX.tigpair_checkpoint file as input. To do this, the base name (-b) must be set to the same name as XXX.
 
 An example bash script on how to run the ARCS+LINKS pipeline can be found at: Examples/pipeline_example.sh
+
+### License      
+
+ARCS Copyright (c) 2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. 
+
+ARCS is released under the GNU General Public License
+
+This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
