@@ -6,12 +6,11 @@
 static const char VERSION_MESSAGE[] = 
 "VERSION: " PROGRAM " " VERSION "\n"
 "\n"
-"RAILS.readme distributed with this software @ www.bcgsc.ca \n"
 "http://www.bcgsc.ca/platform/bioinfo/software/links \n"
 "We hope this code is useful to you -- Please send comments & suggestions to rwarren * bcgsc.ca.\n"
-"If you use LINKS, RAILS, ARCS code or ideas, please cite our work. \n"
+"If you use LINKS, ARCS code or ideas, please cite our work. \n"
 "\n"
-"LINKS, RAILS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. \n";
+"LINKS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. \n";
 
 static const char USAGE_MESSAGE[] =
 "Usage: [" PROGRAM " " VERSION "]\n"
@@ -19,7 +18,7 @@ static const char USAGE_MESSAGE[] =
 "       NOTE: sequences must include a unique number (id) in the header\n"
 "   -a  File of File Names listing all input BAM alignment files (required). \n"
 "       NOTE: alignments must be sorted in order of name\n"
-"             index must be included in read name e.g read1_indexA\n"
+"             index must be included in read name in the format read1_indexA\n"
 "             read name must include a number\n"
 "   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 98)\n"
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
