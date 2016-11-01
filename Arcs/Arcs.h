@@ -43,10 +43,9 @@ namespace ARCS {
         int max_degree;
         int end_length;
         float error_percent;
-        int indexLen;
         int verbose;
 
-        ArcsParams() : file(), fofName(), seq_id(98), min_reads(5), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(1000), max_degree(0), end_length(0), error_percent(0.05), indexLen(16), verbose(0) {}
+        ArcsParams() : file(), fofName(), seq_id(98), min_reads(5), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(1000), max_degree(0), end_length(0), error_percent(0.05), verbose(0) {}
 
     };
 

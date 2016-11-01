@@ -1,7 +1,7 @@
 #include "Arcs.h"
 
 #define PROGRAM "arcs"
-#define VERSION "1.3.1"
+#define VERSION "1.0.0"
 
 static const char VERSION_MESSAGE[] = 
 "VERSION: " PROGRAM " " VERSION "\n"
@@ -30,13 +30,12 @@ static const char USAGE_MESSAGE[] =
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
 "   -e  Length (bp) of ends of read to consider (default: 30000)\n"
 "   -r  Maximum P-value for link orientation determination. Lower is more stringent (default: 0.05)\n"
-"   -i  Length (bp) of index sequence. 14 for GemCode, 16 for Chromium (default: 16)\n"
 "   -v  Runs in verbose mode (optional, default: 0)\n";
 
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:a:s:c:l:z:b:m:d:e:r:i:v";
+static const char shortopts[] = "f:a:s:c:l:z:b:m:d:e:r:v";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -52,7 +51,6 @@ static const struct option longopts[] = {
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
     {"error_percent", required_argument, NULL, 'r'},
-    {"index_length", required_argument, NULL, 'i'},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
     {"help", no_argument, NULL, OPT_HELP},
@@ -68,7 +66,8 @@ bool checkIndex(std::string seq) {
         if (c != 'A' && c != 'T' && c != 'G' && c != 'C')
             return false;
     }
-    return (static_cast<int>(seq.length()) == params.indexLen);
+    //return (static_cast<int>(seq.length()) == params.indexLen);
+    return true;
 }
 
 /*
@@ -567,7 +566,6 @@ void runArcs() {
         << "\n -d " << params.max_degree 
         << "\n -e " << params.end_length
         << "\n -r " << params.error_percent
-        << "\n -i " << params.indexLen 
         << "\n -v " << params.verbose << "\n";
 
     std::string graphFile = params.base_name + "_original.gv";
@@ -641,8 +639,6 @@ int main(int argc, char** argv) {
                 arg >> params.end_length; break;
             case 'r':
                 arg >> params.error_percent; break;
-            case 'i':
-                arg >> params.indexLen; break;
             case 'v':
                 ++params.verbose; break;
             case OPT_HELP:
