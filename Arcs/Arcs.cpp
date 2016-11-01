@@ -1,7 +1,7 @@
 #include "Arcs.h"
 
 #define PROGRAM "arcs"
-#define VERSION "1.0.0"
+#define VERSION "1.0.1"
 
 static const char VERSION_MESSAGE[] = 
 "VERSION: " PROGRAM " " VERSION "\n"
