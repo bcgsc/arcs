@@ -87,7 +87,7 @@ def writeTSVFile(infile, outfile):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create a XXX.tigpair_checkpoint file from ARCS graph output that LINKS can utilize')
     parser.add_argument('graph_file', help='ARCS graph file output (.gv)', type=str)
-    parser.add_argument('out_file', help='Output file name. Must be named XXX.tigpair_checkpoint, where XXX is same as base name (-b) given to LINKS.', type=str)
+    parser.add_argument('out_file', help='Output file name. Must be named XXX.tigpair_checkpoint.tsv, where XXX is same as base name (-b) given to LINKS.', type=str)
     parser.add_argument('fasta_file', help='FASTA file of sequences to scaffold', type=str)
     args = parser.parse_args()
 
