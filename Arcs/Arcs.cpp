@@ -24,7 +24,7 @@ static const char USAGE_MESSAGE[] =
 "   -l  Minimum number of links to create edge in graph (default: 0)\n"
 "   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
 "   -b  Base name for your output files (optional)\n"
-"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-1000)\n"
+"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-10000)\n"
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
 "   -e  End length (bp) of sequences to consider (default: 30000)\n"
 "   -r  Maximum p-value for H/T assignment and link orientation determination. Lower is more stringent (default: 0.05)\n"
