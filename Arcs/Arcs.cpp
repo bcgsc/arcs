@@ -1,4 +1,5 @@
 #include "Arcs.h"
+#include <cassert>
 
 #define PROGRAM "arcs"
 #define VERSION "1.0.1"
@@ -175,6 +176,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     std::string line;
     int linecount = 0;
 
+    // Number of unpaired reads.
+    size_t countUnpaired = 0;
+
     /* Read each line of the BAM file */
     while (getline(bamName_stream, line)) {
         
@@ -206,6 +210,17 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
             /* Calculate the sequence identity */
             int si = calcSequenceIdentity(line, cigar, seq);
+
+            if (ct == 2 && readName != prevRN) {
+                if (countUnpaired == 0)
+                    std::cerr << "Warning: Skipping an unpaired read. BAM file should be sorted in order of read name.\n"
+                        "  Prev read: " << prevRN << "\n"
+                        "  Curr read: " << readName << std::endl;
+                ++countUnpaired;
+                if (countUnpaired % 1000000 == 0)
+                    std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads." << std::endl;
+                ct = 1;
+            }
 
             if (ct >= 3)
                 ct = 1;
@@ -269,11 +284,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     readyToAddPos = -1;
                 }
             } else if (ct == 2) {
-                if (prevRN.compare(readName) != 0) {
-                    std::cerr << "ERROR! BAM file should be sorted in order of read name. Exiting... \n Prev Read: " << prevRN << "; Curr Read: " << readName << "\n";
-                    exit(EXIT_FAILURE);
-                }
-
+                assert(readName == prevRN);
                 if (!seq.empty() && checkFlag(flag) && checkFlag(prevFlag)
                         && mapq != 0 && prevMapq != 0 && si >= params.seq_id && prevSI >= params.seq_id) {
                     if ((prevRef == scafName) && scafName != 0 && !index.empty()) {
@@ -295,6 +306,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
     /* Close BAM file */
     bamName_stream.close();
+
+    if (countUnpaired > 0)
+        std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. BAM file should be sorted in order of read name.\n";
 }
 
 /* 
