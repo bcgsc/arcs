@@ -9,7 +9,7 @@ links_numbering = {}
 def readGraphFile(infile):
     with open(infile, 'r') as f:
         for line in f:
-            test = re.match(r"(\d+)\s+\[id=(\d+)\]", line.rstrip())
+            test = re.match(r"(\d+)\s+\[id=([^\]]+)\]", line.rstrip())
             if test:
                 index = test.group(1)
                 scaff_name = test.group(2)
@@ -21,9 +21,9 @@ def makeLinksNumbering(scaffolds_fasta):
     with open(scaffolds_fasta, 'r') as f:
         for line in f:
             if line[0] == ">":
-                test = re.match(r">(\d+)", line.rstrip())
+                seq_id = line.rstrip().split()[0][1:]
                 counter += 1
-                links_numbering[test.group(1)] = str(counter)
+                links_numbering[seq_id] = str(counter)
                 
                     
 def writeTSVFile(infile, outfile):
@@ -37,7 +37,7 @@ def writeTSVFile(infile, outfile):
                     label = int(test.group(3))
                     links = int(test.group(4))
                     
-                    if int(scaffA) > int(scaffB):
+                    if scaffA > scaffB:
                         scaffA, scaffB = scaffB, scaffA
 
                     outScaffA = ""
@@ -85,9 +85,9 @@ def writeTSVFile(infile, outfile):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Create a XXX.tigpair_checkpoint file from ARCS graph output that LINKS can utilize')
+    parser = argparse.ArgumentParser(description='Create a XXX.tigpair_checkpoint.tsv file from ARCS graph output that LINKS can utilize')
     parser.add_argument('graph_file', help='ARCS graph file output (.gv)', type=str)
-    parser.add_argument('out_file', help='Output file name. Must be named XXX.tigpair_checkpoint, where XXX is same as base name (-b) given to LINKS.', type=str)
+    parser.add_argument('out_file', help='Output file name. Must be named XXX.tigpair_checkpoint.tsv, where XXX is same as base name (-b) given to LINKS.', type=str)
     parser.add_argument('fasta_file', help='FASTA file of sequences to scaffold', type=str)
     args = parser.parse_args()
 
