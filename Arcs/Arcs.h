@@ -50,14 +50,14 @@ namespace ARCS {
     };
 
     /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
-    typedef std::map<std::pair<int, bool>, int> ScafMap;
+    typedef std::map<std::pair<std::string, bool>, int> ScafMap;
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
-    typedef std::map<std::pair<int, int>, std::vector<int>> PairMap; 
+    typedef std::map<std::pair<std::string, std::string>, std::vector<int>> PairMap; 
 
     struct VertexProperties {
-        int id;
+        std::string id;
     };
 
     /* Orientation: 0-HH, 1-HT, 2-TH, 3-TT */
@@ -68,7 +68,7 @@ namespace ARCS {
     };
 
 	typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;
-    typedef std::unordered_map<int, Graph::vertex_descriptor> VidVdesMap;
+    typedef std::unordered_map<std::string, Graph::vertex_descriptor> VidVdesMap;
     typedef boost::graph_traits<ARCS::Graph>::vertex_descriptor VertexDes;
 }
 
