@@ -37,6 +37,9 @@ There are three steps to the pipeline:
 
 An example bash script on how to run the ARCS+LINKS pipeline can be found at: Examples/pipeline_example.sh
 
+you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt
+and compare your output to the files provided at: Examples/arcs_test-demo/output/ 
+
 ### License  
 
 ARCS Copyright (c) 2016 British Columbia Cancer Agency Branch.  All rights reserved.

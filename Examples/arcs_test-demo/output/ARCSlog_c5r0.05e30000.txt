@@ -1,0 +1,53 @@
+nohup: ignoring input
+Running: arcs 1.0.1
+ pid 82980
+ -f hsapiens-8reformat.fa
+ -a alignments.fof
+ -s 98
+ -c 5
+ -l 0
+ -z 500
+ -b hsapiens-8reformat.fa.scaff_s98_c5_l0_d0_e30000_r0.05
+ Min index multiplicity: 20
+ Max index multiplicity: 10000
+ -d 0
+ -e 30000
+ -r 0.05
+ -v 1
+
+=>Getting scaffold sizes... Fri Feb 10 11:57:09 2017
+Saw 966238 sequences.
+
+=>Starting to read BAM files... Fri Feb 10 11:57:25 2017
+Reading bam NA24143_genome_phased_namesorted.bam1.sorted.bam
+On line 10000000
+On line 20000000
+On line 30000000
+On line 40000000
+On line 50000000
+On line 60000000
+On line 70000000
+On line 80000000
+On line 90000000
+On line 100000000
+On line 110000000
+On line 120000000
+On line 130000000
+On line 140000000
+On line 150000000
+On line 160000000
+On line 170000000
+On line 180000000
+On line 190000000
+On line 200000000
+
+=>Starting pairing of scaffolds... Fri Feb 10 12:26:46 2017
+
+=>Starting to create graph... Fri Feb 10 12:26:51 2017
+
+=>Starting to write graph file... Fri Feb 10 12:26:51 2017
+
+      Max Degree (-d) set to: 0. Will not delete any verticies from graph.
+      Writting graph file to hsapiens-8reformat.fa.scaff_s98_c5_l0_d0_e30000_r0.05_original.gv...
+
+=>Done. Fri Feb 10 12:26:51 2017
