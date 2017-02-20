@@ -43,22 +43,21 @@ namespace ARCS {
         int max_degree;
         int end_length;
         float error_percent;
-        int indexLen;
         int verbose;
 
-        ArcsParams() : file(), fofName(), seq_id(98), min_reads(5), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(1000), max_degree(0), end_length(0), error_percent(0.05), indexLen(16), verbose(0) {}
+        ArcsParams() : file(), fofName(), seq_id(98), min_reads(5), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(10000), max_degree(0), end_length(0), error_percent(0.05), verbose(0) {}
 
     };
 
     /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
-    typedef std::map<std::pair<int, bool>, int> ScafMap;
+    typedef std::map<std::pair<std::string, bool>, int> ScafMap;
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
-    typedef std::map<std::pair<int, int>, std::vector<int>> PairMap; 
+    typedef std::map<std::pair<std::string, std::string>, std::vector<int>> PairMap; 
 
     struct VertexProperties {
-        int id;
+        std::string id;
     };
 
     /* Orientation: 0-HH, 1-HT, 2-TH, 3-TT */
@@ -69,7 +68,7 @@ namespace ARCS {
     };
 
 	typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;
-    typedef std::unordered_map<int, Graph::vertex_descriptor> VidVdesMap;
+    typedef std::unordered_map<std::string, Graph::vertex_descriptor> VidVdesMap;
     typedef boost::graph_traits<ARCS::Graph>::vertex_descriptor VertexDes;
 }
 

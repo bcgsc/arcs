@@ -1,7 +1,8 @@
 #include "Arcs.h"
+#include <cassert>
 
 #define PROGRAM "arcs"
-#define VERSION "1.0.0"
+#define VERSION "1.0.1"
 
 static const char VERSION_MESSAGE[] = 
 "VERSION: " PROGRAM " " VERSION "\n"
@@ -15,27 +16,24 @@ static const char VERSION_MESSAGE[] =
 static const char USAGE_MESSAGE[] =
 "Usage: [" PROGRAM " " VERSION "]\n"
 "   -f  Assembled Sequences to further scaffold (Multi-Fasta format, required)\n"
-"       NOTE: sequences must include a unique number (id) in the header\n"
 "   -a  File of File Names listing all input BAM alignment files (required). \n"
 "       NOTE: alignments must be sorted in order of name\n"
 "             index must be included in read name in the format read1_indexA\n"
-"             read name must include a number\n"
 "   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 98)\n"
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
 "   -l  Minimum number of links to create edge in graph (default: 0)\n"
 "   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
 "   -b  Base name for your output files (optional)\n"
-"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-1000)\n"
+"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-10000)\n"
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
-"   -e  Length (bp) of ends of read to consider (default: 30000)\n"
-"   -r  Maximum P-value for link orientation determination. Lower is more stringent (default: 0.05)\n"
-"   -i  Length (bp) of index sequence. 14 for GemCode, 16 for Chromium (default: 16)\n"
+"   -e  End length (bp) of sequences to consider (default: 30000)\n"
+"   -r  Maximum p-value for H/T assignment and link orientation determination. Lower is more stringent (default: 0.05)\n"
 "   -v  Runs in verbose mode (optional, default: 0)\n";
 
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:a:s:c:l:z:b:m:d:e:r:i:v";
+static const char shortopts[] = "f:a:s:c:l:z:b:m:d:e:r:v";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -51,7 +49,6 @@ static const struct option longopts[] = {
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
     {"error_percent", required_argument, NULL, 'r'},
-    {"index_length", required_argument, NULL, 'i'},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
     {"help", no_argument, NULL, OPT_HELP},
@@ -67,7 +64,8 @@ bool checkIndex(std::string seq) {
         if (c != 'A' && c != 'T' && c != 'G' && c != 'C')
             return false;
     }
-    return (static_cast<int>(seq.length()) == params.indexLen);
+    //return (static_cast<int>(seq.length()) == params.indexLen);
+    return true;
 }
 
 /*
@@ -124,28 +122,15 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
     return si;
 }
 
-/* Extract the integer scaffold id from scaffold name */
-int getIntFromScafName(const std::string& scafName) {
-    std::stringstream ss;
-    for (auto i = scafName.begin(); i != scafName.end(); ++i) {
-        if (isdigit(*i)) {
-            ss << *i;
-        }
-    }
-
-    int numb;
-    ss >> numb;
-    return numb;
-}
 
 /* Get all scaffold sizes from FASTA file */
-void getScaffSizes(std::string file, std::unordered_map<int, int>& sMap) {
+void getScaffSizes(std::string file, std::unordered_map<std::string, int>& sMap) {
 
     int counter = 0;
     FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
     for (FastaRecord rec; in >> rec;) {
         counter++;
-        int scafName = getIntFromScafName(rec.id);
+        std::string  scafName = rec.id;
         int size = rec.seq.length();
         //assert(sMap.count(scafName) == 0);
         sMap[scafName] = size;
@@ -160,7 +145,7 @@ void getScaffSizes(std::string file, std::unordered_map<int, int>& sMap) {
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
  */
-void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<int, int> sMap) {
+void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
 
     /* Open BAM file */
     std::ifstream bamName_stream;
@@ -170,12 +155,15 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
         exit(EXIT_FAILURE);
     }
 
-    std::string prevRN = "", readyToAddIndex = "";
-    int prevSI = 0, prevFlag = 0, prevMapq = 0, prevRef = 0, readyToAddRefName = 0, prevPos = -1, readyToAddPos = -1;
+    std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
+    int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
     int ct = 1; 
 
     std::string line;
     int linecount = 0;
+
+    // Number of unpaired reads.
+    size_t countUnpaired = 0;
 
     /* Read each line of the BAM file */
     while (getline(bamName_stream, line)) {
@@ -185,14 +173,14 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             linecount++;
 
             std::stringstream ss(line);
-            std::string readName, scafNameString, cigar, rnext, seq, qual;
-            int flag, scafName, pos, mapq, pnext, tlen;
+            std::string readName, scafName, cigar, rnext, seq, qual;
+            int flag, pos, mapq, pnext, tlen;
 
-            ss >> readName >> flag >> scafNameString >> pos >> mapq >> cigar
+            ss >> readName >> flag >> scafName >> pos >> mapq >> cigar
                 >> rnext >> pnext >> tlen >> seq >> qual;
 
             /* If there are no numbers in name, will return 0 - ie "*" */
-            scafName = getIntFromScafName(scafNameString);
+            //scafName = getIntFromScafName(scafNameString);
 
             /* Parse the index from the readName */
             std::string index = "", readNameSpl = "";
@@ -209,6 +197,17 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             /* Calculate the sequence identity */
             int si = calcSequenceIdentity(line, cigar, seq);
 
+            if (ct == 2 && readName != prevRN) {
+                if (countUnpaired == 0)
+                    std::cerr << "Warning: Skipping an unpaired read. BAM file should be sorted in order of read name.\n"
+                        "  Prev read: " << prevRN << "\n"
+                        "  Curr read: " << readName << std::endl;
+                ++countUnpaired;
+                if (countUnpaired % 1000000 == 0)
+                    std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads." << std::endl;
+                ct = 1;
+            }
+
             if (ct >= 3)
                 ct = 1;
             if (ct == 1) {
@@ -220,11 +219,12 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     prevRef = scafName;
                     prevPos = pos;
 
+
                     /* 
                      * Read names are different so we can add the previous index and scafName as
                      * long as there were only two mappings (one for each read)
                      */
-                    if (!readyToAddIndex.empty() && readyToAddRefName != 0 && readyToAddPos != -1) {
+                    if (!readyToAddIndex.empty() && !readyToAddRefName.empty() && readyToAddRefName.compare("*") != 0 && readyToAddPos != -1) {
 
                         int size = sMap[readyToAddRefName];
                         if (size >= params.min_size) {
@@ -241,8 +241,8 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                             * pair <X, true> indicates read pair aligns to head,
                             * pair <X, false> indicates read pair aligns to tail
                             */
-                           std::pair<int, bool> key(readyToAddRefName, true);
-                           std::pair<int, bool> keyR(readyToAddRefName, false);
+                           std::pair<std::string, bool> key(readyToAddRefName, true);
+                           std::pair<std::string, bool> keyR(readyToAddRefName, false);
 
                            /* Aligns to head */
                            if (readyToAddPos <= cutOff) {
@@ -261,24 +261,21 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
                         }
                         readyToAddIndex = "";
-                        readyToAddRefName = 0;
+                        readyToAddRefName = "";
                         readyToAddPos = -1;
                     }
                 } else {
                     ct = 0;
                     readyToAddIndex = "";
-                    readyToAddRefName = 0;
+                    readyToAddRefName = "";
                     readyToAddPos = -1;
                 }
             } else if (ct == 2) {
-                if (prevRN.compare(readName) != 0) {
-                    std::cerr << "ERROR! BAM file should be sorted in order of read name. Exiting... \n Prev Read: " << prevRN << "; Curr Read: " << readName << "\n";
-                    exit(EXIT_FAILURE);
-                }
-
+                assert(readName == prevRN);
                 if (!seq.empty() && checkFlag(flag) && checkFlag(prevFlag)
                         && mapq != 0 && prevMapq != 0 && si >= params.seq_id && prevSI >= params.seq_id) {
-                    if ((prevRef == scafName) && scafName != 0 && !index.empty()) {
+                    if (prevRef.compare(scafName) == 0 && scafName.compare("*") != 0 && !scafName.empty() && !index.empty()) {
+                            
                         readyToAddIndex = index;
                         readyToAddRefName = scafName;
                         /* Take average read alignment position between read pairs */
@@ -297,12 +294,15 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
     /* Close BAM file */
     bamName_stream.close();
+
+    if (countUnpaired > 0)
+        std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. BAM file should be sorted in order of read name.\n";
 }
 
 /* 
  * Reading each BAM file from fofName
  */
-void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<int, int> sMap) {
+void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
 
     std::ifstream fofName_stream(fofName.c_str());
     if (!fofName_stream) {
@@ -367,7 +367,7 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
            /* Iterate through all the scafNames in ScafMap */ 
             for (auto o = it->second.begin(); o != it->second.end(); ++o) {
                 for (auto p = it->second.begin(); p != it->second.end(); ++p) {
-                    int scafA, scafB;
+                    std::string scafA, scafB;
                     bool scafAflag, scafBflag;
                     std::tie (scafA, scafAflag) = o->first;
                     std::tie (scafB, scafBflag) = p->first;
@@ -376,11 +376,11 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
                     if (scafA < scafB && scafAflag && scafBflag) {
                         bool validA, validB, scafAhead, scafBhead;
 
-                        std::tie(validA, scafAhead) = headOrTail(it->second[std::pair<int, bool>(scafA, true)], it->second[std::pair<int, bool>(scafA, false)]);
-                        std::tie(validB, scafBhead) = headOrTail(it->second[std::pair<int, bool>(scafB, true)], it->second[std::pair<int, bool>(scafB, false)]);
+                        std::tie(validA, scafAhead) = headOrTail(it->second[std::pair<std::string, bool>(scafA, true)], it->second[std::pair<std::string, bool>(scafA, false)]);
+                        std::tie(validB, scafBhead) = headOrTail(it->second[std::pair<std::string, bool>(scafB, true)], it->second[std::pair<std::string, bool>(scafB, false)]);
 
                         if (validA && validB) {
-                            std::pair<int, int> pair (scafA, scafB);
+                            std::pair<std::string, std::string> pair (scafA, scafB);
                             if (pmap.count(pair) == 0) {
                                 std::vector<int> init(4,0); 
                                 pmap[pair] = init;
@@ -447,7 +447,7 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
     ARCS::PairMap::const_iterator it;
     for(it = pmap.begin(); it != pmap.end(); ++it) {
-        int scaf1, scaf2;
+        std::string scaf1, scaf2;
         std::tie (scaf1, scaf2) = it->first;
 
         int max, index;
@@ -566,7 +566,6 @@ void runArcs() {
         << "\n -d " << params.max_degree 
         << "\n -e " << params.end_length
         << "\n -r " << params.error_percent
-        << "\n -i " << params.indexLen 
         << "\n -v " << params.verbose << "\n";
 
     std::string graphFile = params.base_name + "_original.gv";
@@ -577,7 +576,7 @@ void runArcs() {
 
     std::time_t rawtime;
 
-    std::unordered_map<int, int> scaffSizeMap;
+    std::unordered_map<std::string, int> scaffSizeMap;
     time(&rawtime);
     std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
     getScaffSizes(params.file, scaffSizeMap);
@@ -640,8 +639,6 @@ int main(int argc, char** argv) {
                 arg >> params.end_length; break;
             case 'r':
                 arg >> params.error_percent; break;
-            case 'i':
-                arg >> params.indexLen; break;
             case 'v':
                 ++params.verbose; break;
             case OPT_HELP:
