@@ -10,7 +10,7 @@ links_numbering = {}
 def readGraphFile(infile):
     with open(infile, 'r') as f:
         for line in f:
-            test = re.match(r"(\d+)\s+\[id=([^\]]+)\]", line.rstrip())
+            test = re.match(r"(\d+)\s+\[id=\"?([^\]\"]+)\"?\]", line.rstrip())
             if test:
                 index = test.group(1)
                 scaff_name = test.group(2)
