@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 ## Create a tigpair_checkpoint file from ARCS output that LINKS can utilize
 import sys
 import re
