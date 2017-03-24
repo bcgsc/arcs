@@ -323,25 +323,29 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
         std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. BAM file should be sorted in order of read name.\n";
 }
 
-/* 
- * Reading each BAM file from fofName
+/**
+ * Read the file of file names.
  */
-void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+static std::vector<string> readFof(const std::string& fofName)
+{
+    std::ifstream fin(fofName);
+    assert_good(fin, fofName);
+    std::vector<string> filenames;
+    for (std::string bamName; getline(fin, bamName);)
+        filenames.push_back(bamName);
+    assert_eof(fin, fofName);
+    return filenames;
+}
 
-    std::ifstream fofName_stream(fofName.c_str());
-    if (!fofName_stream) {
-        std::cerr << "Could not open " << fofName << " ...\n";
-        exit(EXIT_FAILURE);
-    }
-
-    std::string bamName;
-    while (getline(fofName_stream, bamName)) {
+/**
+ * Read the BAM files.
+ */
+void readBAMS(const std::vector<string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+    for (const auto& bamName : bamNames) {
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
         readBAM(bamName, imap, indexMultMap, sMap);
-        assert(fofName_stream);
     }
-    fofName_stream.close();
 }
 
 /* Normal approximation to the binomial distribution */
@@ -656,7 +660,7 @@ void runArcs() {
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
     std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
-    readBAMS(params.fofName, imap, indexMultMap, scaffSizeMap);
+    readBAMS(readFof(params.fofName), imap, indexMultMap, scaffSizeMap);
 
     time(&rawtime);
     std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
