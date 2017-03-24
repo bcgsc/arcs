@@ -1,4 +1,10 @@
+#include "config.h"
 #include "Arcs.h"
+#include "Common/ContigProperties.h"
+#include "Common/Estimate.h"
+#include "Graph/ContigGraph.h"
+#include "Graph/DirectedGraph.h"
+#include "Graph/DotIO.h"
 #include <cassert>
 
 #define PROGRAM "arcs"
@@ -24,18 +30,17 @@ static const char USAGE_MESSAGE[] =
 "   -l  Minimum number of links to create edge in graph (default: 0)\n"
 "   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
 "   -b  Base name for your output files (optional)\n"
+"   -g, --graph=FILE write the ABySS dist.gv graph to FILE (optional)\n"
+"   --gap=N the size of the gap (distance estimate) in the ABySS dist.gv file [100]\n"
 "   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-10000)\n"
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
 "   -e  End length (bp) of sequences to consider (default: 30000)\n"
 "   -r  Maximum p-value for H/T assignment and link orientation determination. Lower is more stringent (default: 0.05)\n"
 "   -v  Runs in verbose mode (optional, default: 0)\n";
 
+static const char shortopts[] = "f:a:s:c:l:z:b:g:m:d:e:r:v";
 
-ARCS::ArcsParams params;
-
-static const char shortopts[] = "f:a:s:c:l:z:b:m:d:e:r:v";
-
-enum { OPT_HELP = 1, OPT_VERSION};
+enum { OPT_HELP = 1, OPT_VERSION, OPT_GAP };
 
 static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
@@ -45,6 +50,8 @@ static const struct option longopts[] = {
     {"min_links", required_argument, NULL, 'l'},
     {"min_size", required_argument, NULL, 'z'},
     {"base_name", required_argument, NULL, 'b'},
+    {"graph", required_argument, NULL, 'g'},
+    {"gap", required_argument, NULL, OPT_GAP },
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
@@ -55,7 +62,24 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
+/** Command line parameters. */
+static ARCS::ArcsParams params;
 
+// Declared in Graph/Options.h and used by DotIO
+namespace opt {
+    /** The size of a k-mer. */
+    unsigned k;
+
+    /** The file format of the graph when writing. */
+    int format;
+}
+
+/** A distance estimate graph. */
+typedef ContigGraph<DirectedGraph<Length, DistanceEst>> DistGraph;
+
+/** A dictionary of contig names. */
+Dictionary g_contigNames;
+unsigned g_nextContigName;
 
 /* Returns true if seqence only contains ATGC and is of length indexLen */
 bool checkIndex(std::string seq) {
@@ -508,7 +532,6 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
     out.close();
 }
 
-
 /* 
  * Remove all nodes from graph wich have a degree
  * greater than max_degree
@@ -549,6 +572,52 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
     writeGraph(graphFile, g);
 }
 
+/*
+ * Construct an ABySS distance estimate graph from a boost graph.
+ */
+void createAbyssGraph(const std::unordered_map<std::string, int>& scaffSizeMap, const ARCS::Graph& gin, DistGraph& gout) {
+    // Add the vertices.
+    for (const auto& it : scaffSizeMap) {
+        vertex_property<DistGraph>::type vp;
+        vp.length = it.second;
+        const auto u = add_vertex(vp, gout);
+        put(vertex_name, gout, u, it.first);
+    }
+
+    // Add the edges.
+    for (const auto ein : boost::make_iterator_range(boost::edges(gin))) {
+        const auto einp = gin[ein];
+        const auto u = find_vertex(gin[source(ein, gin)].id, einp.orientation < 2, gout);
+        const auto v = find_vertex(gin[target(ein, gin)].id, einp.orientation % 2, gout);
+
+        edge_property<DistGraph>::type ep;
+        ep.distance = params.gap;
+        ep.stdDev = params.gap;
+        ep.numPairs = einp.weight;
+
+        graph_traits<DistGraph>::edge_descriptor e;
+        bool inserted;
+        std::tie(e, inserted) = add_edge(u, v, ep, gout);
+        if (!inserted) {
+            std::cerr << "error: Duplicate edge: \"" <<
+                get(vertex_name, gout, u) << "\" -> \"" <<
+                get(vertex_name, gout, v) << '"' << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+/*
+ * Write out an ABySS distance estimate graph to a .dist.gv file.
+ */
+void writeAbyssGraph(const std::string& path, const DistGraph& g) {
+    if (path.empty())
+        return;
+    ofstream out(path.c_str());
+    assert_good(out, path);
+    write_dot(out, g, "arcs");
+    assert_good(out, path);
+}
 
 void runArcs() {
 
@@ -561,6 +630,8 @@ void runArcs() {
         << "\n -l " << params.min_links     
         << "\n -z " << params.min_size
         << "\n -b " << params.base_name
+        << "\n -g " << params.dist_graph_name
+        << "\n --gap=" << params.gap
         << "\n Min index multiplicity: " << params.min_mult 
         << "\n Max index multiplicity: " << params.max_mult 
         << "\n -d " << params.max_degree 
@@ -569,6 +640,7 @@ void runArcs() {
         << "\n -v " << params.verbose << "\n";
 
     std::string graphFile = params.base_name + "_original.gv";
+    std::string distGraphFile = !params.dist_graph_name.empty() ? params.dist_graph_name : params.base_name + ".dist.gv";
 
     ARCS::IndexMap imap;
     ARCS::PairMap pmap;
@@ -599,6 +671,15 @@ void runArcs() {
     writePostRemovalGraph(g, graphFile);
 
     time(&rawtime);
+    std::cout << "\n=>Starting to create ABySS graph... " << ctime(&rawtime);
+    DistGraph gdist;
+    createAbyssGraph(scaffSizeMap, g, gdist);
+
+    time(&rawtime);
+    std::cout << "\n=>Starting to write ABySS graph file... " << ctime(&rawtime) << "\n";
+    writeAbyssGraph(distGraphFile, gdist);
+
+    time(&rawtime);
     std::cout << "\n=>Done. " << ctime(&rawtime);
 }
 
@@ -624,6 +705,10 @@ int main(int argc, char** argv) {
                 arg >> params.min_size; break;
             case 'b':
                 arg >> params.base_name; break;
+            case 'g':
+                arg >> params.dist_graph_name; break;
+            case OPT_GAP:
+                arg >> params.gap; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
