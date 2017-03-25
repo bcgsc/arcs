@@ -10,8 +10,8 @@
 #define PROGRAM "arcs"
 #define VERSION "1.0.1"
 
-static const char VERSION_MESSAGE[] = 
-"VERSION: " PROGRAM " " VERSION "\n"
+static const char VERSION_MESSAGE[] =
+PROGRAM " " VERSION "\n"
 "\n"
 "http://www.bcgsc.ca/platform/bioinfo/software/links \n"
 "We hope this code is useful to you -- Please send comments & suggestions to rwarren * bcgsc.ca.\n"
@@ -20,11 +20,12 @@ static const char VERSION_MESSAGE[] =
 "LINKS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. \n";
 
 static const char USAGE_MESSAGE[] =
-"Usage: [" PROGRAM " " VERSION "]\n"
+PROGRAM " " VERSION "\n"
+"Usage: arcs [OPTION]... -f FASTA_FILE BAM_FILE...\n"
+"   NOTE: BAM alignments must be sorted in order of name\n"
+"         barcode must be included in read name in the format @read1_barcode\n"
 "   -f  Assembled Sequences to further scaffold (Multi-Fasta format, required)\n"
-"   -a  File of File Names listing all input BAM alignment files (required). \n"
-"       NOTE: alignments must be sorted in order of name\n"
-"             index must be included in read name in the format read1_indexA\n"
+"   -a  File of File Names listing all input BAM alignment files (optional). \n"
 "   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 98)\n"
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
 "   -l  Minimum number of links to create edge in graph (default: 0)\n"
@@ -174,10 +175,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     /* Open BAM file */
     std::ifstream bamName_stream;
     bamName_stream.open(bamName.c_str());
-    if (!bamName_stream) {
-        std::cerr << "Could not open " << bamName << ". --fatal.\n";
-        exit(EXIT_FAILURE);
-    }
+    assert_good(bamName_stream, bamName);
 
     std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
     int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
@@ -317,6 +315,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     }
 
     /* Close BAM file */
+    assert_eof(bamName_stream, bamName);
     bamName_stream.close();
 
     if (countUnpaired > 0)
@@ -326,21 +325,30 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 /**
  * Read the file of file names.
  */
-static std::vector<string> readFof(const std::string& fofName)
+static std::vector<std::string> readFof(const std::string& fofName)
 {
+    std::vector<std::string> filenames;
+    if (fofName.empty())
+      return filenames;
     std::ifstream fin(fofName);
     assert_good(fin, fofName);
-    std::vector<string> filenames;
     for (std::string bamName; getline(fin, bamName);)
         filenames.push_back(bamName);
     assert_eof(fin, fofName);
+    if (filenames.empty()) {
+        cerr << PROGRAM ": error: " << fofName << " is empty" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    for (const auto& filename : filenames)
+      assert_readable(filename);
     return filenames;
 }
 
 /**
  * Read the BAM files.
  */
-void readBAMS(const std::vector<string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+    assert(!bamNames.empty());
     for (const auto& bamName : bamNames) {
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
@@ -623,7 +631,7 @@ void writeAbyssGraph(const std::string& path, const DistGraph& g) {
     assert_good(out, path);
 }
 
-void runArcs() {
+void runArcs(const std::vector<std::string>& filenames) {
 
     std::cout << "Running: " << PROGRAM << " " << VERSION 
         << "\n pid " << ::getpid()
@@ -641,7 +649,10 @@ void runArcs() {
         << "\n -d " << params.max_degree 
         << "\n -e " << params.end_length
         << "\n -r " << params.error_percent
-        << "\n -v " << params.verbose << "\n";
+        << "\n -v " << params.verbose << '\n';
+    for (const auto& filename : filenames)
+        std::cout << ' ' << filename << '\n';
+    std::cout.flush();
 
     std::string graphFile = params.base_name + "_original.gv";
     std::string distGraphFile = !params.dist_graph_name.empty() ? params.dist_graph_name : params.base_name + ".dist.gv";
@@ -660,7 +671,9 @@ void runArcs() {
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
     std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
-    readBAMS(readFof(params.fofName), imap, indexMultMap, scaffSizeMap);
+    std::vector<std::string> bamFiles = readFof(params.fofName);
+    std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
+    readBAMS(bamFiles, imap, indexMultMap, scaffSizeMap);
 
     time(&rawtime);
     std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
@@ -744,21 +757,27 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::ifstream f(params.fofName.c_str());
-    if (!f.good()) {
-        std::cerr << "Cannot find -a " << params.fofName << ". Exiting... \n";
+    if (params.file.empty()) {
+        cerr << PROGRAM ": missing -f option\n";
         die = true;
     }
-    std::ifstream g(params.file.c_str());
-    if (!g.good()) {
-        std::cerr << "Cannot find -f " << params.file << ". Exiting... \n";
+
+    std::vector<std::string> filenames(argv + optind, argv + argc);
+    if (params.fofName.empty() && filenames.empty()) {
+        cerr << PROGRAM ": missing either BAM files or -a option\n";
         die = true;
     }
 
     if (die) {
-        std::cerr << "Try " << PROGRAM << " --help for more information.\n";
+        std::cerr << "Try " PROGRAM " --help for more information.\n";
         exit(EXIT_FAILURE);
     }
+
+    assert_readable(params.file);
+    if (!params.fofName.empty())
+      assert_readable(params.fofName);
+    for (const auto& filename : filenames)
+      assert_readable(filename);
 
     /* Setting base name if not previously set */
     if (params.base_name.empty()) {
@@ -773,8 +792,7 @@ int main(int argc, char** argv) {
         params.base_name = filename.str();
     }
 
-
-    runArcs();
+    runArcs(filenames);
 
     return 0;
 }
