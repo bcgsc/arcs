@@ -6,15 +6,21 @@ libcommon_a_SOURCES = \
 	BloomFilter.cpp BloomFilter.h \
 	BloomFilterInfo.cpp BloomFilterInfo.h \
 	city.cc city.h citycrc.h\
+	ConstString.h \
+	ContigID.h \
+	ContigNode.h \
+	ContigProperties.h \
+	Dictionary.h \
 	Dynamicofstream.cpp Dynamicofstream.h \
+	Estimate.h \
 	Fcontrol.cpp Fcontrol.h \
 	gzstream.C gzstream.h \
+	HashFunction.h \
 	IOUtil.h \
 	Options.cpp Options.h \
 	ReadsProcessor.cpp ReadsProcessor.h \
-	Sequence.cpp Sequence.h \
 	SeqEval.h \
+	Sequence.cpp Sequence.h \
 	SignalHandler.cpp SignalHandler.h \
 	StringUtil.h \
 	Uncompress.cpp Uncompress.h
-	

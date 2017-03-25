@@ -66,9 +66,10 @@ AC_SUBST(AM_CXXFLAGS, '-Wall -Wextra -Werror -std=c++0x')
 
 AC_CONFIG_FILES([
 		Makefile
+		Arcs/Makefile
 		Common/Makefile
 		DataLayer/Makefile
-		Arcs/Makefile
+		Graph/Makefile
 ])
 AC_OUTPUT
 

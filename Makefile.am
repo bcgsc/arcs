@@ -1,6 +1,7 @@
 SUBDIRS = \
 	Common \
 	DataLayer \
+	Graph \
 	Arcs
 
 dist_doc_DATA = \
