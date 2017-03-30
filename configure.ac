@@ -34,6 +34,14 @@ boost_ver=1.58.0
 boost_ver_dir=1_58_0
 AC_SUBST(CPPFLAGS,"-I$srcdir $boost_cppflags $CPPFLAGS -isystem$srcdir/$boost_ver_dir")
 
+# Checks for header files.
+AC_LANG([C++])	#sets the auto conf to look for c++ headers
+AC_CHECK_HEADERS([boost/graph/graph_traits.hpp])
+AC_CHECK_HEADERS([boost/graph/adjacency_list.hpp])
+AC_CHECK_HEADERS([boost/graph/undirected_graph.hpp])
+AC_CHECK_HEADERS([boost/graph/graphviz.hpp])
+#AC_CHECK_HEADERS([zlib.h])
+
 # Check for Boost.
 if test $ac_cv_header_boost_unordered_unordered_map_hpp != yes; then
 	AC_MSG_ERROR([Requires the Boost C++ libraries, which may
@@ -44,14 +52,6 @@ if test $ac_cv_header_boost_unordered_unordered_map_hpp != yes; then
 	tar jxf $boost_ver_dir.tar.bz2
 	cd -])
 fi
-
-# Checks for header files.
-AC_LANG([C++])	#sets the auto conf to look for c++ headers
-AC_CHECK_HEADERS([boost/graph/graph_traits.hpp])
-AC_CHECK_HEADERS([boost/graph/adjacency_list.hpp])
-AC_CHECK_HEADERS([boost/graph/undirected_graph.hpp])
-AC_CHECK_HEADERS([boost/graph/graphviz.hpp])
-#AC_CHECK_HEADERS([zlib.h])
 
 # Check for OpenMP.
 AC_OPENMP
