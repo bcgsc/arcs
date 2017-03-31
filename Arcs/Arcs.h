@@ -39,6 +39,7 @@ namespace ARCS {
         int min_size;
         std::string base_name;
         std::string dist_graph_name;
+        std::string tsv_name;
         unsigned gap;
         int min_mult;
         int max_mult;

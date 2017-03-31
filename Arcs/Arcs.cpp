@@ -41,7 +41,7 @@ PROGRAM " " VERSION "\n"
 
 static const char shortopts[] = "f:a:s:c:l:z:b:g:m:d:e:r:v";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_GAP };
+enum { OPT_HELP = 1, OPT_VERSION, OPT_GAP, OPT_TSV };
 
 static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
@@ -52,6 +52,7 @@ static const struct option longopts[] = {
     {"min_size", required_argument, NULL, 'z'},
     {"base_name", required_argument, NULL, 'b'},
     {"graph", required_argument, NULL, 'g'},
+    {"tsv", required_argument, NULL, OPT_TSV},
     {"gap", required_argument, NULL, OPT_GAP },
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_degree", required_argument, NULL, 'd'},
@@ -81,6 +82,19 @@ typedef ContigGraph<DirectedGraph<Length, DistanceEst>> DistGraph;
 /** A dictionary of contig names. */
 Dictionary g_contigNames;
 unsigned g_nextContigName;
+
+/**
+ * One end of a scaffold.
+ * The left (head) is true and the right (tail) is false.
+ */
+typedef std::pair<std::string, bool> ScaffoldEnd;
+
+/** Hash a ScaffoldEnd. */
+struct HashScaffoldEnd {
+    size_t operator()(const ScaffoldEnd& key) const {
+        return std::hash<std::string>()(key.first) ^ key.second;
+    }
+};
 
 /* Returns true if seqence only contains ATGC and is of length indexLen */
 bool checkIndex(std::string seq) {
@@ -263,8 +277,8 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                             * pair <X, true> indicates read pair aligns to head,
                             * pair <X, false> indicates read pair aligns to tail
                             */
-                           std::pair<std::string, bool> key(readyToAddRefName, true);
-                           std::pair<std::string, bool> keyR(readyToAddRefName, false);
+                           ScaffoldEnd key(readyToAddRefName, true);
+                           ScaffoldEnd keyR(readyToAddRefName, false);
 
                            /* Aligns to head */
                            if (readyToAddPos <= cutOff) {
@@ -354,6 +368,10 @@ void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std
             std::cout << "Reading bam " << bamName << std::endl;
         readBAM(bamName, imap, indexMultMap, sMap);
     }
+
+    std::cout << "{ \"All_barcodes\":" << indexMultMap.size()
+        << ", \"Scaffold_end_barcodes\":" << imap.size()
+        << " }\n";
 }
 
 /* Normal approximation to the binomial distribution */
@@ -412,8 +430,8 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
                     if (scafA < scafB && scafAflag && scafBflag) {
                         bool validA, validB, scafAhead, scafBhead;
 
-                        std::tie(validA, scafAhead) = headOrTail(it->second[std::pair<std::string, bool>(scafA, true)], it->second[std::pair<std::string, bool>(scafA, false)]);
-                        std::tie(validB, scafBhead) = headOrTail(it->second[std::pair<std::string, bool>(scafB, true)], it->second[std::pair<std::string, bool>(scafB, false)]);
+                        std::tie(validA, scafAhead) = headOrTail(it->second[ScaffoldEnd(scafA, true)], it->second[ScaffoldEnd(scafA, false)]);
+                        std::tie(validB, scafBhead) = headOrTail(it->second[ScaffoldEnd(scafB, true)], it->second[ScaffoldEnd(scafB, false)]);
 
                         if (validA && validB) {
                             std::pair<std::string, std::string> pair (scafA, scafB);
@@ -631,6 +649,62 @@ void writeAbyssGraph(const std::string& path, const DistGraph& g) {
     assert_good(out, path);
 }
 
+/** Write a TSV file to calculate a hypergeometric test.
+ * For each pair of scaffolds...
+ * - CountBoth: the number of barcodes shared between scaffold ends U and V
+ * - CountU: the number of barcodes on scaffold end U
+ * - CountV: the number of barcodes on scaffold end V
+ * - CountAll: the total number of barcodes observed
+ */
+void writeTSV(
+        const std::string& tsvFile,
+        const ARCS::IndexMap& imap,
+        const ARCS::PairMap& pmap,
+        const std::unordered_map<std::string, int>& indexMultMap)
+{
+    if (tsvFile.empty())
+        return;
+
+    // Total number of barcodes seen.
+    size_t countBarcodes = indexMultMap.size();
+
+    // Count the number of barcodes seen per scaffold end.
+    std::unordered_map<ScaffoldEnd, unsigned, HashScaffoldEnd> barcodes_per_scaffold_end;
+    for (const auto& it : imap) {
+        for (const auto& scaffold_count : it.second) {
+            const auto& scaffold = scaffold_count.first;
+            const auto& count = scaffold_count.second;
+            if (count >= params.min_reads)
+               ++barcodes_per_scaffold_end[scaffold];
+        }
+    }
+
+    std::ofstream f(tsvFile);
+    assert_good(f, tsvFile);
+    f << "U\tV\tShared_barcodes\tU_barcodes\tV_barcodes\tAll_barcodes\n";
+    assert_good(f, tsvFile);
+    for (const auto& it : pmap) {
+        const auto& u = it.first.first;
+        const auto& v = it.first.second;
+        const auto& counts = it.second;
+        for (unsigned i = 0; i < counts.size(); ++i) {
+            if (counts[i] == 0)
+                continue;
+            bool usense = i < 2;
+            bool vsense = i % 2;
+            f << u << (usense ? '-' : '+')
+                << '\t' << v << (vsense ? '-' : '+')
+                << '\t' << counts[i]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
+                << '\t' << countBarcodes
+                << '\n';
+        }
+    }
+    assert_good(f, tsvFile);
+}
+
+/** Run ARCS. */
 void runArcs(const std::vector<std::string>& filenames) {
 
     std::cout << "Running: " << PROGRAM << " " << VERSION 
@@ -643,6 +717,7 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -z " << params.min_size
         << "\n -b " << params.base_name
         << "\n -g " << params.dist_graph_name
+        << "\n --tsv=" << params.tsv_name
         << "\n --gap=" << params.gap
         << "\n Min index multiplicity: " << params.min_mult 
         << "\n Max index multiplicity: " << params.max_mult 
@@ -697,6 +772,10 @@ void runArcs(const std::vector<std::string>& filenames) {
     writeAbyssGraph(distGraphFile, gdist);
 
     time(&rawtime);
+    std::cout << "\n=>Starting to write TSV file... " << ctime(&rawtime) << "\n";
+    writeTSV(params.tsv_name, imap, pmap, indexMultMap);
+
+    time(&rawtime);
     std::cout << "\n=>Done. " << ctime(&rawtime);
 }
 
@@ -724,6 +803,8 @@ int main(int argc, char** argv) {
                 arg >> params.base_name; break;
             case 'g':
                 arg >> params.dist_graph_name; break;
+            case OPT_TSV:
+                arg >> params.tsv_name; break;
             case OPT_GAP:
                 arg >> params.gap; break;
             case 'm': {
