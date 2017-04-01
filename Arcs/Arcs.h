@@ -40,6 +40,7 @@ namespace ARCS {
         std::string base_name;
         std::string dist_graph_name;
         std::string tsv_name;
+        std::string barcode_counts_name;
         unsigned gap;
         int min_mult;
         int max_mult;

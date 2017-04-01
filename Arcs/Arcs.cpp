@@ -33,6 +33,8 @@ PROGRAM " " VERSION "\n"
 "   -b  Base name for your output files (optional)\n"
 "   -g, --graph=FILE write the ABySS dist.gv graph to FILE (optional)\n"
 "   --gap=N the size of the gap (distance estimate) in the ABySS dist.gv file [100]\n"
+"   --tsv=FILE write the graph in TSV format to FILE (optional)\n"
+"   --barcode-counts=FILE write the number of reads per barcode to FILE (optional)\n"
 "   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-10000)\n"
 "   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
 "   -e  End length (bp) of sequences to consider (default: 30000)\n"
@@ -41,7 +43,13 @@ PROGRAM " " VERSION "\n"
 
 static const char shortopts[] = "f:a:s:c:l:z:b:g:m:d:e:r:v";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_GAP, OPT_TSV };
+enum {
+    OPT_HELP = 1,
+    OPT_VERSION,
+    OPT_GAP,
+    OPT_TSV,
+    OPT_BARCODE_COUNTS
+};
 
 static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
@@ -53,6 +61,7 @@ static const struct option longopts[] = {
     {"base_name", required_argument, NULL, 'b'},
     {"graph", required_argument, NULL, 'g'},
     {"tsv", required_argument, NULL, OPT_TSV},
+    {"barcode-counts", required_argument, NULL, OPT_BARCODE_COUNTS},
     {"gap", required_argument, NULL, OPT_GAP },
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_degree", required_argument, NULL, 'd'},
@@ -649,6 +658,34 @@ void writeAbyssGraph(const std::string& path, const DistGraph& g) {
     assert_good(out, path);
 }
 
+/** Write a TSV file of the number of reads per barcode.
+ * - Barcode: the barcode
+ * - Reads: the number of reads
+ */
+void writeBarcodeCountsTSV(
+        const std::string& tsvFile,
+        const std::unordered_map<std::string, int>& indexMultMap)
+{
+    if (tsvFile.empty())
+        return;
+
+    // Sort the barcodes by their counts and then their sequence.
+    typedef std::vector<std::pair<std::string, unsigned>> Sorted;
+    Sorted sorted(indexMultMap.begin(), indexMultMap.end());
+    sort(sorted.begin(), sorted.end(),
+            [](const Sorted::value_type& a, const Sorted::value_type& b) {
+                return a.second != b.second ? a.second > b.second : a.first < b.first;
+            });
+
+    std::ofstream f(tsvFile);
+    assert_good(f, tsvFile);
+    f << "Barcode\tReads\n";
+    assert_good(f, tsvFile);
+    for (auto x : sorted)
+        f << x.first << '\t' << x.second << '\n';
+    assert_good(f, tsvFile);
+}
+
 /** Write a TSV file to calculate a hypergeometric test.
  * For each pair of scaffolds...
  * - CountBoth: the number of barcodes shared between scaffold ends U and V
@@ -751,6 +788,10 @@ void runArcs(const std::vector<std::string>& filenames) {
     readBAMS(bamFiles, imap, indexMultMap, scaffSizeMap);
 
     time(&rawtime);
+    std::cout << "\n=>Starting to write reads per barcode TSV file... " << ctime(&rawtime) << "\n";
+    writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
+
+    time(&rawtime);
     std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
     pairContigs(imap, pmap, indexMultMap);
 
@@ -807,6 +848,8 @@ int main(int argc, char** argv) {
                 arg >> params.tsv_name; break;
             case OPT_GAP:
                 arg >> params.gap; break;
+            case OPT_BARCODE_COUNTS:
+                arg >> params.barcode_counts_name; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
