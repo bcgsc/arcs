@@ -43,7 +43,7 @@ AC_CHECK_HEADERS([boost/graph/graphviz.hpp])
 #AC_CHECK_HEADERS([zlib.h])
 
 # Check for Boost.
-if test $ac_cv_header_boost_unordered_unordered_map_hpp != yes; then
+if test $ac_cv_header_boost_graph_graphviz_hpp != yes; then
 	AC_MSG_ERROR([Requires the Boost C++ libraries, which may
 	be downloaded from here: http://www.boost.org/users/download/
 	The following commands will download and install Boost:
