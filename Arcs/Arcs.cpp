@@ -377,10 +377,25 @@ void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std
             std::cout << "Reading bam " << bamName << std::endl;
         readBAM(bamName, imap, indexMultMap, sMap);
     }
+}
 
-    std::cout << "{ \"All_barcodes\":" << indexMultMap.size()
+/** Count barcodes. */
+static size_t countBarcodes(ARCS::IndexMap& imap, const std::unordered_map<std::string, int>& indexMultMap)
+{
+    size_t barcodeCount = 0;
+    for (auto x : indexMultMap)
+        if (x.second >= params.min_mult && x.second <= params.max_mult)
+            ++barcodeCount;
+
+    std::cout
+        << "{ \"All_barcodes_unfiltered\":" << indexMultMap.size()
+        << ", \"All_barcodes_filtered\":" << barcodeCount
         << ", \"Scaffold_end_barcodes\":" << imap.size()
+        << ", \"Min_barcode_reads_threshold\":" << params.min_mult
+        << ", \"Max_barcode_reads_threshold\":" << params.max_mult
         << " }\n";
+
+    return barcodeCount;
 }
 
 /* Normal approximation to the binomial distribution */
@@ -697,13 +712,10 @@ void writeTSV(
         const std::string& tsvFile,
         const ARCS::IndexMap& imap,
         const ARCS::PairMap& pmap,
-        const std::unordered_map<std::string, int>& indexMultMap)
+        size_t barcodeCount)
 {
     if (tsvFile.empty())
         return;
-
-    // Total number of barcodes seen.
-    size_t countBarcodes = indexMultMap.size();
 
     // Count the number of barcodes seen per scaffold end.
     std::unordered_map<ScaffoldEnd, unsigned, HashScaffoldEnd> barcodes_per_scaffold_end;
@@ -734,7 +746,7 @@ void writeTSV(
                 << '\t' << counts[i]
                 << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
                 << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
-                << '\t' << countBarcodes
+                << '\t' << barcodeCount
                 << '\n';
         }
     }
@@ -787,6 +799,8 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
     readBAMS(bamFiles, imap, indexMultMap, scaffSizeMap);
 
+    size_t barcodeCount = countBarcodes(imap, indexMultMap);
+
     time(&rawtime);
     std::cout << "\n=>Starting to write reads per barcode TSV file... " << ctime(&rawtime) << "\n";
     writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
@@ -814,7 +828,7 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     time(&rawtime);
     std::cout << "\n=>Starting to write TSV file... " << ctime(&rawtime) << "\n";
-    writeTSV(params.tsv_name, imap, pmap, indexMultMap);
+    writeTSV(params.tsv_name, imap, pmap, barcodeCount);
 
     time(&rawtime);
     std::cout << "\n=>Done. " << ctime(&rawtime);
