@@ -769,8 +769,7 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n --tsv=" << params.tsv_name
         << "\n --gap=" << params.gap
         << "\n --barcode-counts=" << params.barcode_counts_name
-        << "\n Min index multiplicity: " << params.min_mult 
-        << "\n Max index multiplicity: " << params.max_mult 
+        << "\n -m " << params.min_mult << '-' << params.max_mult
         << "\n -d " << params.max_degree 
         << "\n -e " << params.end_length
         << "\n -r " << params.error_percent
