@@ -758,22 +758,26 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     std::cout << "Running: " << PROGRAM << " " << VERSION 
         << "\n pid " << ::getpid()
-        << "\n -f " << params.file 
-        << "\n -a " << params.fofName
-        << "\n -s " << params.seq_id 
-        << "\n -c " << params.min_reads 
-        << "\n -l " << params.min_links     
+        // Options
+        << "\n -c " << params.min_reads
+        << "\n -d " << params.max_degree
+        << "\n -e " << params.end_length
+        << "\n -l " << params.min_links
+        << "\n -m " << params.min_mult << '-' << params.max_mult
+        << "\n -r " << params.error_percent
+        << "\n -s " << params.seq_id
+        << "\n -v " << params.verbose
         << "\n -z " << params.min_size
+        << "\n --gap=" << params.gap
+        // Output files
         << "\n -b " << params.base_name
         << "\n -g " << params.dist_graph_name
-        << "\n --tsv=" << params.tsv_name
-        << "\n --gap=" << params.gap
         << "\n --barcode-counts=" << params.barcode_counts_name
-        << "\n -m " << params.min_mult << '-' << params.max_mult
-        << "\n -d " << params.max_degree 
-        << "\n -e " << params.end_length
-        << "\n -r " << params.error_percent
-        << "\n -v " << params.verbose << '\n';
+        << "\n --tsv=" << params.tsv_name
+        // Input files
+        << "\n -a " << params.fofName
+        << "\n -f " << params.file
+        << '\n';
     for (const auto& filename : filenames)
         std::cout << ' ' << filename << '\n';
     std::cout.flush();
