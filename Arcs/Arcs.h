@@ -70,7 +70,7 @@ namespace ARCS {
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
-    typedef std::map<std::pair<std::string, std::string>, std::vector<int>> PairMap; 
+    typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
 
     struct VertexProperties {
         std::string id;

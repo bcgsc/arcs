@@ -5,6 +5,7 @@
 #include "Graph/ContigGraph.h"
 #include "Graph/DirectedGraph.h"
 #include "Graph/DotIO.h"
+#include <algorithm>
 #include <cassert>
 
 #define PROGRAM "arcs"
@@ -459,10 +460,8 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
 
                         if (validA && validB) {
                             std::pair<std::string, std::string> pair (scafA, scafB);
-                            if (pmap.count(pair) == 0) {
-                                std::vector<int> init(4,0); 
-                                pmap[pair] = init;
-                            }
+                            if (pmap.count(pair) == 0)
+                                pmap[pair].resize(4);
                             // Head - Head
                             if (scafAhead && scafBhead)
                                 pmap[pair][0]++;
@@ -487,18 +486,16 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
  * Return the max value and its index position
  * in the vector
  */
-std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
-    int max = 0;
-    int index = 0;
-    for (int i = 0; i < int(array.size()); i++) {
+std::pair<unsigned, unsigned> getMaxValueAndIndex(const ARCS::PairMap::value_type::second_type& array) {
+    unsigned max = 0;
+    unsigned index = 0;
+    for (unsigned i = 0; i < array.size(); ++i) {
         if (array[i] > max) {
             max = array[i];
             index = i;
         }
     }
-
-    std::pair<int, int> result(max, index);
-    return result;
+    return std::make_pair(max, index);
 }
 
 /* 
@@ -528,12 +525,12 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
         std::string scaf1, scaf2;
         std::tie (scaf1, scaf2) = it->first;
 
-        int max, index;
-        std::vector<int> count = it->second;
+        unsigned max, index;
+        const auto& count = it->second;
         std::tie(max, index) = getMaxValueAndIndex(count);
 
-        int second = 0;
-        for (int i = 0; i < int(count.size()); i++) {
+        unsigned second = 0;
+        for (unsigned i = 0; i < count.size(); ++i) {
             if (count[i] != max && count[i] > second)
                 second = count[i];
         }
