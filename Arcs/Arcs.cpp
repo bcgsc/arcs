@@ -727,12 +727,14 @@ void writeTSV(
 
     std::ofstream f(tsvFile);
     assert_good(f, tsvFile);
-    f << "U\tV\tShared_barcodes\tU_barcodes\tV_barcodes\tAll_barcodes\n";
+    f << "U\tV\tBest_orientation\tShared_barcodes\tU_barcodes\tV_barcodes\tAll_barcodes\n";
     assert_good(f, tsvFile);
     for (const auto& it : pmap) {
         const auto& u = it.first.first;
         const auto& v = it.first.second;
         const auto& counts = it.second;
+        assert(!counts.empty());
+        unsigned max_counts = *std::max_element(counts.begin(), counts.end());
         for (unsigned i = 0; i < counts.size(); ++i) {
             if (counts[i] == 0)
                 continue;
@@ -740,6 +742,7 @@ void writeTSV(
             bool vsense = i % 2;
             f << u << (usense ? '-' : '+')
                 << '\t' << v << (vsense ? '-' : '+')
+                << '\t' << (counts[i] == max_counts ? "T" : "F")
                 << '\t' << counts[i]
                 << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
                 << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
