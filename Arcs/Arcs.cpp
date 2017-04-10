@@ -753,6 +753,12 @@ void writeTSV(
     assert_good(f, tsvFile);
 }
 
+/** Return NA if the specified string is empty, and the string itself otherwise. */
+static const char* maybeNA(const std::string& s)
+{
+    return s.empty() ? "NA" : s.c_str();
+}
+
 /** Run ARCS. */
 void runArcs(const std::vector<std::string>& filenames) {
 
@@ -770,13 +776,13 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -z " << params.min_size
         << "\n --gap=" << params.gap
         // Output files
-        << "\n -b " << params.base_name
-        << "\n -g " << params.dist_graph_name
-        << "\n --barcode-counts=" << params.barcode_counts_name
-        << "\n --tsv=" << params.tsv_name
+        << "\n -b " << maybeNA(params.base_name)
+        << "\n -g " << maybeNA(params.dist_graph_name)
+        << "\n --barcode-counts=" << maybeNA(params.barcode_counts_name)
+        << "\n --tsv=" << maybeNA(params.tsv_name)
         // Input files
-        << "\n -a " << params.fofName
-        << "\n -f " << params.file
+        << "\n -a " << maybeNA(params.fofName)
+        << "\n -f " << maybeNA(params.file)
         << '\n';
     for (const auto& filename : filenames)
         std::cout << ' ' << filename << '\n';
