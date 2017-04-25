@@ -748,6 +748,14 @@ void writeTSV(
                 << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
                 << '\t' << barcodeCount
                 << '\n';
+            f << v << (vsense ? '+' : '-')
+                << '\t' << u << (usense ? '+' : '-')
+                << '\t' << (counts[i] == max_counts ? "T" : "F")
+                << '\t' << counts[i]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
+                << '\t' << barcodeCount
+                << '\n';
         }
     }
     assert_good(f, tsvFile);
