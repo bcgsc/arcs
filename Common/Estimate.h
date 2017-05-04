@@ -174,7 +174,7 @@ struct EstimateRecord
 
 namespace std {
 	template<>
-	inline void swap(EstimateRecord&, EstimateRecord&)
+	inline void swap(EstimateRecord&, EstimateRecord&) noexcept
 	{
 		assert(false);
 	}
