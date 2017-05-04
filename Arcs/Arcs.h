@@ -65,22 +65,30 @@ namespace ARCS {
 
     };
 
-    /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
-    typedef std::map<std::pair<std::string, bool>, int> ScafMap;
+    /** One segment of a scaffold. */
+    typedef std::pair<std::string, unsigned> Segment;
+
+    /** Hash a Segment. */
+    struct HashSegment {
+        size_t operator()(const Segment& key) const {
+            return std::hash<std::string>()(key.first) ^ std::hash<unsigned>()(key.second);
+        }
+    };
+
+    /* ScafMap: <pair(scaffold id, bool), count>, count = Number of times index maps to scaffold */
+    typedef std::map<std::pair<std::string, unsigned>, int> ScafMap;
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
-    /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
-    typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
+    /* PairMap: key = pair of scaf sequence id, value = num links*/
+    typedef std::map<std::pair<Segment, Segment>, unsigned> PairMap;
 
     struct VertexProperties {
         std::string id;
     };
 
-    /* Orientation: 0-HH, 1-HT, 2-TH, 3-TT */
     struct EdgeProperties {
-        int orientation;
         int weight;
-        EdgeProperties(): orientation(0), weight(0) {}
+        EdgeProperties(): weight(0) {}
     };
 
 	typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;

@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cassert>
 
+using namespace ARCS;
+
 #define PROGRAM "arcs"
 #define VERSION "1.0.1"
 
@@ -92,19 +94,6 @@ typedef ContigGraph<DirectedGraph<Length, DistanceEst>> DistGraph;
 /** A dictionary of contig names. */
 Dictionary g_contigNames;
 unsigned g_nextContigName;
-
-/**
- * One end of a scaffold.
- * The left (head) is true and the right (tail) is false.
- */
-typedef std::pair<std::string, bool> ScaffoldEnd;
-
-/** Hash a ScaffoldEnd. */
-struct HashScaffoldEnd {
-    size_t operator()(const ScaffoldEnd& key) const {
-        return std::hash<std::string>()(key.first) ^ key.second;
-    }
-};
 
 /* Returns true if seqence only contains ATGC and is of length indexLen */
 bool checkIndex(std::string seq) {
@@ -271,40 +260,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                      * long as there were only two mappings (one for each read)
                      */
                     if (!readyToAddIndex.empty() && !readyToAddRefName.empty() && readyToAddRefName.compare("*") != 0 && readyToAddPos != -1) {
-
-                        int size = sMap[readyToAddRefName];
-                        if (size >= params.min_size) {
-
-                           /* 
-                            * If length of sequence is less than 2 x end_length, split
-                            * the sequence in half to determing head/tail 
-                            */
-                           int cutOff = params.end_length;
-                           if (cutOff == 0 || size <= cutOff * 2)
-                               cutOff = size/2;
-
-                           /* 
-                            * pair <X, true> indicates read pair aligns to head,
-                            * pair <X, false> indicates read pair aligns to tail
-                            */
-                           ScaffoldEnd key(readyToAddRefName, true);
-                           ScaffoldEnd keyR(readyToAddRefName, false);
-
-                           /* Aligns to head */
-                           if (readyToAddPos <= cutOff) {
-                               imap[readyToAddIndex][key]++;
-
-                               if (imap[readyToAddIndex].count(keyR) == 0)
-                                   imap[readyToAddIndex][keyR] = 0;
-
-                            /* Aligns to tail */
-                           } else if (readyToAddPos > size - cutOff) {
-                               imap[readyToAddIndex][keyR]++;
-
-                               if (imap[readyToAddIndex].count(key) == 0)
-                                   imap[readyToAddIndex][key] = 0;
-                           }
-
+                        if (sMap[readyToAddRefName] >= params.min_size) {
+                            Segment key(readyToAddRefName, readyToAddPos / params.end_length);
+                            imap[readyToAddIndex][key]++;
                         }
                         readyToAddIndex = "";
                         readyToAddRefName = "";
@@ -446,69 +404,13 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
            /* Iterate through all the scafNames in ScafMap */ 
             for (auto o = it->second.begin(); o != it->second.end(); ++o) {
                 for (auto p = it->second.begin(); p != it->second.end(); ++p) {
-                    std::string scafA, scafB;
-                    bool scafAflag, scafBflag;
-                    std::tie (scafA, scafAflag) = o->first;
-                    std::tie (scafB, scafBflag) = p->first;
-
-                    /* Only insert into pmap if scafA < scafB to avoid duplicates */
-                    if (scafA < scafB && scafAflag && scafBflag) {
-                        bool validA, validB, scafAhead, scafBhead;
-
-                        std::tie(validA, scafAhead) = headOrTail(it->second[ScaffoldEnd(scafA, true)], it->second[ScaffoldEnd(scafA, false)]);
-                        std::tie(validB, scafBhead) = headOrTail(it->second[ScaffoldEnd(scafB, true)], it->second[ScaffoldEnd(scafB, false)]);
-
-                        if (validA && validB) {
-                            std::pair<std::string, std::string> pair (scafA, scafB);
-                            if (pmap.count(pair) == 0)
-                                pmap[pair].resize(4);
-                            // Head - Head
-                            if (scafAhead && scafBhead)
-                                pmap[pair][0]++;
-                            // Head - Tail
-                            else if (scafAhead && !scafBhead)
-                                pmap[pair][1]++;
-                            // Tail - Head
-                            else if (!scafAhead && scafBhead)
-                                pmap[pair][2]++;
-                            // Tail - Tail
-                            else if (!scafAhead && !scafBhead)
-                                pmap[pair][3]++;
-                        }
-                    }
+                    std::pair<const Segment&, const Segment&> pair(o->first, p->first);
+                    ++pmap[pair];
                 }
             }
         }
     }
 }  
-
-/*
- * Return the max value and its index position
- * in the vector
- */
-std::pair<unsigned, unsigned> getMaxValueAndIndex(const ARCS::PairMap::value_type::second_type& array) {
-    unsigned max = 0;
-    unsigned index = 0;
-    for (unsigned i = 0; i < array.size(); ++i) {
-        if (array[i] > max) {
-            max = array[i];
-            index = i;
-        }
-    }
-    return std::make_pair(max, index);
-}
-
-/* 
- * Return true if the link orientation with the max support
- * is dominant
- */
-bool checkSignificance(int max, int second) {
-    if (max < params.min_links) {
-        return false;
-    }
-    float normalCdf = normalEstimation(max, 0.5, second);
-    return (1 - normalCdf < params.error_percent);
-}
 
 /*
  * Construct a boost graph from PairMap. Each pair represents an
@@ -522,45 +424,31 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
     ARCS::PairMap::const_iterator it;
     for(it = pmap.begin(); it != pmap.end(); ++it) {
-        std::string scaf1, scaf2;
+        Segment scaf1, scaf2;
         std::tie (scaf1, scaf2) = it->first;
+        unsigned count = it->second;
 
-        unsigned max, index;
-        const auto& count = it->second;
-        std::tie(max, index) = getMaxValueAndIndex(count);
-
-        unsigned second = 0;
-        for (unsigned i = 0; i < count.size(); ++i) {
-            if (count[i] != max && count[i] > second)
-                second = count[i];
+        /* If scaf1 is not a node in the graph, add it */
+        if (vmap.count(scaf1.first) == 0) {
+            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+            g[v].id = scaf1.first;
+            vmap[scaf1.first] = v;
         }
 
-        /* Only insert edge if orientation with max links is dominant */
-        if (checkSignificance(max, second)) {
+        /* If scaf2 is not a node in the graph, add it */
+        if (vmap.count(scaf2.first) == 0) {
+            ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+            g[v].id = scaf2.first;
+            vmap[scaf2.first] = v;
+        }
 
-            /* If scaf1 is not a node in the graph, add it */
-            if (vmap.count(scaf1) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf1;
-                vmap[scaf1] = v;
-            }
+        ARCS::Graph::edge_descriptor e;
+        bool inserted;
 
-            /* If scaf2 is not a node in the graph, add it */
-            if (vmap.count(scaf2) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf2;
-                vmap[scaf2] = v;
-            }
-
-            ARCS::Graph::edge_descriptor e;
-            bool inserted;
-
-            /* Add the edge representing the pair */
-            std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-            if (inserted) {
-                g[e].weight = max;
-                g[e].orientation = index;
-            }
+        /* Add the edge representing the pair */
+        std::tie (e, inserted) = boost::add_edge(vmap[scaf1.first], vmap[scaf2.first], g);
+        if (inserted) {
+            g[e].weight = count;
         }
     }
 } 
@@ -575,7 +463,6 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
     boost::dynamic_properties dp;
     dp.property("id", get(&ARCS::VertexProperties::id, g));
     dp.property("weight", get(&ARCS::EdgeProperties::weight, g));
-    dp.property("label", get(&ARCS::EdgeProperties::orientation, g));
     dp.property("node_id", get(boost::vertex_index, g));
     boost::write_graphviz_dp(out, g, dp);
     assert(out);
@@ -638,8 +525,8 @@ void createAbyssGraph(const std::unordered_map<std::string, int>& scaffSizeMap, 
     // Add the edges.
     for (const auto ein : boost::make_iterator_range(boost::edges(gin))) {
         const auto einp = gin[ein];
-        const auto u = find_vertex(gin[source(ein, gin)].id, einp.orientation < 2, gout);
-        const auto v = find_vertex(gin[target(ein, gin)].id, einp.orientation % 2, gout);
+        const auto u = find_vertex(gin[source(ein, gin)].id, false, gout);
+        const auto v = find_vertex(gin[target(ein, gin)].id, false, gout);
 
         edge_property<DistGraph>::type ep;
         ep.distance = params.gap;
@@ -715,13 +602,13 @@ void writeTSV(
         return;
 
     // Count the number of barcodes seen per scaffold end.
-    std::unordered_map<ScaffoldEnd, unsigned, HashScaffoldEnd> barcodes_per_scaffold_end;
+    std::unordered_map<Segment, unsigned, HashSegment> barcodes_per_segment;
     for (const auto& it : imap) {
         for (const auto& scaffold_count : it.second) {
             const auto& scaffold = scaffold_count.first;
             const auto& count = scaffold_count.second;
             if (count >= params.min_reads)
-               ++barcodes_per_scaffold_end[scaffold];
+               ++barcodes_per_segment[scaffold];
         }
     }
 
@@ -732,31 +619,15 @@ void writeTSV(
     for (const auto& it : pmap) {
         const auto& u = it.first.first;
         const auto& v = it.first.second;
-        const auto& counts = it.second;
-        assert(!counts.empty());
-        unsigned max_counts = *std::max_element(counts.begin(), counts.end());
-        for (unsigned i = 0; i < counts.size(); ++i) {
-            if (counts[i] == 0)
-                continue;
-            bool usense = i < 2;
-            bool vsense = i % 2;
-            f << u << (usense ? '-' : '+')
-                << '\t' << v << (vsense ? '-' : '+')
-                << '\t' << (counts[i] == max_counts ? "T" : "F")
-                << '\t' << counts[i]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
-                << '\t' << barcodeCount
-                << '\n';
-            f << v << (vsense ? '+' : '-')
-                << '\t' << u << (usense ? '+' : '-')
-                << '\t' << (counts[i] == max_counts ? "T" : "F")
-                << '\t' << counts[i]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
-                << '\t' << barcodeCount
-                << '\n';
-        }
+        unsigned count = it.second;
+        f << u.first << ':' << u.second
+            << '\t' << v.first << ':' << v.second
+            << '\t' << "T"
+            << '\t' << count
+            << '\t' << barcodes_per_segment[u]
+            << '\t' << barcodes_per_segment[v]
+            << '\t' << barcodeCount
+            << '\n';
     }
     assert_good(f, tsvFile);
 }
