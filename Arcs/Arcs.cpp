@@ -160,7 +160,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     int ct = 1; 
 
     std::string line;
-    int linecount = 0;
+    long long int linecount = 0;
 
     // Number of unpaired reads.
     size_t countUnpaired = 0;
@@ -542,10 +542,10 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
         std::cout << "      Deleting nodes with degree > " << params.max_degree <<"... \n";
         removeDegreeNodes(g, params.max_degree);
     } else {
-        std::cout << "      Max Degree (-d) set to: " << params.max_degree << ". Will not delete any verticies from graph.\n";
+        std::cout << "      Max Degree (-d) set to: " << params.max_degree << ". Will not delete any vertices from graph.\n";
     }
 
-    std::cout << "      Writting graph file to " << graphFile << "...\n";
+    std::cout << "      Writing graph file to " << graphFile << "...\n";
     writeGraph(graphFile, g);
 }
 
