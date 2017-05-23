@@ -6,6 +6,7 @@ Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data.
 * Boost (tested on 1.61)
 * GCC (tested on 4.4.7)
 * Autotools (if cloning directly from repository) 
+* LINKS (tested on 1.8)
 
 ### Compilation:
 If cloning directly from the repository run:
@@ -39,6 +40,17 @@ An example bash script on how to run the ARCS+LINKS pipeline can be found at: Ex
 
 you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt
 and compare your output to the files provided at: Examples/arcs_test-demo/output/ 
+
+### Citing ARCS
+
+Paper :
+https://doi.org/10.1101/100750
+
+
+LINKS :
+http://www.bcgsc.ca/platform/bioinfo/software/links
+https://github.com/warrenlr/LINKS
+
 
 ### License  
 
