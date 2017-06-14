@@ -19,9 +19,12 @@
 #include <time.h> 
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/graphviz.hpp>
-#include "Common/Uncompress.h"
+//#include "Common/Uncompress.h"
 #include "DataLayer/FastaReader.h"
 #include "DataLayer/FastaReader.cpp"
+#include "Common/ReadsProcessor.h"
+// using sparse hash maps for k-merization
+#include <google/sparse_hash_map>
 
 
 namespace ARCS {
@@ -31,10 +34,15 @@ namespace ARCS {
      */
     struct ArcsParams {
 
+	//int arcs_type; 
         std::string file;
-        std::string fofName;
-        int seq_id;
+        //std::string fofName;
+	std::string c_input;
+        //int seq_id;
         int min_reads;
+	int k_value;
+	int k_shift; 
+	double j_index; 
         int min_links;
         int min_size;
         std::string base_name;
@@ -45,15 +53,25 @@ namespace ARCS {
         float error_percent;
         int verbose;
 
-        ArcsParams() : file(), fofName(), seq_id(98), min_reads(5), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(10000), max_degree(0), end_length(0), error_percent(0.05), verbose(0) {}
+        ArcsParams() : /*arcs_type(0),*/ file(), /*fofName(),*/ c_input(), /*seq_id(98),*/ min_reads(5), k_value(30), k_shift(1), j_index(0.55), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(10000), max_degree(0), end_length(0), error_percent(0.05), verbose(0) {}
 
     };
+
+	typedef std::string Kmer; 
+
+    /* ContigKMap: <k-mer, pair(contig id, bool), hash<k-mer>, eqstr>
+     * 	k-mer = string sequence
+     *  contig id = string 
+     *  bool = True for Head; False for Tail
+     *  eqstr = equal key 
+     */ 
+	typedef google::sparse_hash_map<Kmer, int > ContigKMap; 
 
     /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
     typedef std::map<std::pair<std::string, bool>, int> ScafMap;
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
-    /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
+    /* PairMap: key = pair of scaf sequence id, value = num links*/
     typedef std::map<std::pair<std::string, std::string>, std::vector<int>> PairMap; 
 
     struct VertexProperties {
@@ -67,7 +85,7 @@ namespace ARCS {
         EdgeProperties(): orientation(0), weight(0) {}
     };
 
-	typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;
+    typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;
     typedef std::unordered_map<std::string, Graph::vertex_descriptor> VidVdesMap;
     typedef boost::graph_traits<ARCS::Graph>::vertex_descriptor VertexDes;
 }
