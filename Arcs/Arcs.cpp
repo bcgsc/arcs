@@ -1,4 +1,4 @@
-#include "Arcs_work.h"
+#include "Arcs.h"
 // for the inputted Fasta or Fastq file of contigs (if it is compressed with gzip)
 #include <zlib.h>
 #include "kseq.h"
@@ -131,6 +131,24 @@ void writePairMapToLog(ARCS::PairMap pmap) {
 		writeToLogFile("\t\t\tTail-Head " + std::to_string(it->second[2])); 
 		writeToLogFile("\t\t\tTail-Tail " + std::to_string(it->second[3]));
 	}
+}
+
+/* Track memory usage */
+int memory_usage() {
+	int mem = 0;
+	ifstream proc("/proc/self/status");
+	string s;
+	while (getline(proc, s), !proc.fail()) {
+		if (s.substr(0, 5) == "VmRSS") {
+			stringstream convert(
+					s.substr(s.find_last_of('\t'), s.find_last_of('k') - 1));
+			if (!(convert >> mem)) {
+				return 0;
+			}
+			return mem;
+		}
+	}
+	return mem;
 }
 
 /* Returns true if the barcode only contains ATGC */
@@ -975,6 +993,7 @@ void runArcs() {
     int16_t k_proc = params.k_value; 
     ReadsProcessor proc(k_proc);
 
+    std::cout << "Initial Memory Usage: " << memory_usage() << std::endl; 
 
     // Initialize the contigRecord
     time(&rawtime); 
@@ -982,13 +1001,16 @@ void runArcs() {
     writeToLogFile("\n=>Allocating the Contig Record... "); 
     int size = initContigArray(params.file); 
     std::vector<std::pair<std::string, bool>> contigRecord (size); 
+
+    std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 	
     // Read contig file, shred sequences into k-mers, and then map them 
     time(&rawtime); 
     std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime); 
     writeToLogFile("\n=>Storing Kmers from Contig ends... ");
     getContigKmers(params.file, kmap, proc, contigRecord); 
-	 
+
+    std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 
      /* Attempt to filter through chromium reads and remove not good barcodes first */
     time(&rawtime); 
@@ -1001,6 +1023,7 @@ void runArcs() {
     writeToLogFile("\n=>Reading Chromium FASTQ file... ");
     chromiumRead(params.c_input, kmap, imap, indexMultMap, proc, contigRecord); 
 
+    std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 
     time(&rawtime);
     std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
