@@ -344,15 +344,11 @@ const string ReadsProcessor::getBases(const unsigned char* c)
 //TODO: find some way of returning position where sequence k-mer is missing
 //TODO: NOT THREAD SAFE
 /* Prepares DNA sequence for insertion into bloom filter by:
- * - Turning all lower-case sequences to upper-case
+ * - Treats lower and upper case the same
  * - Also looks into reverse compliment version and returns consistently
  *   that which is smaller (convention used A<C<G<T, i.e. alphabetical)
- * - Converts input to empty string if any character other than ATCG is found
- * 		-use if(*currentSeq != 0)
- * - If sequence is palamdromic a char with only the first half recorded is used
- *   because that is all that is needed to uniquely identify the sequence
+ * - Returns NULL if k-mer not found
  * - m_kmerSize must be greater than 3 otherwise undefined behavior will occur
- * requires a start position
  */
 const unsigned char* ReadsProcessor::prepSeq(string const &sequence,
 		size_t position)
