@@ -17,6 +17,7 @@ public:
 	ReadsProcessor(unsigned windowSize);
 	const unsigned char* prepSeq(string const &sequence, size_t position);
 	const string getBases(const unsigned char* c); //for debuging purposes
+	const string getStr(const unsigned char* c);
 	virtual ~ReadsProcessor();
 private:
 	//so reallocation does not have to be done
