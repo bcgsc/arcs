@@ -365,8 +365,11 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 
 		// printprogress
 		if (params.verbose) {
-			if (totalNumContigs % 1000 == 0)
+			if (totalNumContigs % 1000 == 0) {
 				printf("Finished %d Contigs...\n", totalNumContigs); 
+				std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
+				std::cout << "Kmers so far: " << numkmersmapped << std::endl; 
+			}
 		} 
 	}	
 	kseq_destroy(seq); 
@@ -541,8 +544,10 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	while((l= kseq_read(seq2)) >= 0) {
 		count++; 
 		if (params.verbose) {
-			if (count % 1000000 == 0) 
+			if (count % 1000000 == 0) {
 				std::cout << "Processed " << count << " reads." << std::endl; 
+				std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
+			}
 		}
 
 		std::string name = seq2->name.s; 
