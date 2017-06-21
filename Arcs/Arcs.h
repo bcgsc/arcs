@@ -25,6 +25,7 @@
 #include "Common/ReadsProcessor.h"
 // using sparse hash maps for k-merization
 #include <google/sparse_hash_map>
+#include "city.h"
 
 
 namespace ARCS {
@@ -57,7 +58,16 @@ namespace ARCS {
 
     };
 
-	typedef std::string Kmer; 
+
+
+
+/* SIMPLIFYING VARIABLES: */
+    typedef const char* Kmer; 
+    typedef std::pair<std::string, bool> CI; 
+
+
+
+/* MAP DATA STRUCTURES: */
 
     /* ContigKMap: <k-mer, pair(contig id, bool), hash<k-mer>, eqstr>
      * 	k-mer = string sequence
@@ -65,14 +75,43 @@ namespace ARCS {
      *  bool = True for Head; False for Tail
      *  eqstr = equal key 
      */ 
-	typedef google::sparse_hash_map<Kmer, int > ContigKMap; 
+
+     // simple hash adapter for types without pointers
+     template<typename T> 
+     struct CityHasher {
+     size_t operator()(const T& t) const {
+             return CityHash64(t, sizeof(t));
+         }    
+     };
+
+     // specialization for strings
+     template<> 
+     struct CityHasher<std::string> {
+         size_t operator()(const string t) const {
+             return CityHash64(t.c_str(), t.size());
+         }    
+     };
+
+     struct eqstr
+     {
+       bool operator()(std::string s1, std::string s2) const
+       {
+         return (s1 == s2);
+       }
+     };
+
+    typedef google::sparse_hash_map<std::string, int, CityHasher<std::string>, eqstr > ContigKMap; 
 
     /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
-    typedef std::map<std::pair<std::string, bool>, int> ScafMap;
+    typedef std::map<CI, int> ScafMap;
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
     /* PairMap: key = pair of scaf sequence id, value = num links*/
     typedef std::map<std::pair<std::string, std::string>, std::vector<int>> PairMap; 
+
+
+
+/* GRAPH DATA STRUCTURES: */
 
     struct VertexProperties {
         std::string id;

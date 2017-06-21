@@ -46,6 +46,8 @@ static const char USAGE_MESSAGE[] =
 "   -v  Runs in verbose mode (optional, default: 0)\n";
 
 
+/* ARCS PREPARATION AKA GLOBAL VARIABLES: */
+
 ARCS::ArcsParams params;
 
 static const char shortopts[] = "f:h:s:c:k:g:j:l:z:b:m:d:e:r:v";
@@ -75,28 +77,12 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
-/* Writes things to a log file */
-void writeToLogFile(const std::string & text) {
-	std::string logfilename = params.base_name + ".log_file.txt";
-	std::ofstream log_file(
-		logfilename, std::ios_base::out | std::ios_base::app); 
-	log_file << text << std::endl; 
-}
+int numkmersmapped = 0, numkmersduplicate = 0; 
 
-/*
-void writeToKmerLogFile(const std::string & text) {
-	std::ofstream log_file(
-		"Arcs_log_file.txt", std::ios_base::out | std::ios_base::app); 
-	log_file << text << std::endl; 
-}
-*/
 
-void writeIndexMultToLog(std::unordered_map<std::string, int> indexMultMap) {
-	writeToLogFile("=>Index Multiplicity Map: "); 
-	for (auto it = indexMultMap.begin(); it != indexMultMap.end(); ++it) {
-		writeToLogFile(it->first + "  " + std::to_string(it->second)); 
-	}
-}
+
+
+/* HELPERS FOR CHECKING AND PRINTING: */
 
 std::string HeadOrTail(bool orientation) {
 	if (orientation) {
@@ -104,51 +90,6 @@ std::string HeadOrTail(bool orientation) {
 	} else {
 		return " Tail"; 
 	}
-}
-
-//typedef std::unordered_map<std::string, ScafMap> IndexMap; 
-//typedef std::map<std::pair<std::string, bool>, int> ScafMap;
-void writeImapToLog(ARCS::IndexMap IndexMap) {
-	writeToLogFile("=>Index Map: ");
-	for (auto it = IndexMap.begin(); it != IndexMap.end(); ++it) {
-		std::string barcode = it->first; 
-		writeToLogFile(barcode);
-		ARCS::ScafMap smap = it->second; 
-		for (auto j = smap.begin(); j != smap.end(); ++j) {
-			std::string contigname = j->first.first;
-			std::string orientation = HeadOrTail(j->first.second); 
-			writeToLogFile("    " + contigname + orientation + "     " + std::to_string(j->second)); 
-		}
-	}
-}
-
-void writePairMapToLog(ARCS::PairMap pmap) {
-	writeToLogFile("=>Pair Map: "); 
-	for (auto it = pmap.begin(); it != pmap.end(); ++it) {
-		writeToLogFile("\t" + it->first.first + " and " + it->first.second); 
-		writeToLogFile("\t\t\tHead-Head " + std::to_string(it->second[0])); 
-		writeToLogFile("\t\t\tHead-Tail " + std::to_string(it->second[1])); 
-		writeToLogFile("\t\t\tTail-Head " + std::to_string(it->second[2])); 
-		writeToLogFile("\t\t\tTail-Tail " + std::to_string(it->second[3]));
-	}
-}
-
-/* Track memory usage */
-int memory_usage() {
-	int mem = 0;
-	ifstream proc("/proc/self/status");
-	string s;
-	while (getline(proc, s), !proc.fail()) {
-		if (s.substr(0, 5) == "VmRSS") {
-			stringstream convert(
-					s.substr(s.find_last_of('\t'), s.find_last_of('k') - 1));
-			if (!(convert >> mem)) {
-				return 0;
-			}
-			return mem;
-		}
-	}
-	return mem;
 }
 
 /* Returns true if the barcode only contains ATGC */
@@ -204,6 +145,87 @@ static inline bool checkReadSequence(std::string seq) {
     return true;
 }
 
+
+
+
+
+/* WRITING TO LOG FILE FUNCTIONS: */
+
+/* Writes things to a log file */
+void writeToLogFile(const std::string & text) {
+	std::string logfilename = params.base_name + ".log_file.txt";
+	std::ofstream log_file(
+		logfilename, std::ios_base::out | std::ios_base::app); 
+	log_file << text << std::endl; 
+}
+
+/*
+void writeToKmerLogFile(const std::string & text) {
+	std::ofstream log_file(
+		"Arcs_log_file.txt", std::ios_base::out | std::ios_base::app); 
+	log_file << text << std::endl; 
+}
+*/
+
+void writeIndexMultToLog(std::unordered_map<std::string, int> indexMultMap) {
+	writeToLogFile("=>Index Multiplicity Map: "); 
+	for (auto it = indexMultMap.begin(); it != indexMultMap.end(); ++it) {
+		writeToLogFile(it->first + "  " + std::to_string(it->second)); 
+	}
+}
+
+//typedef std::unordered_map<std::string, ScafMap> IndexMap; 
+//typedef std::map<std::pair<std::string, bool>, int> ScafMap;
+void writeImapToLog(ARCS::IndexMap IndexMap) {
+	writeToLogFile("=>Index Map: ");
+	for (auto it = IndexMap.begin(); it != IndexMap.end(); ++it) {
+		std::string barcode = it->first; 
+		writeToLogFile(barcode);
+		ARCS::ScafMap smap = it->second; 
+		for (auto j = smap.begin(); j != smap.end(); ++j) {
+			std::string contigname = j->first.first;
+			std::string orientation = HeadOrTail(j->first.second); 
+			writeToLogFile("    " + contigname + orientation + "     " + std::to_string(j->second)); 
+		}
+	}
+}
+
+void writePairMapToLog(ARCS::PairMap pmap) {
+	writeToLogFile("=>Pair Map: "); 
+	for (auto it = pmap.begin(); it != pmap.end(); ++it) {
+		writeToLogFile("\t" + it->first.first + " and " + it->first.second); 
+		writeToLogFile("\t\t\tHead-Head " + std::to_string(it->second[0])); 
+		writeToLogFile("\t\t\tHead-Tail " + std::to_string(it->second[1])); 
+		writeToLogFile("\t\t\tTail-Head " + std::to_string(it->second[2])); 
+		writeToLogFile("\t\t\tTail-Tail " + std::to_string(it->second[3]));
+	}
+}
+
+/* Track memory usage */
+int memory_usage() {
+	int mem = 0;
+	ifstream proc("/proc/self/status");
+	string s;
+	while (getline(proc, s), !proc.fail()) {
+		if (s.substr(0, 5) == "VmRSS") {
+			stringstream convert(
+					s.substr(s.find_last_of('\t'), s.find_last_of('k') - 1));
+			if (!(convert >> mem)) {
+				return 0;
+			}
+			return mem;
+		}
+	}
+	return mem;
+}
+
+
+
+
+
+
+/* ARCS PROCESSES FUNCTIONS */
+
 /* Returns the size of the array for storing contigs */
 int initContigArray(std::string contigfile) {
 
@@ -225,11 +247,9 @@ int initContigArray(std::string contigfile) {
 	kseq_destroy(seq); 
 	gzclose(fp); 
 
-	//Let the first index represent the collision
+	//Let the first index represent the a null contig
 	return (count * 2) + 1; 
 }
-
-int numkmersmapped = 0, numkmersduplicate = 0; 
 
 /* Shreds end sequence into kmers and inputs them one by one into the ContigKMap 
  * 	std::pair<std::string, bool> 				specifies contigID and head/tail 
@@ -258,7 +278,10 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 			const unsigned char* temp = proc.prepSeq(seqToKmerize, i);  // prepSeq returns NULL if it contains an N
 			// Ignore a NULL kmer
 			if (temp != NULL) {
-				std::string kmerseq = proc.getBases(temp);
+				std::string kmerseq = proc.getStr(temp);
+				//const char* temp3 = temp2.c_str(); 
+				//const char* kmerseq = (const char*) temp;
+				//std::cout << temp2 << "\t\t|||\t\t" << temp3 << "\t\t|||\t\t" <<  kmerseq << std::endl; 
 
 				//writeToKmerLogFile(proc.getBases(temp)); 
 
@@ -267,14 +290,15 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 				if (kmap.count(kmerseq) == 1) {
 					numkmersduplicate++; 
 					if (kmap[kmerseq] == conreci) {
-						//std::string warningmsg = "kmer duplicate and not in same contigID: " + kmerseq;
+						//std::string warningmsg = "kmer duplicate and not in same contigID: " + proc.getBases(temp);
 						//writeToLogFile(warningmsg); 
+						writeToLogFile(proc.getBases(temp)); 
 						kmap[kmerseq] = 0; 
 	
 					}
 				} else {
 					assert(kmap.count(kmerseq) == 0); 
-					kmap[kmerseq] = conreci; 
+					kmap[kmerseq] = conreci;  
 					numkmersmapped++; 
 				}
 				i += k_shift; 	
@@ -292,14 +316,14 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
  *	int k							k-value (specified by user)
  */ 
 void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcessor &proc,
-			std::vector<std::pair<std::string, bool>> &contigRecord){
+			std::vector<ARCS::CI> &contigRecord){
 	
 	int totalNumContigs = 0; 
 	int skippedContigs = 0; 
 	int validContigs = 0; 
 	int totalKmers = 0; 
 
-	std::pair<std::string, bool> collisionmarker("null contig", false); 
+	ARCS::CI collisionmarker("null contig", false); 
 	int conreci = 0; 
 	contigRecord[conreci] = collisionmarker;
 
@@ -338,8 +362,8 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 					cutOff = sequence_length / 2; 
 	
 				// Arbitrarily assign head or tail to ends of the contig
-				std::pair<std::string, bool> headside(contigID, true); 
-				std::pair<std::string, bool> tailside(contigID, false); 
+				ARCS::CI headside(contigID, true); 
+				ARCS::CI tailside(contigID, false); 
 
 				//get ends of the sequence and put k-mers into the map
 				conreci++; 
@@ -400,6 +424,12 @@ void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, i
 	std::string chromiumfile = chromfile;
 	const char* filename = chromiumfile.c_str(); 
 	fp3 = gzopen(filename, "r"); 
+	if (fp3 == Z_NULL) {
+		cerr << "file " << filename << " cannot be opened" << endl; 
+		exit(1);
+	} else {
+		cerr << "Reading file " << filename << endl; 
+	}
 	kseq_t * seq3 = kseq_init(fp3); 
 	
 	int numreads = 0; 
@@ -435,6 +465,7 @@ void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, i
 
 	if (params.verbose) {
 		printf(msg.c_str()); 
+		std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 	}
 }
 
@@ -469,9 +500,8 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 	int i = 0; 
 	while (i <= seqlen-k) {
 		const unsigned char* temp = proc.prepSeq(readseq, i); 
-		if (temp != NULL) {
-
-			std::string ckmerseq = proc.getBases(temp); 
+		if (temp != NULL) { 
+			const char* ckmerseq = proc.getStr(temp).c_str(); 
  
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker */
 			if (kmap.count(ckmerseq) == 1) {
@@ -525,12 +555,13 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexMap& imap, 
 			     std::unordered_map<std::string, int> indexMultMap,
 			     ReadsProcessor &proc, 
-			     std::vector<std::pair<std::string, bool>> &contigRecord) {
+			     std::vector<ARCS::CI> &contigRecord) {
 
 	int ctpername = 1;
 	int skipped_unpaired = 0; 
 	int skipped_invalidbarcode = 0; 
 	int skipped_nogoodcontig = 0; 
+	//int barcodesrecorded = 0; 
 	std::string prevname; 
 	int prevConReci = 0; 
 
@@ -540,12 +571,19 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	int l; 
 	const char* filename = chromiumfile.c_str(); 
 	fp2 = gzopen(filename, "r"); 
+	if (fp2 == Z_NULL) {
+		cerr << "file " << filename << " cannot be opened" << endl; 
+		exit(1);
+	} else {
+		cerr << "Reading file " << filename << endl; 
+	}
 	kseq_t * seq2 = kseq_init(fp2); 
 	while((l= kseq_read(seq2)) >= 0) {
 		count++; 
 		if (params.verbose) {
 			if (count % 1000000 == 0) {
 				std::cout << "Processed " << count << " reads." << std::endl; 
+				//std::cout << "Stored: " << barcodesrecorded << "barcodes." << std::endl; 
 				std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 			}
 		}
@@ -600,7 +638,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				}
 	
 				int corrConReci = 0;
-				std::pair<std::string, bool> corrContigId;
+				ARCS::CI corrContigId;
 				if (ctpername >=3) 
 					ctpername = 1; 
 				if (ctpername == 1) {
@@ -679,10 +717,6 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	//writeImapToLog(imap); 
 
 }
-
-/* Track Memory Usage */
-
-			
 		
 /*
  * Check if SAM flag is one of the accepted ones.
@@ -1005,7 +1039,7 @@ void runArcs() {
     std::cout << "\n=>Allocating the Contig Record... " << ctime(&rawtime); 
     writeToLogFile("\n=>Allocating the Contig Record... "); 
     int size = initContigArray(params.file); 
-    std::vector<std::pair<std::string, bool>> contigRecord (size); 
+    std::vector<ARCS::CI> contigRecord (size); 
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 	
@@ -1017,7 +1051,7 @@ void runArcs() {
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 
-     /* Attempt to filter through chromium reads and remove not good barcodes first */
+    // Attempt to filter through chromium reads and remove not good barcodes first
     time(&rawtime); 
     std::cout << "\n=>Filtering Chromium FastQ file... " << ctime(&rawtime); 
     writeToLogFile("\n=>Filtering Chromium FastQ file... "); 
