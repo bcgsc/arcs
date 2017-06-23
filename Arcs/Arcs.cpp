@@ -156,7 +156,7 @@ void writeToLogFile(const std::string & text) {
 	std::string logfilename = params.base_name + ".log_file.txt";
 	std::ofstream log_file(
 		logfilename, std::ios_base::out | std::ios_base::app); 
-	log_file << text << std::endl; 
+	log_file << text << "\n"; 
 }
 
 /*
@@ -185,7 +185,7 @@ void writeImapToLog(ARCS::IndexMap IndexMap) {
 		for (auto j = smap.begin(); j != smap.end(); ++j) {
 			std::string contigname = j->first.first;
 			std::string orientation = HeadOrTail(j->first.second); 
-			writeToLogFile("    " + contigname + orientation + "     " + std::to_string(j->second)); 
+			writeToLogFile("    " + contigname + orientation + "     " + std::to_string(j->second) + "\n"); 
 		}
 	}
 }
@@ -193,11 +193,8 @@ void writeImapToLog(ARCS::IndexMap IndexMap) {
 void writePairMapToLog(ARCS::PairMap pmap) {
 	writeToLogFile("=>Pair Map: "); 
 	for (auto it = pmap.begin(); it != pmap.end(); ++it) {
-		writeToLogFile("\t" + it->first.first + " and " + it->first.second); 
-		writeToLogFile("\t\t\tHead-Head " + std::to_string(it->second[0])); 
-		writeToLogFile("\t\t\tHead-Tail " + std::to_string(it->second[1])); 
-		writeToLogFile("\t\t\tTail-Head " + std::to_string(it->second[2])); 
-		writeToLogFile("\t\t\tTail-Tail " + std::to_string(it->second[3]));
+		writeToLogFile("\t" + it->first.first + " and " + it->first.second + "\n\t\t\tHead-Head " + std::to_string(it->second[0]) + "\n\t\t\tHead-Tail " + std::to_string(it->second[1])
+				+ "\n\t\t\tTail-Head " + std::to_string(it->second[2]) + "\n\t\t\tTail-Tail " + std::to_string(it->second[3]));
 	}
 }
 
@@ -464,7 +461,7 @@ void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, i
 	//writeToLogFile(msg); 
 
 	if (params.verbose) {
-		printf(msg.c_str()); 
+		printf("%s\n", msg.c_str()); 
 		std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 	}
 }
@@ -545,8 +542,8 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 	} else {
 		/*if (params.verbose) {
 			printf("%s %f\n", "Jaccard Index lower than threshold: ", maxjaccardindex); 
-		}
-		writeToLogFile("Low jaccard index = " + std::to_string(maxjaccardindex)); */
+		}*/
+		//writeToLogFile("Low jaccard index = " + std::to_string(maxjaccardindex));
 		return 0; 
 	}
 }
@@ -616,6 +613,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
          	int indexMult = indexMultMap[barcode]; 
        		if (indexMult < params.min_mult || indexMult > params.max_mult) {
 			//writeToLogFile("Skipped Kmerization of barcode: " + barcode + " because not a good barcode."); 
+			printf("Skipped Kmerization of barcode: %s because not a good barcode.\n", barcode.c_str()); 
 			skipped_invalidbarcode++; 
 			ctpername = 1; 
 		} else {		
@@ -623,16 +621,18 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			std::string cread = seq2->seq.s; 
 
 			if (!checkReadSequence(cread)) {
-				/*std::string errmsg = "Warning: Skipped poor quality read: "
-							+ name ;
-				std::cerr << errmsg << std::endl; 
+				std::string errmsg = "Warning: Skipped poor quality read: "
+							+ name;
+				/*std::cerr << errmsg << std::endl; 
 				writeToLogFile(errmsg); */
+				printf("%s\n", errmsg.c_str()); 
 			} else {
 				// Checks that it is a read pair
 				if (ctpername == 2 && name != prevname) {
 					skipped_unpaired ++; 
-					//std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
-					//writeToLogFile(warningmsg); 				
+					std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
+					//writeToLogFile(warningmsg); 	
+					printf("%s\n", warningmsg.c_str()); 			
 				
 					// reset count
 					ctpername = 1; 
@@ -650,9 +650,12 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 						corrConReci = bestContig(kmap, cread, params.k_value, params.k_shift,
 										params.j_index, proc); 
 
-						/*std::string ht = HeadOrTail(corrContigId.second); 
+						//std::string ht = HeadOrTail(corrContigId.second); 
 						//std::cout << ht << std::endl; 
-						writeToLogFile("-->Best contig for read1: " + corrContigId.first + ht); */
+						//writeToLogFile("-->Best contig for read1: " + corrContigId.first + ht); 
+						
+						/*if (params.verbose)
+							printf("-->Best contig for read1: " + corrContigId.first + ht); */
 						
 						// store the corrContigId so that we can match it with its pair	
 						// 	if corrContigId was not chosen, it will still set prevContig to NULL
@@ -677,6 +680,9 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 						/*writeToLogFile("barcode: " + barcode + "\tContigID: "
 								+ corrContigId.first + ht + "	"
 								+ std::to_string(imap[barcode][corrContigId])); */
+
+						if (params.verbose) 
+							printf("barcode: %s\tContigID: %s %s \t%d\n", barcode.c_str(), corrContigId.first.c_str(), ht.c_str(), imap[barcode][corrContigId]);
 					} else {
 						//writeToLogFile("No contig match for barcode."); 
 						skipped_nogoodcontig++; 
@@ -715,7 +721,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 
 	//fordebugging
 	//writeIndexMultToLog(indexMultMap);
-	//writeImapToLog(imap); 
+	writeImapToLog(imap); 
 
 }
 		
