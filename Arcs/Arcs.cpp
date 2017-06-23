@@ -292,7 +292,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 					if (kmap[kmerseq] == conreci) {
 						//std::string warningmsg = "kmer duplicate and not in same contigID: " + proc.getBases(temp);
 						//writeToLogFile(warningmsg); 
-						writeToLogFile(proc.getBases(temp)); 
+						//writeToLogFile(proc.getBases(temp)); 
 						kmap[kmerseq] = 0; 
 	
 					}
@@ -345,7 +345,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 			if (params.verbose) {
 				std::cerr << contigID << ": " << errormsg << std::endl; 
 			}
-			writeToLogFile(contigID + ": " + errormsg); 
+			//writeToLogFile(contigID + ": " + errormsg); 
 			skippedContigs++; 
 		} else {
 
@@ -409,12 +409,12 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 			"Number Duplicate Kmers (recorded by appearance): ", numkmersduplicate); 
 	}
 
-	writeToLogFile("Total number of contigs in draft genome: " + std::to_string(totalNumContigs)
+	/*writeToLogFile("Total number of contigs in draft genome: " + std::to_string(totalNumContigs)
 			 + "\nTotal valid contigs: " + std::to_string(validContigs)
 			 + "\nTotal skipped contigs: " + std::to_string(skippedContigs)
 			 + "\nTotal number of Kmers: " + std::to_string(totalKmers)
 			 + "\nNumber Kmers Recorded: " + std::to_string(numkmersmapped)
-			 + "\nNumber Duplicate Kmers (recorded by appearance): " + std::to_string(numkmersduplicate)); 
+			 + "\nNumber Duplicate Kmers (recorded by appearance): " + std::to_string(numkmersduplicate)); */
 
 }
 
@@ -461,7 +461,7 @@ void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, i
 	gzclose(fp3); 
 
 	std::string msg = "Total Number of Reads in Chromium File: " + std::to_string(numreads) + "\nNumber of Reads that have Valid Barcodes: " + std::to_string(numreadskept); 
-	writeToLogFile(msg); 
+	//writeToLogFile(msg); 
 
 	if (params.verbose) {
 		printf(msg.c_str()); 
@@ -515,9 +515,9 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 		i += k_shift; 
 	}
 
-	std::string msg = "Total Number of Kmers from read: " + std::to_string(totalnumkmers)
-			 + "\nNumber of kmers found in draft genome: " + std::to_string(numkmersfound); 
-	writeToLogFile(msg); 
+	/*std::string msg = "Total Number of Kmers from read: " + std::to_string(totalnumkmers)
+			 + "\nNumber of kmers found in draft genome: " + std::to_string(numkmersfound); */
+	//writeToLogFile(msg); 
 
 	/*if (params.verbose) {
 		printf("%s\n", msg.c_str()); 
@@ -577,11 +577,12 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	} else {
 		cerr << "Reading file " << filename << endl; 
 	}
-	kseq_t * seq2 = kseq_init(fp2); 
+	kseq_t * seq2 = kseq_init(fp2);
 	while((l= kseq_read(seq2)) >= 0) {
-		count++; 
+		count++;
+
 		if (params.verbose) {
-			if (count % 1000000 == 0) {
+			if (count % 100000 == 0) {
 				std::cout << "Processed " << count << " reads." << std::endl; 
 				//std::cout << "Stored: " << barcodesrecorded << "barcodes." << std::endl; 
 				std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
@@ -611,10 +612,10 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			std::cout << "\t\t" << barcode << std::endl; 
 		}*/
 
-		writeToLogFile(name + "\t" + barcode); 
+		//writeToLogFile(name + "\t" + barcode); 
          	int indexMult = indexMultMap[barcode]; 
        		if (indexMult < params.min_mult || indexMult > params.max_mult) {
-			writeToLogFile("Skipped Kmerization of barcode: " + barcode + " because not a good barcode."); 
+			//writeToLogFile("Skipped Kmerization of barcode: " + barcode + " because not a good barcode."); 
 			skipped_invalidbarcode++; 
 			ctpername = 1; 
 		} else {		
@@ -630,8 +631,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				// Checks that it is a read pair
 				if (ctpername == 2 && name != prevname) {
 					skipped_unpaired ++; 
-					/*std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
-					writeToLogFile(warningmsg); */				
+					//std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
+					//writeToLogFile(warningmsg); 				
 				
 					// reset count
 					ctpername = 1; 
@@ -673,11 +674,11 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 						corrContigId = contigRecord[corrConReci]; 
 						imap[barcode][corrContigId]++; 
 						std::string ht = HeadOrTail(corrContigId.second);
-						writeToLogFile("barcode: " + barcode + "\tContigID: "
+						/*writeToLogFile("barcode: " + barcode + "\tContigID: "
 								+ corrContigId.first + ht + "	"
-								+ std::to_string(imap[barcode][corrContigId])); 
+								+ std::to_string(imap[barcode][corrContigId])); */
 					} else {
-						writeToLogFile("No contig match for barcode."); 
+						//writeToLogFile("No contig match for barcode."); 
 						skipped_nogoodcontig++; 
 					}
 		
@@ -688,7 +689,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				ctpername++;
 			} 
 		}
-		writeToLogFile("\n"); 
+		//writeToLogFile("\n"); 
 
 	}
 	kseq_destroy(seq2); 
@@ -708,9 +709,9 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			printf("%s %d\n", "Skipped reads without good match: ", skipped_nogoodcontig);
 	}
 
-	writeToLogFile("Skipped: " + std::to_string(skipped_unpaired + skipped_invalidbarcode) + " unpaired reads." + 
+	/*writeToLogFile("Skipped: " + std::to_string(skipped_unpaired + skipped_invalidbarcode) + " unpaired reads." + 
 			"\nSkipped: " + std::to_string(skipped_invalidbarcode) + " invalid barcode reads." + 
-			"\nSkipped: " + std::to_string(skipped_nogoodcontig) + " reads without good match"); 
+			"\nSkipped: " + std::to_string(skipped_nogoodcontig) + " reads without good match"); */
 
 	//fordebugging
 	//writeIndexMultToLog(indexMultMap);
@@ -1012,7 +1013,7 @@ void runArcs() {
 			+ std::to_string(params.max_mult) + "\nmax degree: " 
 			+ std::to_string(params.max_degree) + "\ncontig end length: " 
 			+ std::to_string(params.end_length) + "\nerror percentage: " + std::to_string(params.error_percent); 
-    writeToLogFile(parametertext); 
+    //writeToLogFile(parametertext); 
 
     std::string graphFile = params.base_name + "_original.gv";
 
@@ -1037,16 +1038,16 @@ void runArcs() {
     // Initialize the contigRecord
     time(&rawtime); 
     std::cout << "\n=>Allocating the Contig Record... " << ctime(&rawtime); 
-    writeToLogFile("\n=>Allocating the Contig Record... "); 
+    //writeToLogFile("\n=>Allocating the Contig Record... "); 
     int size = initContigArray(params.file); 
-    std::vector<ARCS::CI> contigRecord (size); 
+    std::vector<ARCS::CI> contigRecord (size);
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 	
     // Read contig file, shred sequences into k-mers, and then map them 
     time(&rawtime); 
     std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime); 
-    writeToLogFile("\n=>Storing Kmers from Contig ends... ");
+    //writeToLogFile("\n=>Storing Kmers from Contig ends... ");
     getContigKmers(params.file, kmap, proc, contigRecord); 
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
@@ -1054,12 +1055,12 @@ void runArcs() {
     // Attempt to filter through chromium reads and remove not good barcodes first
     time(&rawtime); 
     std::cout << "\n=>Filtering Chromium FastQ file... " << ctime(&rawtime); 
-    writeToLogFile("\n=>Filtering Chromium FastQ file... "); 
+    //writeToLogFile("\n=>Filtering Chromium FastQ file... "); 
     filterChromiumFile(params.c_input, indexMultMap); 
 
     time(&rawtime); 
     std::cout << "\n=>Reading Chromium FASTQ file... " << ctime(&rawtime); 
-    writeToLogFile("\n=>Reading Chromium FASTQ file... ");
+    //writeToLogFile("\n=>Reading Chromium FASTQ file... ");
     chromiumRead(params.c_input, kmap, imap, indexMultMap, proc, contigRecord); 
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
