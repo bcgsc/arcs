@@ -1,6 +1,7 @@
 SUBDIRS = \
 	Common \
 	DataLayer \
+	Tests \
 	Arcs
 
 dist_doc_DATA = \
