@@ -20,20 +20,11 @@ static const char VERSION_MESSAGE[] =
 
 static const char USAGE_MESSAGE[] =
 "Usage: [" PROGRAM " " VERSION "]\n"
-// -p tells us if we are using read alignment method (preprocessed input with bwa) or we are using kmer (no preprocessing)
-//"   -p  If 0 then use read alignment; If 1 then use kmer (so default is 0)\n"
 "   -f  Using kseq parser, these are the contig sequences to further scaffold and can be in either FASTA or FASTQ format.\n"
 "		If using read alignment option, then must be Multi-Fasta format\n"
-/*"   -a  File of File Names listing all input BAM alignment files (required if you are using read alignment option). \n"
-"       NOTE: alignments must be sorted in order of name\n"
-"             index must be included in read name in the format read1_indexA\n" */
-// use -h if we are using the k-merizing method rather than read alignment
 "   -h  Chromium read file (output from longranger) (required if using k-mer option)\n"
-//"   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 98)\n"
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
-// add k-value required by the user
 "   -k  k-value for the size of a k-mer. (default: 30) (required)\n"
-// add shift between k-mers (optional supplied by user)
 "   -g  shift between k-mers (default: 1)\n"
 "   -j  Minimum Jaccard Index for a read to be associated with a contigId. (default: 0.55)\n"
 "   -l  Minimum number of links to create edge in graph (default: 0)\n"
@@ -77,9 +68,11 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
-int numkmersmapped = 0, numkmersduplicate = 0; 
+int numkmersmapped = 0, numkmercollisions = 0, numkmersremdup = 0, numbadkmers = 0; 
 
-
+int totalnumckmers = 0, ckmersasdups = 0, numckmersfound = 0, numckmersrec = 0, numbadckmers = 0; 
+ 
+int numreadspassingjaccard = 0, numreadsfailjaccard = 0; 
 
 
 /* HELPERS FOR CHECKING AND PRINTING: */
@@ -121,6 +114,8 @@ static inline bool checkContigSequence(std::string seq) {
 
 /* Returns true if seqence only contains ATGC or N
  * 	Allows only if 0.98 of the read is not ambiguous (aka not N) 
+ *
+ *	TODO: Allow ambiguity to be a user defined parameter
  */
 static inline bool checkReadSequence(std::string seq) {
 
@@ -168,34 +163,56 @@ void writeToKmerLogFile(const std::string & text) {
 */
 
 void writeIndexMultToLog(std::unordered_map<std::string, int> indexMultMap) {
-	writeToLogFile("=>Index Multiplicity Map: "); 
+	std::string msg = "=>Index Multiplicity Map:\n";
 	for (auto it = indexMultMap.begin(); it != indexMultMap.end(); ++it) {
-		writeToLogFile(it->first + "  " + std::to_string(it->second)); 
+		msg += it->first; 
+		msg += "\t"; 
+		msg += it->second;
+		msg += "\n"; 
 	}
+	writeToLogFile(msg); 
 }
 
 //typedef std::unordered_map<std::string, ScafMap> IndexMap; 
 //typedef std::map<std::pair<std::string, bool>, int> ScafMap;
 void writeImapToLog(ARCS::IndexMap IndexMap) {
-	writeToLogFile("=>Index Map: ");
+	std::string msg = "=>Index Map:\n";
 	for (auto it = IndexMap.begin(); it != IndexMap.end(); ++it) {
-		std::string barcode = it->first; 
-		writeToLogFile(barcode);
+		msg += it->first; 
+		msg += "\n"; 
 		ARCS::ScafMap smap = it->second; 
 		for (auto j = smap.begin(); j != smap.end(); ++j) {
-			std::string contigname = j->first.first;
+			msg += "\t"; 
+			msg += j->first.first; 
 			std::string orientation = HeadOrTail(j->first.second); 
-			writeToLogFile("    " + contigname + orientation + "     " + std::to_string(j->second) + "\n"); 
+			msg += " "; 
+			msg += orientation; 
+			msg += "\t"; 
+			msg += std::to_string(j->second); 
+			msg += "\n"; 
 		}
 	}
+	writeToLogFile(msg); 
 }
 
 void writePairMapToLog(ARCS::PairMap pmap) {
-	writeToLogFile("=>Pair Map: "); 
+	std::string msg = "=>Pair Map:\n"; 
 	for (auto it = pmap.begin(); it != pmap.end(); ++it) {
-		writeToLogFile("\t" + it->first.first + " and " + it->first.second + "\n\t\t\tHead-Head " + std::to_string(it->second[0]) + "\n\t\t\tHead-Tail " + std::to_string(it->second[1])
-				+ "\n\t\t\tTail-Head " + std::to_string(it->second[2]) + "\n\t\t\tTail-Tail " + std::to_string(it->second[3]));
+		msg += "\t"; 
+		msg += it->first.first; 
+		msg += " and"; 
+		msg += it->first.second; 
+		msg += "\n\t\t\tHead-Head "; 
+		msg += it->second[0];
+		msg += "\n\t\t\tHead-Tail ";
+		msg += it->second[1];
+		msg += "\n\t\t\tTail-Head ";
+		msg += it->second[2];
+		msg += "\n\t\t\tTail-Tail "; 
+		msg += it->second[3];
+		msg += "\n";
 	}
+	writeToLogFile(msg); 
 }
 
 /* Track memory usage */
@@ -244,6 +261,10 @@ int initContigArray(std::string contigfile) {
 	kseq_destroy(seq); 
 	gzclose(fp); 
 
+	if (params.verbose) {
+		printf("Number of contigs: %d\nSize of Contig Array: %d\n", count, (count*2)+1); 
+	}
+
 	//Let the first index represent the a null contig
 	return (count * 2) + 1; 
 }
@@ -260,7 +281,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 	int seqsize = seqToKmerize.length();  
 
 	// Checks if length of the subsequence is smaller than the k size
-	// 	If the contig end is shorter than the k-value, then we ignore it for now. 
+	// 	If the contig end is shorter than the k-value, then we ignore. 
 	if (seqsize < k) {
 		std::string errmsg = "Warning: ends of contig is shorter than k-value for contigID (no k-mers added): ";
 		std::cout << errmsg << conreci << std::endl; 
@@ -273,23 +294,17 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 		int i = 0; 
 		while (i <= seqsize - k) {
 			const unsigned char* temp = proc.prepSeq(seqToKmerize, i);  // prepSeq returns NULL if it contains an N
+
 			// Ignore a NULL kmer
 			if (temp != NULL) {
 				std::string kmerseq = proc.getStr(temp);
-				//const char* temp3 = temp2.c_str(); 
-				//const char* kmerseq = (const char*) temp;
-				//std::cout << temp2 << "\t\t|||\t\t" << temp3 << "\t\t|||\t\t" <<  kmerseq << std::endl; 
-
-				//writeToKmerLogFile(proc.getBases(temp)); 
 
 				numKmers++; 
 
 				if (kmap.count(kmerseq) == 1) {
-					numkmersduplicate++; 
-					if (kmap[kmerseq] == conreci) {
-						//std::string warningmsg = "kmer duplicate and not in same contigID: " + proc.getBases(temp);
-						//writeToLogFile(warningmsg); 
-						//writeToLogFile(proc.getBases(temp)); 
+					numkmercollisions++; 
+					if (kmap[kmerseq] != conreci) {
+						numkmersremdup++; 
 						kmap[kmerseq] = 0; 
 	
 					}
@@ -301,6 +316,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 				i += k_shift; 	
 			} else {
 				i += k; 
+				numbadkmers++; 
 			}
 		}
 		return numKmers; 
@@ -321,7 +337,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 	int totalKmers = 0; 
 
 	ARCS::CI collisionmarker("null contig", false); 
-	int conreci = 0; 
+	int conreci = 0; 					// 0 is the null contig so we will later increment before adding
 	contigRecord[conreci] = collisionmarker;
 
 	gzFile fp;  
@@ -342,7 +358,6 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 			if (params.verbose) {
 				std::cerr << contigID << ": " << errormsg << std::endl; 
 			}
-			//writeToLogFile(contigID + ": " + errormsg); 
 			skippedContigs++; 
 		} else {
 
@@ -397,22 +412,16 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 	gzclose(fp); 
 
 	if (params.verbose) {
-		printf("%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n", 
+		printf("%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n", 
 			"Total number of contigs in draft genome: ", totalNumContigs,
 			"Total valid contigs: ", validContigs,  
 			"Total skipped contigs: ", skippedContigs, 
 			"Total number of Kmers: ", totalKmers, 
+			"Number Null Kmers: ", numbadkmers, 
 			"Number Kmers Recorded: ", numkmersmapped, 
-			"Number Duplicate Kmers (recorded by appearance): ", numkmersduplicate); 
+			"Number Kmer Collisions: ", numkmercollisions, 
+			"Number Times Kmers Removed (since duplicate in different contig):", numkmersremdup); 
 	}
-
-	/*writeToLogFile("Total number of contigs in draft genome: " + std::to_string(totalNumContigs)
-			 + "\nTotal valid contigs: " + std::to_string(validContigs)
-			 + "\nTotal skipped contigs: " + std::to_string(skippedContigs)
-			 + "\nTotal number of Kmers: " + std::to_string(totalKmers)
-			 + "\nNumber Kmers Recorded: " + std::to_string(numkmersmapped)
-			 + "\nNumber Duplicate Kmers (recorded by appearance): " + std::to_string(numkmersduplicate)); */
-
 }
 
 void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, int>& indexMultMap) {
@@ -458,7 +467,6 @@ void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, i
 	gzclose(fp3); 
 
 	std::string msg = "Total Number of Reads in Chromium File: " + std::to_string(numreads) + "\nNumber of Reads that have Valid Barcodes: " + std::to_string(numreadskept); 
-	//writeToLogFile(msg); 
 
 	if (params.verbose) {
 		printf("%s\n", msg.c_str()); 
@@ -471,6 +479,7 @@ void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, i
 static inline double calcJacIndex(int smallCount, int overallCount) {
 	return (double) smallCount / (double) overallCount; 
 }
+
 
 /* Returns best corresponding contig from read through kmers
  * 	ARCS::ContigKMap			tells me what kmers correspond to which contig
@@ -489,10 +498,13 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 	std::map<int, int> ktrack; 
 
 	// k-merize readsequence
-	int corrConReci = 0;
-	int totalnumkmers = 0; 
-	int numkmersfound = 0;
+	int corrConReci = 0;;
 	int seqlen = readseq.length(); 
+
+	int totalnumkmers = 0; 
+	int kmerdups = 0;
+	int kmerfound = 0; 
+	int kmerstore = 0; 
 
 	int i = 0; 
 	while (i <= seqlen-k) {
@@ -500,50 +512,51 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 		if (temp != NULL) { 
 			const char* ckmerseq = proc.getStr(temp).c_str(); 
  
+			totalnumckmers++;
+
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker */
 			if (kmap.count(ckmerseq) == 1) {
+				kmerfound++; 
+				numckmersfound++; 
 				corrConReci = kmap[ckmerseq]; 
-				if (corrConReci != 0)
+				if (corrConReci != 0) {
+					std::cout << proc.getBases(temp) <<std::endl; 
 					ktrack[corrConReci]++; 
-				numkmersfound++; 
+					kmerstore++; 
+					numckmersrec++; 
+				} else {
+					ckmersasdups++; 
+					kmerdups++;
+				}
+			} else {
+				//std::cout << proc.getBases(temp) << std::endl; 
 			}
+		} else {
+			numbadckmers++; 
 		}
-		totalnumkmers++;
+		totalnumkmers++; 
 		i += k_shift; 
 	}
-
-	/*std::string msg = "Total Number of Kmers from read: " + std::to_string(totalnumkmers)
-			 + "\nNumber of kmers found in draft genome: " + std::to_string(numkmersfound); */
-	//writeToLogFile(msg); 
-
-	/*if (params.verbose) {
-		printf("%s\n", msg.c_str()); 
-	}*/
 	
 	double maxjaccardindex = 0; 
 	// for the read, find the contig that it is most compatible with based on the jaccard index
 	for (auto it = ktrack.begin(); it != ktrack.end(); ++it) {
 		double currjaccardindex = calcJacIndex(it->second, totalnumkmers); 
+		printf("C:%d #:%d %f\n", it->first, it->second, currjaccardindex); 
 		if (maxjaccardindex < currjaccardindex){
 			maxjaccardindex = currjaccardindex; 
 			corrConReci = it->first; 
 		}
 	}
 
+	printf("total: %d number at best: %d jaccard index: %f dups: %d kmerfound: %d kmerstore: %d\n", totalnumkmers, ktrack[corrConReci], maxjaccardindex, kmerdups, kmerfound, kmerstore); 
+
 	// default accuracythreshold is 0.55)
-	if (maxjaccardindex >= j_index) {
-		/*if (params.verbose) {
-			std::string ht = HeadOrTail(corrContigId.second); 
-			printf("%s %s %s\n%s %f\n", "Corresponding contig: ", corrContigId.first.c_str(), ht.c_str(), 
-				"Jaccard Index higher than threshold: ", maxjaccardindex);
-		}*/
-		//writeToLogFile("Best jaccard index = " + std::to_string(maxjaccardindex)); 
+	if (maxjaccardindex > j_index) {
+		numreadspassingjaccard++; 
 		return corrConReci; 
 	} else {
-		/*if (params.verbose) {
-			printf("%s %f\n", "Jaccard Index lower than threshold: ", maxjaccardindex); 
-		}*/
-		//writeToLogFile("Low jaccard index = " + std::to_string(maxjaccardindex));
+		numreadsfailjaccard++; 
 		return 0; 
 	}
 }
@@ -555,10 +568,10 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			     std::vector<ARCS::CI> &contigRecord) {
 
 	int ctpername = 1;
+	int stored_readpairs = 0;
 	int skipped_unpaired = 0; 
 	int skipped_invalidbarcode = 0; 
 	int skipped_nogoodcontig = 0; 
-	//int barcodesrecorded = 0; 
 	std::string prevname; 
 	int prevConReci = 0; 
 
@@ -581,15 +594,11 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 		if (params.verbose) {
 			if (count % 100000 == 0) {
 				std::cout << "Processed " << count << " reads." << std::endl; 
-				//std::cout << "Stored: " << barcodesrecorded << "barcodes." << std::endl; 
 				std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 			}
 		}
 
 		std::string name = seq2->name.s; 
-		/*if (params.verbose) {
-			std::cout << name << std::endl; 
-		}*/
 		std::string comment = ""; 
 		std::string barcode = ""; 
 		if (seq2->comment.l) {
@@ -604,16 +613,10 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				}
 			}	
 		}
-	
-		/*if (params.verbose) {
-			std::cout << "\t\t" << barcode << std::endl; 
-		}*/
 
-		//writeToLogFile(name + "\t" + barcode); 
          	int indexMult = indexMultMap[barcode]; 
        		if (indexMult < params.min_mult || indexMult > params.max_mult) {
-			//writeToLogFile("Skipped Kmerization of barcode: " + barcode + " because not a good barcode."); 
-			printf("Skipped Kmerization of barcode: %s because not a good barcode.\n", barcode.c_str()); 
+			printf("Skipped Kmerization of read %s barcode %s because barcode not in multiplicity range or bad barcode.\n", name.c_str(), barcode.c_str()); 
 			skipped_invalidbarcode++; 
 			ctpername = 1; 
 		} else {		
@@ -621,17 +624,13 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			std::string cread = seq2->seq.s; 
 
 			if (!checkReadSequence(cread)) {
-				std::string errmsg = "Warning: Skipped poor quality read: "
-							+ name;
-				/*std::cerr << errmsg << std::endl; 
-				writeToLogFile(errmsg); */
+				std::string errmsg = "Warning: Skipped poor quality read: " + name;
 				printf("%s\n", errmsg.c_str()); 
 			} else {
 				// Checks that it is a read pair
 				if (ctpername == 2 && name != prevname) {
 					skipped_unpaired ++; 
 					std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
-					//writeToLogFile(warningmsg); 	
 					printf("%s\n", warningmsg.c_str()); 			
 				
 					// reset count
@@ -650,15 +649,6 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 						corrConReci = bestContig(kmap, cread, params.k_value, params.k_shift,
 										params.j_index, proc); 
 
-						//std::string ht = HeadOrTail(corrContigId.second); 
-						//std::cout << ht << std::endl; 
-						//writeToLogFile("-->Best contig for read1: " + corrContigId.first + ht); 
-						
-						/*if (params.verbose)
-							printf("-->Best contig for read1: " + corrContigId.first + ht); */
-						
-						// store the corrContigId so that we can match it with its pair	
-						// 	if corrContigId was not chosen, it will still set prevContig to NULL
 						prevConReci = corrConReci; 
 					} else {
 						prevname = ""; 
@@ -676,15 +666,15 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 					if (corrConReci != 0 && corrConReci == prevConReci) {
 						corrContigId = contigRecord[corrConReci]; 
 						imap[barcode][corrContigId]++; 
-						std::string ht = HeadOrTail(corrContigId.second);
-						/*writeToLogFile("barcode: " + barcode + "\tContigID: "
-								+ corrContigId.first + ht + "	"
-								+ std::to_string(imap[barcode][corrContigId])); */
 
+						stored_readpairs++; 
+
+						std::string ht = HeadOrTail(corrContigId.second);
 						if (params.verbose) 
 							printf("barcode: %s\tContigID: %s %s \t%d\n", barcode.c_str(), corrContigId.first.c_str(), ht.c_str(), imap[barcode][corrContigId]);
 					} else {
-						//writeToLogFile("No contig match for barcode."); 
+						if (params.verbose)
+							printf("No Good Contig -- previous read: %s %d current read: %s %d\n", prevname.c_str(), prevConReci, name.c_str(), corrConReci);  
 						skipped_nogoodcontig++; 
 					}
 		
@@ -695,32 +685,17 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				ctpername++;
 			} 
 		}
-		//writeToLogFile("\n"); 
-
 	}
 	kseq_destroy(seq2); 
 	gzclose(fp2); 
 
-
-	if (skipped_unpaired > 0) {
-		std::cerr << "Warning:: Skipped: " << skipped_unpaired << " unpaired reads. Check your input file." << std::endl; 
-	}
-
-	if (skipped_invalidbarcode > 0) {
-		std::cerr << "Warning:: Skipped: " << skipped_invalidbarcode << " invalid barcode reads. Check your input file." << std::endl; 
-	}
-
 	if (params.verbose) {
-		if (skipped_nogoodcontig > 0)
-			printf("%s %d\n", "Skipped reads without good match: ", skipped_nogoodcontig);
+		printf("Stored read pairs: %d\nSkipped reads with invalid barcodes: %d\nSkipped unpaired reads: %d\nSkipped reads pairs without a good contig: %d\n", 
+			 stored_readpairs, skipped_invalidbarcode, skipped_unpaired, skipped_nogoodcontig);
+		printf("Total valid kmers: %d\nNumber invalid kmers: %d\nNumber of kmers found in ContigKmap: %d\nNumber of kmers recorded in Ktrack: %d\nNumber of kmers found in ContigKmap but duplicate: %d\nNumber of reads passing jaccard threshold: %d\nNumber of reads failing jaccard threshold: %d\n", totalnumckmers, numbadckmers, numckmersfound, numckmersrec, ckmersasdups, numreadspassingjaccard, numreadsfailjaccard); 
 	}
 
-	/*writeToLogFile("Skipped: " + std::to_string(skipped_unpaired + skipped_invalidbarcode) + " unpaired reads." + 
-			"\nSkipped: " + std::to_string(skipped_invalidbarcode) + " invalid barcode reads." + 
-			"\nSkipped: " + std::to_string(skipped_nogoodcontig) + " reads without good match"); */
 
-	//fordebugging
-	//writeIndexMultToLog(indexMultMap);
 	writeImapToLog(imap); 
 
 }
