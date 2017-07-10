@@ -68,11 +68,11 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
-int numkmersmapped = 0, numkmercollisions = 0, numkmersremdup = 0, numbadkmers = 0; 
+unsigned int numkmersmapped = 0, numkmercollisions = 0, numkmersremdup = 0, numbadkmers = 0, uniquedraftkmers = 0; 
 
-int totalnumckmers = 0, ckmersasdups = 0, numckmersfound = 0, numckmersrec = 0, numbadckmers = 0; 
+unsigned int totalnumckmers = 0, ckmersasdups = 0, numckmersfound = 0, numckmersrec = 0, numbadckmers = 0; 
  
-int numreadspassingjaccard = 0, numreadsfailjaccard = 0; 
+unsigned int numreadspassingjaccard = 0, numreadsfailjaccard = 0; 
 
 
 /* HELPERS FOR CHECKING AND PRINTING: */
@@ -305,12 +305,18 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 					numkmercollisions++; 
 					if (kmap[kmerseq] != conreci) {
 						numkmersremdup++; 
-						kmap[kmerseq] = 0; 
+						if (kmap[kmerseq] != 0) {
+							uniquedraftkmers--; 
+							kmap[kmerseq] = 0;
+						} else {
+							kmap[kmerseq] = 0; 
+						} 
 	
 					}
 				} else {
 					assert(kmap.count(kmerseq) == 0); 
-					kmap[kmerseq] = conreci;  
+					kmap[kmerseq] = conreci; 
+					uniquedraftkmers++;  
 					numkmersmapped++; 
 				}
 				i += k_shift; 	
@@ -412,7 +418,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 	gzclose(fp); 
 
 	if (params.verbose) {
-		printf("%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n", 
+		printf("%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n", 
 			"Total number of contigs in draft genome: ", totalNumContigs,
 			"Total valid contigs: ", validContigs,  
 			"Total skipped contigs: ", skippedContigs, 
@@ -420,7 +426,8 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 			"Number Null Kmers: ", numbadkmers, 
 			"Number Kmers Recorded: ", numkmersmapped, 
 			"Number Kmer Collisions: ", numkmercollisions, 
-			"Number Times Kmers Removed (since duplicate in different contig):", numkmersremdup); 
+			"Number Times Kmers Removed (since duplicate in different contig): ", numkmersremdup,
+			"Number of unique kmers (only one contig): ", uniquedraftkmers ); 
 	}
 }
 
@@ -520,7 +527,7 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 				numckmersfound++; 
 				corrConReci = kmap[ckmerseq]; 
 				if (corrConReci != 0) {
-					std::cout << proc.getBases(temp) <<std::endl; 
+					//std::cout << proc.getBases(temp) <<std::endl; 
 					ktrack[corrConReci]++; 
 					kmerstore++; 
 					numckmersrec++; 
@@ -542,14 +549,14 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 	// for the read, find the contig that it is most compatible with based on the jaccard index
 	for (auto it = ktrack.begin(); it != ktrack.end(); ++it) {
 		double currjaccardindex = calcJacIndex(it->second, totalnumkmers); 
-		printf("C:%d #:%d %f\n", it->first, it->second, currjaccardindex); 
+		//printf("C:%d #:%d %f\n", it->first, it->second, currjaccardindex); 
 		if (maxjaccardindex < currjaccardindex){
 			maxjaccardindex = currjaccardindex; 
 			corrConReci = it->first; 
 		}
 	}
 
-	printf("total: %d number at best: %d jaccard index: %f dups: %d kmerfound: %d kmerstore: %d\n", totalnumkmers, ktrack[corrConReci], maxjaccardindex, kmerdups, kmerfound, kmerstore); 
+	//printf("total: %d number at best: %d jaccard index: %f dups: %d kmerfound: %d kmerstore: %d\n", totalnumkmers, ktrack[corrConReci], maxjaccardindex, kmerdups, kmerfound, kmerstore); 
 
 	// default accuracythreshold is 0.55)
 	if (maxjaccardindex > j_index) {
@@ -670,11 +677,11 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 						stored_readpairs++; 
 
 						std::string ht = HeadOrTail(corrContigId.second);
-						if (params.verbose) 
-							printf("barcode: %s\tContigID: %s %s \t%d\n", barcode.c_str(), corrContigId.first.c_str(), ht.c_str(), imap[barcode][corrContigId]);
+						//if (params.verbose) 
+							//printf("barcode: %s\tContigID: %s %s \t%d\n", barcode.c_str(), corrContigId.first.c_str(), ht.c_str(), imap[barcode][corrContigId]);
 					} else {
-						if (params.verbose)
-							printf("No Good Contig -- previous read: %s %d current read: %s %d\n", prevname.c_str(), prevConReci, name.c_str(), corrConReci);  
+						//if (params.verbose)
+						//	printf("No Good Contig -- previous read: %s %d current read: %s %d\n", prevname.c_str(), prevConReci, name.c_str(), corrConReci);  
 						skipped_nogoodcontig++; 
 					}
 		
@@ -690,9 +697,9 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	gzclose(fp2); 
 
 	if (params.verbose) {
-		printf("Stored read pairs: %d\nSkipped reads with invalid barcodes: %d\nSkipped unpaired reads: %d\nSkipped reads pairs without a good contig: %d\n", 
+		printf("Stored read pairs: %u\nSkipped reads with invalid barcodes: %u\nSkipped unpaired reads: %u\nSkipped reads pairs without a good contig: %u\n", 
 			 stored_readpairs, skipped_invalidbarcode, skipped_unpaired, skipped_nogoodcontig);
-		printf("Total valid kmers: %d\nNumber invalid kmers: %d\nNumber of kmers found in ContigKmap: %d\nNumber of kmers recorded in Ktrack: %d\nNumber of kmers found in ContigKmap but duplicate: %d\nNumber of reads passing jaccard threshold: %d\nNumber of reads failing jaccard threshold: %d\n", totalnumckmers, numbadckmers, numckmersfound, numckmersrec, ckmersasdups, numreadspassingjaccard, numreadsfailjaccard); 
+		printf("Total valid kmers: %u\nNumber invalid kmers: %u\nNumber of kmers found in ContigKmap: %u\nNumber of kmers recorded in Ktrack: %u\nNumber of kmers found in ContigKmap but duplicate: %u\nNumber of reads passing jaccard threshold: %u\nNumber of reads failing jaccard threshold: %u\n", totalnumckmers, numbadckmers, numckmersfound, numckmersrec, ckmersasdups, numreadspassingjaccard, numreadsfailjaccard); 
 	}
 
 
