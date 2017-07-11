@@ -10,6 +10,7 @@
 #include <cassert>
 #include <iostream>
 #include <cstring>
+#include <sstream>
 
 //@todo: decide on endian convention for kmers, currently assuming little endian for ease of bitshifts
 
@@ -347,6 +348,20 @@ const string ReadsProcessor::getBases(const unsigned char* c)
  */
 const string ReadsProcessor::getStr(const unsigned char* c) {
 	return string(reinterpret_cast<const char*>(c), m_kmerSizeInBytes);
+}
+
+/*
+ * Converts unsigned char * to string given window size specified by this
+ * object
+ */
+const string ReadsProcessor::getBinary(const unsigned char* c) {
+	std::stringstream ss;
+	for (unsigned i = 0; i < m_kmerSizeInBytes; i++) {
+		for (unsigned j = 0; j < 8; j++) {
+			ss << !!((c[i] << j) & 0x80);
+		}
+	}
+	return ss.str();
 }
 
 //TODO: find some way of returning position where sequence k-mer is missing

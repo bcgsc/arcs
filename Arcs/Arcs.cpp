@@ -297,9 +297,9 @@ int initContigArray(std::string contigfile) {
  */
 int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kmap,
 		 ReadsProcessor &proc, int conreci) {
-
+/*
 //For debugging purposes: 
-	std::string kmaplist;
+	std::string kmaplist;*/
 
 
 	int seqsize = seqToKmerize.length();  
@@ -323,10 +323,13 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 			// Ignore a NULL kmer
 			if (temp != NULL) {
 				std::string kmerseq = proc.getStr(temp);
-
+/*
 				kmaplist += proc.getBases(temp); 
 				kmaplist += "\t\t\t"; 
+				kmaplist += proc.getBinary(temp); 
+				kmaplist += "\t\t\t"; 
 				kmaplist += kmerseq; 
+*/
 
 				numKmers++; 
 
@@ -335,7 +338,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 					if (kmap[kmerseq] != conreci) {
 						numkmersremdup++; 
 						if (kmap[kmerseq] != 0) {
-							kmaplist += "\t\t\tremoved"; 
+							//kmaplist += "\t\t\tremoved"; 
 							uniquedraftkmers--; 
 							kmap[kmerseq] = 0;
 						} else {
@@ -355,9 +358,9 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 				numbadkmers++; 
 			}
 			
-			kmaplist += "\n"; 
+			//kmaplist += "\n"; 
 		}
-		writeToKmapDebugLogFile(kmaplist); 
+		//writeToKmapDebugLogFile(kmaplist); 
 		return numKmers; 
 	}
 }
@@ -545,20 +548,22 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 	int kmerdups = 0;
 	int kmerfound = 0; 
 	int kmerstore = 0; 
-
+/*
 //For debugging purposes
 	std::string ckmerlist; 
-
+*/
 	int i = 0; 
 	while (i <= seqlen-k) {
 		const unsigned char* temp = proc.prepSeq(readseq, i); 
 		if (temp != NULL) { 
-			const char* ckmerseq = proc.getStr(temp).c_str(); 
-
+			std::string ckmerseq = proc.getStr(temp); 
+/*
 			ckmerlist += proc.getBases(temp); 
 			ckmerlist += "\t\t\t"; 
+			ckmerlist += proc.getBinary(temp); 
+			ckmerlist += "\t\t\t"; 
 			ckmerlist += ckmerseq; 
- 
+*/ 
 			totalnumckmers++;
 
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker */
@@ -572,12 +577,12 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 					kmerstore++; 
 					numckmersrec++; 
 				} else {
-					ckmerlist += "\t\t\tduplicate";
+					//ckmerlist += "\t\t\tduplicate";
 					ckmersasdups++; 
 					kmerdups++;
 				}
 			} else {
-				ckmerlist += "\t\t\tnotfound";
+				//ckmerlist += "\t\t\tnotfound";
 				//std::cout << proc.getBases(temp) << std::endl; 
 			}
 		} else {
@@ -585,10 +590,10 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 		}
 		totalnumkmers++; 
 		i += k_shift; 
-		ckmerlist += "\n";
+		//ckmerlist += "\n";
 	}
 
-	writeToDebugLogFile(ckmerlist); 
+	//writeToDebugLogFile(ckmerlist); 
 	
 	double maxjaccardindex = 0; 
 	// for the read, find the contig that it is most compatible with based on the jaccard index
@@ -1085,7 +1090,7 @@ void runArcs() {
 
 
 //Debugging purposes
-    writeKmapLogFile(kmap); 
+    //writeKmapLogFile(kmap); 
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 
