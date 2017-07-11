@@ -356,7 +356,7 @@ const string ReadsProcessor::getStr(const unsigned char* c) {
  */
 const string ReadsProcessor::getBinary(const unsigned char* c) {
 	std::stringstream ss;
-	for (unsigned i; i < m_kmerSizeInBytes; i++) {
+	for (unsigned i = 0; i < m_kmerSizeInBytes; i++) {
 		for (unsigned j = 0; j < 8; j++) {
 			ss << !!((c[i] << j) & 0x80);
 		}
