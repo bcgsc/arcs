@@ -154,13 +154,31 @@ void writeToLogFile(const std::string & text) {
 	log_file << text << "\n"; 
 }
 
-/*
-void writeToKmerLogFile(const std::string & text) {
+void writeToKmapDebugLogFile(const std::string & text) {
+	std::string logfilename = params.base_name + ".kmapdebug_log_file.txt";
 	std::ofstream log_file(
-		"Arcs_log_file.txt", std::ios_base::out | std::ios_base::app); 
-	log_file << text << std::endl; 
+		logfilename, std::ios_base::out | std::ios_base::app); 
+	log_file << text << "\n"; 
 }
-*/
+
+void writeToDebugLogFile(const std::string & text) {
+	std::string logfilename = params.base_name + ".readsdebug_log_file.txt";
+	std::ofstream log_file(
+		logfilename, std::ios_base::out | std::ios_base::app); 
+	log_file << text << "\n"; 
+}
+
+void writeKmapLogFile(ARCS::ContigKMap kmap) {
+	std::string msg = "=>Contig Kmer Map:\n"; 
+	for (auto it = kmap.begin(); it != kmap.end(); ++it) {
+		msg += it->first; 
+		msg += "\t"; 
+		msg += it->second; 
+		msg += "\n"; 
+	}
+	writeToLogFile(msg); 
+}
+
 
 void writeIndexMultToLog(std::unordered_map<std::string, int> indexMultMap) {
 	std::string msg = "=>Index Multiplicity Map:\n";
@@ -269,6 +287,8 @@ int initContigArray(std::string contigfile) {
 	return (count * 2) + 1; 
 }
 
+ 
+
 /* Shreds end sequence into kmers and inputs them one by one into the ContigKMap 
  * 	std::pair<std::string, bool> 				specifies contigID and head/tail 
  * 	std::string						the end sequence of the contig 
@@ -277,6 +297,10 @@ int initContigArray(std::string contigfile) {
  */
 int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kmap,
 		 ReadsProcessor &proc, int conreci) {
+
+//For debugging purposes: 
+	std::string kmaplist;
+
 
 	int seqsize = seqToKmerize.length();  
 
@@ -291,6 +315,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 		//assert(seqsize >= k); 
 		int numKmers = 0; 
 
+
 		int i = 0; 
 		while (i <= seqsize - k) {
 			const unsigned char* temp = proc.prepSeq(seqToKmerize, i);  // prepSeq returns NULL if it contains an N
@@ -299,6 +324,10 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 			if (temp != NULL) {
 				std::string kmerseq = proc.getStr(temp);
 
+				kmaplist += proc.getBases(temp); 
+				kmaplist += "\t\t\t"; 
+				kmaplist += kmerseq; 
+
 				numKmers++; 
 
 				if (kmap.count(kmerseq) == 1) {
@@ -306,6 +335,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 					if (kmap[kmerseq] != conreci) {
 						numkmersremdup++; 
 						if (kmap[kmerseq] != 0) {
+							kmaplist += "\t\t\tremoved"; 
 							uniquedraftkmers--; 
 							kmap[kmerseq] = 0;
 						} else {
@@ -324,7 +354,10 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
 				i += k; 
 				numbadkmers++; 
 			}
+			
+			kmaplist += "\n"; 
 		}
+		writeToKmapDebugLogFile(kmaplist); 
 		return numKmers; 
 	}
 }
@@ -513,11 +546,18 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 	int kmerfound = 0; 
 	int kmerstore = 0; 
 
+//For debugging purposes
+	std::string ckmerlist; 
+
 	int i = 0; 
 	while (i <= seqlen-k) {
 		const unsigned char* temp = proc.prepSeq(readseq, i); 
 		if (temp != NULL) { 
 			const char* ckmerseq = proc.getStr(temp).c_str(); 
+
+			ckmerlist += proc.getBases(temp); 
+			ckmerlist += "\t\t\t"; 
+			ckmerlist += ckmerseq; 
  
 			totalnumckmers++;
 
@@ -532,10 +572,12 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 					kmerstore++; 
 					numckmersrec++; 
 				} else {
+					ckmerlist += "\t\t\tduplicate";
 					ckmersasdups++; 
 					kmerdups++;
 				}
 			} else {
+				ckmerlist += "\t\t\tnotfound";
 				//std::cout << proc.getBases(temp) << std::endl; 
 			}
 		} else {
@@ -543,7 +585,10 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 		}
 		totalnumkmers++; 
 		i += k_shift; 
+		ckmerlist += "\n";
 	}
+
+	writeToDebugLogFile(ckmerlist); 
 	
 	double maxjaccardindex = 0; 
 	// for the read, find the contig that it is most compatible with based on the jaccard index
@@ -1037,6 +1082,10 @@ void runArcs() {
     std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime); 
     //writeToLogFile("\n=>Storing Kmers from Contig ends... ");
     getContigKmers(params.file, kmap, proc, contigRecord); 
+
+
+//Debugging purposes
+    writeKmapLogFile(kmap); 
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 
