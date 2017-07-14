@@ -424,14 +424,12 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 				contigRecord[conreci] = headside;
 				std::string seqend; 
 				seqend = sequence.substr(0, cutOff); 
-				//writeToLogFile(contigID + " head comments:"); 
 				int num = mapKmers(seqend, params.k_value, params.k_shift, kmap, proc, conreci); 
 				totalKmers += num; 
 
 				conreci++; 
 				contigRecord[conreci] = tailside; 
 				seqend = sequence.substr(sequence_length - cutOff, sequence_length);
-				//writeToLogFile(contigID + " tail comments:"); 
 				num = mapKmers(seqend, params.k_value, params.k_shift, kmap, proc, conreci); 
 				totalKmers += num; 
 	
@@ -753,7 +751,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	}
 
 
-	writeImapToLog(imap); 
+	//writeImapToLog(imap); 
 
 }
 		
@@ -868,7 +866,7 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
             }
         }
     }
-    writePairMapToLog(pmap); 
+    //writePairMapToLog(pmap); 
 }  
 
 /*
@@ -1076,7 +1074,6 @@ void runArcs() {
     // Initialize the contigRecord
     time(&rawtime); 
     std::cout << "\n=>Allocating the Contig Record... " << ctime(&rawtime); 
-    //writeToLogFile("\n=>Allocating the Contig Record... "); 
     int size = initContigArray(params.file); 
     std::vector<ARCS::CI> contigRecord (size);
 
@@ -1085,7 +1082,6 @@ void runArcs() {
     // Read contig file, shred sequences into k-mers, and then map them 
     time(&rawtime); 
     std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime); 
-    //writeToLogFile("\n=>Storing Kmers from Contig ends... ");
     getContigKmers(params.file, kmap, proc, contigRecord); 
 
 
@@ -1097,12 +1093,10 @@ void runArcs() {
     // Attempt to filter through chromium reads and remove not good barcodes first
     time(&rawtime); 
     std::cout << "\n=>Filtering Chromium FastQ file... " << ctime(&rawtime); 
-    //writeToLogFile("\n=>Filtering Chromium FastQ file... "); 
     filterChromiumFile(params.c_input, indexMultMap); 
 
     time(&rawtime); 
     std::cout << "\n=>Reading Chromium FASTQ file... " << ctime(&rawtime); 
-    //writeToLogFile("\n=>Reading Chromium FASTQ file... ");
     chromiumRead(params.c_input, kmap, imap, indexMultMap, proc, contigRecord); 
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
