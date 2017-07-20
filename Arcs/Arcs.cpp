@@ -554,14 +554,7 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 	while (i <= seqlen-k) {
 		const unsigned char* temp = proc.prepSeq(readseq, i); 
 		if (temp != NULL) { 
-			std::string ckmerseq = proc.getStr(temp); 
-/*
-			ckmerlist += proc.getBases(temp); 
-			ckmerlist += "\t\t\t"; 
-			ckmerlist += proc.getBinary(temp); 
-			ckmerlist += "\t\t\t"; 
-			ckmerlist += ckmerseq; 
-*/ 
+			std::string ckmerseq = proc.getStr(temp);  
 			totalnumckmers++;
 
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker */
@@ -570,41 +563,30 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 				numckmersfound++; 
 				corrConReci = kmap[ckmerseq]; 
 				if (corrConReci != 0) {
-					//std::cout << proc.getBases(temp) <<std::endl; 
 					ktrack[corrConReci]++; 
 					kmerstore++; 
 					numckmersrec++; 
 				} else {
-					//ckmerlist += "\t\t\tduplicate";
 					ckmersasdups++; 
 					kmerdups++;
 				}
-			} else {
-				//ckmerlist += "\t\t\tnotfound";
-				//std::cout << proc.getBases(temp) << std::endl; 
 			}
 		} else {
 			numbadckmers++; 
 		}
 		totalnumkmers++; 
 		i += k_shift; 
-		//ckmerlist += "\n";
 	}
-
-	//writeToDebugLogFile(ckmerlist); 
 	
 	double maxjaccardindex = 0; 
 	// for the read, find the contig that it is most compatible with based on the jaccard index
 	for (auto it = ktrack.begin(); it != ktrack.end(); ++it) {
 		double currjaccardindex = calcJacIndex(it->second, totalnumkmers); 
-		//printf("C:%d #:%d %f\n", it->first, it->second, currjaccardindex); 
 		if (maxjaccardindex < currjaccardindex){
 			maxjaccardindex = currjaccardindex; 
 			corrConReci = it->first; 
 		}
 	}
-
-	//printf("total: %d number at best: %d jaccard index: %f dups: %d kmerfound: %d kmerstore: %d\n", totalnumkmers, ktrack[corrConReci], maxjaccardindex, kmerdups, kmerfound, kmerstore); 
 
 	// default accuracythreshold is 0.55)
 	if (maxjaccardindex > j_index) {
@@ -671,22 +653,22 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 
          	int indexMult = indexMultMap[barcode]; 
        		if (indexMult < params.min_mult || indexMult > params.max_mult) {
-			printf("Skipped Kmerization of read %s barcode %s because barcode not in multiplicity range or bad barcode.\n", name.c_str(), barcode.c_str()); 
-			skipped_invalidbarcode++; 
+			//printf("Skipped Kmerization of read %s barcode %s because barcode not in multiplicity range or bad barcode.\n", name.c_str(), barcode.c_str()); 
+			//skipped_invalidbarcode++; 
 			ctpername = 1; 
 		} else {		
 		
 			std::string cread = seq2->seq.s; 
 
 			if (!checkReadSequence(cread)) {
-				std::string errmsg = "Warning: Skipped poor quality read: " + name;
-				printf("%s\n", errmsg.c_str()); 
+				//std::string errmsg = "Warning: Skipped poor quality read: " + name;
+				//printf("%s\n", errmsg.c_str()); 
 			} else {
 				// Checks that it is a read pair
 				if (ctpername == 2 && name != prevname) {
 					skipped_unpaired ++; 
-					std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
-					printf("%s\n", warningmsg.c_str()); 			
+					//std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
+					//printf("%s\n", warningmsg.c_str()); 			
 				
 					// reset count
 					ctpername = 1; 
@@ -725,11 +707,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 						stored_readpairs++; 
 
 						std::string ht = HeadOrTail(corrContigId.second);
-						//if (params.verbose) 
-							//printf("barcode: %s\tContigID: %s %s \t%d\n", barcode.c_str(), corrContigId.first.c_str(), ht.c_str(), imap[barcode][corrContigId]);
 					} else {
-						//if (params.verbose)
-						//	printf("No Good Contig -- previous read: %s %d current read: %s %d\n", prevname.c_str(), prevConReci, name.c_str(), corrConReci);  
 						skipped_nogoodcontig++; 
 					}
 		
@@ -1019,11 +997,8 @@ void runArcs() {
 
     std::cout << "Running: " << PROGRAM << " " << VERSION 
         << "\n pid " << ::getpid()
-	//<< "\n -p " << params.arcs_type
         << "\n -f " << params.file
-        //<< "\n -a " << params.fofName
 	<< "\n -h " << params.c_input
-        //<< "\n -s " << params.seq_id 
         << "\n -c " << params.min_reads 
 	<< "\n -k " << params.k_value
 	<< "\n -g " << params.k_shift
@@ -1049,7 +1024,6 @@ void runArcs() {
 			+ std::to_string(params.max_mult) + "\nmax degree: " 
 			+ std::to_string(params.max_degree) + "\ncontig end length: " 
 			+ std::to_string(params.end_length) + "\nerror percentage: " + std::to_string(params.error_percent); 
-    //writeToLogFile(parametertext); 
 
     std::string graphFile = params.base_name + "_original.gv";
 
@@ -1127,16 +1101,10 @@ int main(int argc, char** argv) {
         switch (c) {
             case '?':
                 die = true; break;
-	   /* case 'p': 
-		arg >> params.arcs_type; break; */
             case 'f':
                 arg >> params.file; break;
-           /* case 'a':
-                arg >> params.fofName; break; */
 	    case 'h': 
 		arg >> params.c_input; break; 
-            /*case 's':
-                arg >> params.seq_id; break; */
             case 'c':
                 arg >> params.min_reads; break;
 	    case 'k':
@@ -1182,22 +1150,11 @@ int main(int argc, char** argv) {
         }
     }
 
-    // if we have selected to use read alignment based arcs, then check to find correct files
-    /*if (params.arcs_type == 0){
-    	std::ifstream f(params.fofName.c_str());
-    	if (!f.good()) {
-    	    std::cerr << "Cannot find -a " << params.fofName << ". Exiting... \n";
-    	    die = true;
-    	}
-    }*/
-    // if we have selected to use k-mer based arcs, then check to find correct file
-   // if (params.arcs_type == 1){
-	std::ifstream f(params.c_input.c_str()); 
-	if (!f.good()) {
-		std::cerr << "Cannot find -h " << params.c_input << ". Exiting... \n"; 
-		die = true; 
-	}
-   // }
+   std::ifstream f(params.c_input.c_str()); 
+   if (!f.good()) {
+	std::cerr << "Cannot find -h " << params.c_input << ". Exiting... \n"; 
+	die = true; 
+   }
 
     std::ifstream g(params.file.c_str());
     if (!g.good()) {
@@ -1213,9 +1170,7 @@ int main(int argc, char** argv) {
     /* Setting base name if not previously set; name depends on type of arcs used */
     if (params.base_name.empty()) {
         std::ostringstream filename;
-	//if (params.arcs_type) {
         	filename << params.file << ".scaff" 
-          	//<< "_s" << params.seq_id 
 		<< "k-method"
             	<< "_c" << params.min_reads
 	   	<< "_k" << params.k_value     
@@ -1225,16 +1180,6 @@ int main(int argc, char** argv) {
            	<< "_d" << params.max_degree 
             	<< "_e" << params.end_length
            	<< "_r" << params.error_percent;
-	/*} else {
-        	filename << params.file << ".scaff" 
-            	<< "_s" << params.seq_id 
-		<< "alignment method"
-            	<< "_c" << params.min_reads
-            	<< "_l" << params.min_links 
-            	<< "_d" << params.max_degree 
-            	<< "_e" << params.end_length
-            	<< "_r" << params.error_percent;
-	}*/
         params.base_name = filename.str();
     }
 
