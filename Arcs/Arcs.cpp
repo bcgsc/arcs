@@ -22,7 +22,7 @@ static const char USAGE_MESSAGE[] =
 "Usage: [" PROGRAM " " VERSION "]\n"
 "   -f  Using kseq parser, these are the contig sequences to further scaffold and can be in either FASTA or FASTQ format.\n"
 "		If using read alignment option, then must be Multi-Fasta format\n"
-"   -h  Chromium read file (output from longranger) (required if using k-mer option)\n"
+"   -h  Chromium read file of files (output from longranger) (required if using k-mer option)\n"
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
 "   -k  k-value for the size of a k-mer. (default: 30) (required)\n"
 "   -g  shift between k-mers (default: 1)\n"
@@ -600,7 +600,7 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
 
 /* Read through longranger basic chromium output fastq file */ 
 void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexMap& imap, 
-			     std::unordered_map<std::string, int> indexMultMap,
+			     std::unordered_map<std::string, int> &indexMultMap,
 			     ReadsProcessor &proc, 
 			     std::vector<ARCS::CI> &contigRecord) {
 
@@ -732,6 +732,24 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	//writeImapToLog(imap); 
 
 }
+
+void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap, ARCS::IndexMap &imap, 
+			std::unordered_map<std::string, int> &indexMultMap, 
+			 ReadsProcessor &proc, 
+			 std::vector<ARCS::CI> &contigRecord) {
+
+	std::ifstream fofName_stream(fofName.c_str()); 
+	
+	std::string chromFile; 
+	while (getline(fofName_stream, chromFile)) {
+		if (params.verbose) 
+			std::cout << "Reading chrom " << chromFile << std::endl; 
+		chromiumRead(chromFile, kmap, imap, indexMultMap, proc, contigRecord); 
+		assert(fofName_stream); 
+	}
+	fofName_stream.close(); 
+}
+
 		
 /*
  * Check if SAM flag is one of the accepted ones.
@@ -1070,8 +1088,8 @@ void runArcs() {
     filterChromiumFile(params.c_input, indexMultMap); 
 
     time(&rawtime); 
-    std::cout << "\n=>Reading Chromium FASTQ file... " << ctime(&rawtime); 
-    chromiumRead(params.c_input, kmap, imap, indexMultMap, proc, contigRecord); 
+    std::cout << "\n=>Reading Chromium FASTQ file(s)... " << ctime(&rawtime); 
+    readChroms(params.c_input, kmap, imap, indexMultMap, proc, contigRecord); 
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 
