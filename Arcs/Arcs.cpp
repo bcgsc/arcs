@@ -22,11 +22,7 @@ static const char USAGE_MESSAGE[] =
 "Usage: [" PROGRAM " " VERSION "]\n"
 "   -f  Using kseq parser, these are the contig sequences to further scaffold and can be in either FASTA or FASTQ format.\n"
 "		If using read alignment option, then must be Multi-Fasta format\n"
-<<<<<<< HEAD
 "   -h  Chromium read file of files (output(s) from longranger) (required if using k-mer option)\n"
-=======
-"   -h  Chromium read file of files (output from longranger) (required if using k-mer option)\n"
->>>>>>> 79aa454402ce204d1b342e7d5b45cb9bd7c25679
 "   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
 "   -k  k-value for the size of a k-mer. (default: 30) (required)\n"
 "   -g  shift between k-mers (default: 1)\n"
@@ -745,7 +741,6 @@ void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap, ARCS::IndexM
 	std::ifstream fofName_stream(fofName.c_str()); 
 	
 	std::string chromFile; 
-<<<<<<< HEAD
 
 	while (getline(fofName_stream, chromFile)) {
 		if (params.verbose)
@@ -764,15 +759,6 @@ void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap, ARCS::IndexM
 		assert(fofName_stream2); 
 	}
 	fofName_stream2.close(); 
-=======
-	while (getline(fofName_stream, chromFile)) {
-		if (params.verbose) 
-			std::cout << "Reading chrom " << chromFile << std::endl; 
-		chromiumRead(chromFile, kmap, imap, indexMultMap, proc, contigRecord); 
-		assert(fofName_stream); 
-	}
-	fofName_stream.close(); 
->>>>>>> 79aa454402ce204d1b342e7d5b45cb9bd7c25679
 }
 
 		
