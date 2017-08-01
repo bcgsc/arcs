@@ -3,6 +3,7 @@
 #include <zlib.h>
 #include "kseq.h"
 #include <cassert>
+#include <omp.h>
 
 KSEQ_INIT(gzFile, gzread)
 
@@ -1044,11 +1045,11 @@ void runArcs() {
     std::cout << "Running: " << PROGRAM << " " << VERSION 
         << "\n pid " << ::getpid()
         << "\n -f " << params.file
-	<< "\n -h " << params.c_input
+		<< "\n -h " << params.c_input
         << "\n -c " << params.min_reads 
-	<< "\n -k " << params.k_value
-	<< "\n -g " << params.k_shift
-	<< "\n -j " << params.j_index
+		<< "\n -k " << params.k_value
+		<< "\n -g " << params.k_shift
+		<< "\n -j " << params.j_index
         << "\n -l " << params.min_links     
         << "\n -z " << params.min_size
         << "\n -b " << params.base_name
@@ -1059,17 +1060,19 @@ void runArcs() {
         << "\n -r " << params.error_percent
         << "\n -v " << params.verbose << "\n";
 
-    std::string parametertext = "contig file: " + params.file + "\nchromium read file: " 
-			+ params.c_input + "\nminimum reads per contig: " 
-			+ std::to_string(params.min_reads) + "\nk-value: " 
-			+ std::to_string(params.k_value) + "\nk_shift: " + std::to_string(params.k_shift)
-			+ "\nminimum links per pair: " + std::to_string(params.min_links) 
-			+ "\nminimum contig size: " + std::to_string(params.min_size) 
-			+ "\nfile base name: " + params.base_name + "\nminimum index multiplicity: " 
-			+ std::to_string(params.min_mult) + "\nmaximum index multiplicity: " 
-			+ std::to_string(params.max_mult) + "\nmax degree: " 
-			+ std::to_string(params.max_degree) + "\ncontig end length: " 
-			+ std::to_string(params.end_length) + "\nerror percentage: " + std::to_string(params.error_percent); 
+	std::string parametertext = "contig file: " + params.file
+			+ "\nchromium read file: " + params.c_input
+			+ "\nminimum reads per contig: " + std::to_string(params.min_reads)
+			+ "\nk-value: " + std::to_string(params.k_value) + "\nk_shift: "
+			+ std::to_string(params.k_shift) + "\nminimum links per pair: "
+			+ std::to_string(params.min_links) + "\nminimum contig size: "
+			+ std::to_string(params.min_size) + "\nfile base name: "
+			+ params.base_name + "\nminimum index multiplicity: "
+			+ std::to_string(params.min_mult) + "\nmaximum index multiplicity: "
+			+ std::to_string(params.max_mult) + "\nmax degree: "
+			+ std::to_string(params.max_degree) + "\ncontig end length: "
+			+ std::to_string(params.end_length) + "\nerror percentage: "
+			+ std::to_string(params.error_percent);
 
     std::string graphFile = params.base_name + "_original.gv";
 
@@ -1082,7 +1085,6 @@ void runArcs() {
     std::unordered_map<std::string, int> indexMultMap;
 
     std::time_t rawtime;
-
 
     std::cout << "\n---We are using KMER method.---\n" << std::endl; 	
 
