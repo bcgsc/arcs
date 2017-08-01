@@ -9,33 +9,32 @@ KSEQ_INIT(gzFile, gzread)
 #define PROGRAM "arcs"
 #define VERSION "1.0.1"
 
-static const char VERSION_MESSAGE[] = 
-"VERSION: " PROGRAM " " VERSION "\n"
-"\n"
-"http://www.bcgsc.ca/platform/bioinfo/software/links \n"
-"We hope this code is useful to you -- Please send comments & suggestions to rwarren * bcgsc.ca.\n"
-"If you use LINKS, ARCS code or ideas, please cite our work. \n"
-"\n"
-"LINKS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. \n";
+static const char VERSION_MESSAGE[] =
+		"VERSION: " PROGRAM " " VERSION "\n"
+		"\n"
+		"http://www.bcgsc.ca/platform/bioinfo/software/links \n"
+		"We hope this code is useful to you -- Please send comments & suggestions to rwarren * bcgsc.ca.\n"
+		"If you use LINKS, ARCS code or ideas, please cite our work. \n"
+		"\n"
+		"LINKS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. \n";
 
 static const char USAGE_MESSAGE[] =
-"Usage: [" PROGRAM " " VERSION "]\n"
-"   -f  Using kseq parser, these are the contig sequences to further scaffold and can be in either FASTA or FASTQ format.\n"
-"		If using read alignment option, then must be Multi-Fasta format\n"
-"   -h  Chromium read file of files (output(s) from longranger) (required if using k-mer option)\n"
-"   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
-"   -k  k-value for the size of a k-mer. (default: 30) (required)\n"
-"   -g  shift between k-mers (default: 1)\n"
-"   -j  Minimum Jaccard Index for a read to be associated with a contigId. (default: 0.55)\n"
-"   -l  Minimum number of links to create edge in graph (default: 0)\n"
-"   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
-"   -b  Base name for your output files (optional)\n"
-"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-10000)\n"
-"   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
-"   -e  End length (bp) of sequences to consider (default: 30000)\n"
-"   -r  Maximum p-value for H/T assignment and link orientation determination. Lower is more stringent (default: 0.05)\n"
-"   -v  Runs in verbose mode (optional, default: 0)\n";
-
+		"Usage: [" PROGRAM " " VERSION "]\n"
+		"   -f  Using kseq parser, these are the contig sequences to further scaffold and can be in either FASTA or FASTQ format.\n"
+		"		If using read alignment option, then must be Multi-Fasta format\n"
+		"   -h  Chromium read file of files (output(s) from longranger) (required if using k-mer option)\n"
+		"   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
+		"   -k  k-value for the size of a k-mer. (default: 30) (required)\n"
+		"   -g  shift between k-mers (default: 1)\n"
+		"   -j  Minimum Jaccard Index for a read to be associated with a contigId. (default: 0.55)\n"
+		"   -l  Minimum number of links to create edge in graph (default: 0)\n"
+		"   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
+		"   -b  Base name for your output files (optional)\n"
+		"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-10000)\n"
+		"   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
+		"   -e  End length (bp) of sequences to consider (default: 30000)\n"
+		"   -r  Maximum p-value for H/T assignment and link orientation determination. Lower is more stringent (default: 0.05)\n"
+		"   -v  Runs in verbose mode (optional, default: 0)\n";
 
 /* ARCS PREPARATION AKA GLOBAL VARIABLES: */
 
@@ -68,48 +67,49 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
-unsigned int numkmersmapped = 0, numkmercollisions = 0, numkmersremdup = 0, numbadkmers = 0, uniquedraftkmers = 0; 
+unsigned int numkmersmapped = 0, numkmercollisions = 0, numkmersremdup = 0,
+		numbadkmers = 0, uniquedraftkmers = 0;
 
-unsigned int totalnumckmers = 0, ckmersasdups = 0, numckmersfound = 0, numckmersrec = 0, numbadckmers = 0; 
- 
-unsigned int numreadspassingjaccard = 0, numreadsfailjaccard = 0; 
+unsigned int totalnumckmers = 0, ckmersasdups = 0, numckmersfound = 0,
+		numckmersrec = 0, numbadckmers = 0;
 
+unsigned int numreadspassingjaccard = 0, numreadsfailjaccard = 0;
 
 /* HELPERS FOR CHECKING AND PRINTING: */
 
 std::string HeadOrTail(bool orientation) {
 	if (orientation) {
-		return " Head"; 
+		return " Head";
 	} else {
-		return " Tail"; 
+		return " Tail";
 	}
 }
 
 /* Returns true if the barcode only contains ATGC */
 static inline bool checkIndex(std::string seq) {
-    for (int i = 0; i < static_cast<int>(seq.length()); i++) {
-        char c = toupper(seq[i]);
-        if (c != 'A' && c != 'T' && c != 'G' && c != 'C')
-	            return false;
+	for (int i = 0; i < static_cast<int>(seq.length()); i++) {
+		char c = toupper(seq[i]);
+		if (c != 'A' && c != 'T' && c != 'G' && c != 'C')
+			return false;
 
-    }
-    //return (static_cast<int>(seq.length()) == params.indexLen);
-    return true;
+	}
+	//return (static_cast<int>(seq.length()) == params.indexLen);
+	return true;
 }
 
 /* Returns true if the contig sequence contains ATGC or IUPAC codes */
 static inline bool checkContigSequence(std::string seq) {
-    for (int i = 0; i < static_cast<int>(seq.length()); i++) {
-        char c = toupper(seq[i]);
-        if (c != 'A' && c != 'T' && c != 'G' && c != 'C' && c != 'N' &&
-		c != 'M' && c != 'R' && c != 'W' && c != 'S' && c != 'Y' && c != 'K' && 
-		c != 'V' && c != 'H' && c != 'D' && c != 'B') {
-		std::cout << c << std::endl; 
-	        return false;
+	for (int i = 0; i < static_cast<int>(seq.length()); i++) {
+		char c = toupper(seq[i]);
+		if (c != 'A' && c != 'T' && c != 'G' && c != 'C' && c != 'N' && c != 'M'
+				&& c != 'R' && c != 'W' && c != 'S' && c != 'Y' && c != 'K'
+				&& c != 'V' && c != 'H' && c != 'D' && c != 'B') {
+			std::cout << c << std::endl;
+			return false;
+		}
 	}
-    }
 
-    return true;
+	return true;
 }
 
 /* Returns true if seqence only contains ATGC or N
@@ -119,76 +119,71 @@ static inline bool checkContigSequence(std::string seq) {
  */
 static inline bool checkReadSequence(std::string seq) {
 
-    double ambiguity = 0; 
+	double ambiguity = 0;
 
-    for (int i = 0; i < static_cast<int>(seq.length()); i++) {
-        char c = toupper(seq[i]);
-        if (c != 'A' && c != 'T' && c != 'G' && c != 'C') {
-		if (c == 'N') {
-			ambiguity++; 
-		} else {
-	            return false;
+	for (int i = 0; i < static_cast<int>(seq.length()); i++) {
+		char c = toupper(seq[i]);
+		if (c != 'A' && c != 'T' && c != 'G' && c != 'C') {
+			if (c == 'N') {
+				ambiguity++;
+			} else {
+				return false;
+			}
 		}
 	}
-    }
 
-    double ar = ambiguity / (double) seq.length(); 
+	double ar = ambiguity / (double) seq.length();
 
-    if (ar > 0.02)
-	return false; 
+	if (ar > 0.02)
+		return false;
 
-    return true;
+	return true;
 }
-
-
-
-
 
 /* WRITING TO LOG FILE FUNCTIONS: */
 
 /* Writes things to a log file */
 void writeToLogFile(const std::string & text) {
 	std::string logfilename = params.base_name + ".log_file.txt";
-	std::ofstream log_file(
-		logfilename, std::ios_base::out | std::ios_base::app); 
-	log_file << text << "\n"; 
+	std::ofstream log_file(logfilename,
+			std::ios_base::out | std::ios_base::app);
+	log_file << text << "\n";
 }
 
 void writeToKmapDebugLogFile(const std::string & text) {
 	std::string logfilename = params.base_name + ".kmapdebug_log_file.txt";
-	std::ofstream log_file(
-		logfilename, std::ios_base::out | std::ios_base::app); 
-	log_file << text << "\n"; 
+	std::ofstream log_file(logfilename,
+			std::ios_base::out | std::ios_base::app);
+	log_file << text << "\n";
 }
 
 void writeToDebugLogFile(const std::string & text) {
 	std::string logfilename = params.base_name + ".readsdebug_log_file.txt";
-	std::ofstream log_file(
-		logfilename, std::ios_base::out | std::ios_base::app); 
-	log_file << text << "\n"; 
+	std::ofstream log_file(logfilename,
+			std::ios_base::out | std::ios_base::app);
+	log_file << text << "\n";
 }
 
 void writeKmapLogFile(ARCS::ContigKMap kmap) {
-	std::string msg = "=>Contig Kmer Map:\n"; 
+	std::string msg = "=>Contig Kmer Map:\n";
 	for (auto it = kmap.begin(); it != kmap.end(); ++it) {
-		msg += it->first; 
-		msg += "\t"; 
-		msg += it->second; 
-		msg += "\n"; 
+		msg += it->first;
+		msg += "\t";
+		msg += it->second;
+		msg += "\n";
 	}
-	writeToLogFile(msg); 
+	writeToLogFile(msg);
 }
-
 
 void writeIndexMultToLog(std::unordered_map<std::string, int> indexMultMap) {
 	std::string msg = "=>Index Multiplicity Map:\n";
 	for (auto it = indexMultMap.begin(); it != indexMultMap.end(); ++it) {
-		msg += it->first; 
-		msg += "\t"; 
+		msg += it->first;
+		msg += "\t";
 		msg += it->second;
-		msg += "\n"; 
+		msg += "\n";
 	}
-	writeToLogFile(msg); 
+	writeToLogFile(msg);
 }
 
 //typedef std::unordered_map<std::string, ScafMap> IndexMap; 
@@ -196,41 +191,41 @@ void writeIndexMultToLog(std::unordered_map<std::string, int> indexMultMap) {
 void writeImapToLog(ARCS::IndexMap IndexMap) {
 	std::string msg = "=>Index Map:\n";
 	for (auto it = IndexMap.begin(); it != IndexMap.end(); ++it) {
-		msg += it->first; 
-		msg += "\n"; 
-		ARCS::ScafMap smap = it->second; 
+		msg += it->first;
+		msg += "\n";
+		ARCS::ScafMap smap = it->second;
 		for (auto j = smap.begin(); j != smap.end(); ++j) {
-			msg += "\t"; 
-			msg += j->first.first; 
-			std::string orientation = HeadOrTail(j->first.second); 
-			msg += " "; 
-			msg += orientation; 
-			msg += "\t"; 
-			msg += std::to_string(j->second); 
-			msg += "\n"; 
+			msg += "\t";
+			msg += j->first.first;
+			std::string orientation = HeadOrTail(j->first.second);
+			msg += " ";
+			msg += orientation;
+			msg += "\t";
+			msg += std::to_string(j->second);
+			msg += "\n";
 		}
 	}
-	writeToLogFile(msg); 
+	writeToLogFile(msg);
 }
 
 void writePairMapToLog(ARCS::PairMap pmap) {
-	std::string msg = "=>Pair Map:\n"; 
+	std::string msg = "=>Pair Map:\n";
 	for (auto it = pmap.begin(); it != pmap.end(); ++it) {
-		msg += "\t"; 
-		msg += it->first.first; 
-		msg += " and"; 
-		msg += it->first.second; 
-		msg += "\n\t\t\tHead-Head "; 
+		msg += "\t";
+		msg += it->first.first;
+		msg += " and";
+		msg += it->first.second;
+		msg += "\n\t\t\tHead-Head ";
 		msg += it->second[0];
 		msg += "\n\t\t\tHead-Tail ";
 		msg += it->second[1];
 		msg += "\n\t\t\tTail-Head ";
 		msg += it->second[2];
-		msg += "\n\t\t\tTail-Tail "; 
+		msg += "\n\t\t\tTail-Tail ";
 		msg += it->second[3];
 		msg += "\n";
 	}
-	writeToLogFile(msg); 
+	writeToLogFile(msg);
 }
 
 /* Track memory usage */
@@ -251,43 +246,37 @@ int memory_usage() {
 	return mem;
 }
 
-
-
-
-
-
 /* ARCS PROCESSES FUNCTIONS */
 
 /* Returns the size of the array for storing contigs */
 int initContigArray(std::string contigfile) {
 
-	int count = 0; 
+	int count = 0;
 
-	gzFile fp;  
+	gzFile fp;
 
-	int l; 
-	const char* filename = contigfile.c_str(); 
-	fp = gzopen(filename, "r"); 
-	kseq_t * seq = kseq_init(fp); 
+	int l;
+	const char* filename = contigfile.c_str();
+	fp = gzopen(filename, "r");
+	kseq_t * seq = kseq_init(fp);
 
-	while((l= kseq_read(seq)) >= 0) {
+	while ((l = kseq_read(seq)) >= 0) {
 		std::string sequence = seq->seq.s;
 		int sequence_length = sequence.length();
-		if (checkContigSequence(sequence) && sequence_length >= params.min_size )
+		if (checkContigSequence(sequence) && sequence_length >= params.min_size)
 			count++;
 	}
-	kseq_destroy(seq); 
-	gzclose(fp); 
+	kseq_destroy(seq);
+	gzclose(fp);
 
 	if (params.verbose) {
-		printf("Number of contigs: %d\nSize of Contig Array: %d\n", count, (count*2)+1); 
+		printf("Number of contigs: %d\nSize of Contig Array: %d\n", count,
+				(count * 2) + 1);
 	}
 
 	//Let the first index represent the a null contig
-	return (count * 2) + 1; 
+	return (count * 2) + 1;
 }
-
- 
 
 /* Shreds end sequence into kmers and inputs them one by one into the ContigKMap 
  * 	std::pair<std::string, bool> 				specifies contigID and head/tail 
@@ -295,73 +284,72 @@ int initContigArray(std::string contigfile) {
  *	int							k-value specified by user 
  *	ARCS::ContigKMap					ContigKMap for storage of kmers
  */
-int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kmap,
-		 ReadsProcessor &proc, int conreci) {
-/*
-//For debugging purposes: 
-	std::string kmaplist;*/
+int mapKmers(std::string seqToKmerize, int k, int k_shift,
+		ARCS::ContigKMap& kmap, ReadsProcessor &proc, int conreci) {
+	/*
+	 //For debugging purposes:
+	 std::string kmaplist;*/
 
-
-	int seqsize = seqToKmerize.length();  
+	int seqsize = seqToKmerize.length();
 
 	// Checks if length of the subsequence is smaller than the k size
 	// 	If the contig end is shorter than the k-value, then we ignore. 
 	if (seqsize < k) {
-		std::string errmsg = "Warning: ends of contig is shorter than k-value for contigID (no k-mers added): ";
-		std::cout << errmsg << conreci << std::endl; 
+		std::string errmsg =
+				"Warning: ends of contig is shorter than k-value for contigID (no k-mers added): ";
+		std::cout << errmsg << conreci << std::endl;
 
-		return 0; 
+		return 0;
 	} else {
 		//assert(seqsize >= k); 
-		int numKmers = 0; 
+		int numKmers = 0;
 
-
-		int i = 0; 
+		int i = 0;
 		while (i <= seqsize - k) {
-			const unsigned char* temp = proc.prepSeq(seqToKmerize, i);  // prepSeq returns NULL if it contains an N
+			const unsigned char* temp = proc.prepSeq(seqToKmerize, i); // prepSeq returns NULL if it contains an N
 
 			// Ignore a NULL kmer
 			if (temp != NULL) {
 				std::string kmerseq = proc.getStr(temp);
-/*
-				kmaplist += proc.getBases(temp); 
-				kmaplist += "\t\t\t"; 
-				kmaplist += proc.getBinary(temp); 
-				kmaplist += "\t\t\t"; 
-				kmaplist += kmerseq; 
-*/
+				/*
+				 kmaplist += proc.getBases(temp);
+				 kmaplist += "\t\t\t";
+				 kmaplist += proc.getBinary(temp);
+				 kmaplist += "\t\t\t";
+				 kmaplist += kmerseq;
+				 */
 
-				numKmers++; 
+				numKmers++;
 
 				if (kmap.count(kmerseq) == 1) {
-					numkmercollisions++; 
+					numkmercollisions++;
 					if (kmap[kmerseq] != conreci) {
-						numkmersremdup++; 
+						numkmersremdup++;
 						if (kmap[kmerseq] != 0) {
 							//kmaplist += "\t\t\tremoved"; 
-							uniquedraftkmers--; 
+							uniquedraftkmers--;
 							kmap[kmerseq] = 0;
 						} else {
-							kmap[kmerseq] = 0; 
-						} 
-	
+							kmap[kmerseq] = 0;
+						}
+
 					}
 				} else {
-					assert(kmap.count(kmerseq) == 0); 
-					kmap[kmerseq] = conreci; 
-					uniquedraftkmers++;  
-					numkmersmapped++; 
+					assert(kmap.count(kmerseq) == 0);
+					kmap[kmerseq] = conreci;
+					uniquedraftkmers++;
+					numkmersmapped++;
 				}
-				i += k_shift; 	
+				i += k_shift;
 			} else {
-				i += k; 
-				numbadkmers++; 
+				i += k;
+				numbadkmers++;
 			}
-			
+
 			//kmaplist += "\n"; 
 		}
 		//writeToKmapDebugLogFile(kmaplist); 
-		return numKmers; 
+		return numKmers;
 	}
 }
 
@@ -369,38 +357,39 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift, ARCS::ContigKMap& kma
  * 	std::string file					FASTA (or later FASTQ) file 
  *	std::sparse_hash_map<k-mer, pair<contidID, bool>> 	ContigKMap
  *	int k							k-value (specified by user)
- */ 
-void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcessor &proc,
-			std::vector<ARCS::CI> &contigRecord){
-	
-	int totalNumContigs = 0; 
-	int skippedContigs = 0; 
-	int validContigs = 0; 
-	int totalKmers = 0; 
+ */
+void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
+		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord) {
 
-	ARCS::CI collisionmarker("null contig", false); 
-	int conreci = 0; 					// 0 is the null contig so we will later increment before adding
+	int totalNumContigs = 0;
+	int skippedContigs = 0;
+	int validContigs = 0;
+	int totalKmers = 0;
+
+	ARCS::CI collisionmarker("null contig", false);
+	int conreci = 0; // 0 is the null contig so we will later increment before adding
 	contigRecord[conreci] = collisionmarker;
 
-	gzFile fp;  
+	gzFile fp;
 
-	int l; 
-	const char* filename = contigfile.c_str(); 
-	fp = gzopen(filename, "r"); 
-	kseq_t * seq = kseq_init(fp); 
+	int l;
+	const char* filename = contigfile.c_str();
+	fp = gzopen(filename, "r");
+	kseq_t * seq = kseq_init(fp);
 
-	while((l= kseq_read(seq)) >= 0) {
-		std::string contigID = seq->name.s; 
-		std::string sequence = seq->seq.s; 
+	while ((l = kseq_read(seq)) >= 0) {
+		std::string contigID = seq->name.s;
+		std::string sequence = seq->seq.s;
 
-		totalNumContigs++; 
+		totalNumContigs++;
 
 		if (!checkContigSequence(sequence)) {
-			std::string errormsg = "Error: Contig contains non-base characters. Please check your draft genome input file.";
+			std::string errormsg =
+					"Error: Contig contains non-base characters. Please check your draft genome input file.";
 			if (params.verbose) {
-				std::cerr << contigID << ": " << errormsg << std::endl; 
+				std::cerr << contigID << ": " << errormsg << std::endl;
 			}
-			skippedContigs++; 
+			skippedContigs++;
 		} else {
 
 			// If the sequence is above minimum contig length, then will extract kmers from both ends 
@@ -408,119 +397,128 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap, ReadsProcess
 			int sequence_length = sequence.length();
 
 			if (sequence_length >= params.min_size) {
-			
+
 				// If contig length is less than 2 x end_length, then we split the sequence 
 				// in half to decide head/tail (aka we changed the end_length)
-				int cutOff = params.end_length; 
+				int cutOff = params.end_length;
 				if (cutOff == 0 || sequence_length <= cutOff * 2)
-					cutOff = sequence_length / 2; 
-	
+					cutOff = sequence_length / 2;
+
 				// Arbitrarily assign head or tail to ends of the contig
-				ARCS::CI headside(contigID, true); 
-				ARCS::CI tailside(contigID, false); 
+				ARCS::CI headside(contigID, true);
+				ARCS::CI tailside(contigID, false);
 
 				//get ends of the sequence and put k-mers into the map
-				conreci++; 
+				conreci++;
 				contigRecord[conreci] = headside;
-				std::string seqend; 
-				seqend = sequence.substr(0, cutOff); 
-				int num = mapKmers(seqend, params.k_value, params.k_shift, kmap, proc, conreci); 
-				totalKmers += num; 
+				std::string seqend;
+				seqend = sequence.substr(0, cutOff);
+				int num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
+						proc, conreci);
+				totalKmers += num;
 
-				conreci++; 
-				contigRecord[conreci] = tailside; 
-				seqend = sequence.substr(sequence_length - cutOff, sequence_length);
-				num = mapKmers(seqend, params.k_value, params.k_shift, kmap, proc, conreci); 
-				totalKmers += num; 
-	
-				validContigs++; 
+				conreci++;
+				contigRecord[conreci] = tailside;
+				seqend = sequence.substr(sequence_length - cutOff,
+						sequence_length);
+				num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
+						proc, conreci);
+				totalKmers += num;
+
+				validContigs++;
 			} else {
-				skippedContigs++; 
+				skippedContigs++;
 			}
 		}
 
 		// printprogress
 		if (params.verbose) {
 			if (totalNumContigs % 1000 == 0) {
-				printf("Finished %d Contigs...\n", totalNumContigs); 
-				std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
-				std::cout << "Kmers so far: " << numkmersmapped << std::endl; 
+				printf("Finished %d Contigs...\n", totalNumContigs);
+				std::cout << "Cumulative memory usage: " << memory_usage()
+						<< std::endl;
+				std::cout << "Kmers so far: " << numkmersmapped << std::endl;
 			}
-		} 
-	}	
-	kseq_destroy(seq); 
-	gzclose(fp); 
+		}
+	}
+	kseq_destroy(seq);
+	gzclose(fp);
 
 	if (params.verbose) {
-		printf("%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n", 
-			"Total number of contigs in draft genome: ", totalNumContigs,
-			"Total valid contigs: ", validContigs,  
-			"Total skipped contigs: ", skippedContigs, 
-			"Total number of Kmers: ", totalKmers, 
-			"Number Null Kmers: ", numbadkmers, 
-			"Number Kmers Recorded: ", numkmersmapped, 
-			"Number Kmer Collisions: ", numkmercollisions, 
-			"Number Times Kmers Removed (since duplicate in different contig): ", numkmersremdup,
-			"Number of unique kmers (only one contig): ", uniquedraftkmers ); 
+		printf(
+				"%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n",
+				"Total number of contigs in draft genome: ", totalNumContigs,
+				"Total valid contigs: ", validContigs,
+				"Total skipped contigs: ", skippedContigs,
+				"Total number of Kmers: ", totalKmers, "Number Null Kmers: ",
+				numbadkmers, "Number Kmers Recorded: ", numkmersmapped,
+				"Number Kmer Collisions: ", numkmercollisions,
+				"Number Times Kmers Removed (since duplicate in different contig): ",
+				numkmersremdup, "Number of unique kmers (only one contig): ",
+				uniquedraftkmers);
 	}
 }
 
-void filterChromiumFile(std::string chromfile, std::unordered_map<std::string, int>& indexMultMap) {
-	gzFile fp3;  
-	int l; 
+void filterChromiumFile(std::string chromfile,
+		std::unordered_map<std::string, int>& indexMultMap) {
+	gzFile fp3;
+	int l;
 	std::string chromiumfile = chromfile;
-	const char* filename = chromiumfile.c_str(); 
-	fp3 = gzopen(filename, "r"); 
+	const char* filename = chromiumfile.c_str();
+	fp3 = gzopen(filename, "r");
 	if (fp3 == Z_NULL) {
-		cerr << "file " << filename << " cannot be opened" << endl; 
+		cerr << "file " << filename << " cannot be opened" << endl;
 		exit(1);
 	} else {
-		cerr << "Reading file " << filename << endl; 
+		cerr << "Reading file " << filename << endl;
 	}
-	kseq_t * seq3 = kseq_init(fp3); 
-	
-	int numreads = 0; 
-	int numreadskept = 0; 
-	while((l= kseq_read(seq3)) >= 0) {
-		numreads++;  
-		std::string comment = ""; 
-		std::string barcode = ""; 
+	kseq_t * seq3 = kseq_init(fp3);
+
+	int numreads = 0;
+	int numreadskept = 0;
+	while ((l = kseq_read(seq3)) >= 0) {
+		numreads++;
+		std::string comment = "";
+		std::string barcode = "";
 		if (seq3->comment.l) {
-			comment = seq3->comment.s; 
+			comment = seq3->comment.s;
 			// Extract the barcode which is in the comment under this format: 
 			// 		BX:Z:<barcodeseq>-1
-			barcode.clear(); 
-			for (std::string::iterator i = comment.begin(); i != comment.end(); i++) {
+			barcode.clear();
+			for (std::string::iterator i = comment.begin(); i != comment.end();
+					i++) {
 				if (*i != 'B' && *i != 'X' && *i != ':' && *i != 'Z'
-					&& *i != '-' && *i != '1' && *i != '\n') {
+						&& *i != '-' && *i != '1' && *i != '\n') {
 					barcode += *i;
 				}
-			}	
+			}
 		}
-		
+
 		if (!barcode.empty() && checkIndex(barcode)) {
-			numreadskept++; 
-			indexMultMap[barcode]++; 
+			numreadskept++;
+			indexMultMap[barcode]++;
 		}
 	}
 
-	kseq_destroy(seq3); 
-	gzclose(fp3); 
+	kseq_destroy(seq3);
+	gzclose(fp3);
 
-	std::string msg = "Total Number of Reads in Chromium File: " + std::to_string(numreads) + "\nNumber of Reads that have Valid Barcodes: " + std::to_string(numreadskept); 
+	std::string msg = "Total Number of Reads in Chromium File: "
+			+ std::to_string(numreads)
+			+ "\nNumber of Reads that have Valid Barcodes: "
+			+ std::to_string(numreadskept);
 
 	if (params.verbose) {
-		printf("%s\n", msg.c_str()); 
-		std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
+		printf("%s\n", msg.c_str());
+		std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
 	}
 }
 
 
 /* Calculate the jaccard index */
 static inline double calcJacIndex(int smallCount, int overallCount) {
-	return (double) smallCount / (double) overallCount; 
+	return (double) smallCount / (double) overallCount;
 }
-
 
 /* Returns best corresponding contig from read through kmers
  * 	ARCS::ContigKMap			tells me what kmers correspond to which contig
@@ -530,135 +528,138 @@ static inline double calcJacIndex(int smallCount, int overallCount) {
  *      double j_index				Jaccard Index (default 0.55)
  *	ReadsProcessor				kmerizer
  */
-int bestContig(ARCS::ContigKMap &kmap, std::string readseq,
-			 int k, int k_shift, double j_index, ReadsProcessor &proc) {
+int bestContig(ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
+		double j_index, ReadsProcessor &proc) {
 
 	// to keep track of what contig+H/T that the k-mer from barcode matches to
 	// 	int					Index that corresponds to the contig in the contigRecord
 	// 	count					# kmers found here
-	std::map<int, int> ktrack; 
+	std::map<int, int> ktrack;
 
 	// k-merize readsequence
-	int corrConReci = 0;;
-	int seqlen = readseq.length(); 
+	int corrConReci = 0;
+	;
+	int seqlen = readseq.length();
 
-	int totalnumkmers = 0; 
+	int totalnumkmers = 0;
 	int kmerdups = 0;
-	int kmerfound = 0; 
-	int kmerstore = 0; 
-/*
-//For debugging purposes
-	std::string ckmerlist; 
-*/
-	int i = 0; 
-	while (i <= seqlen-k) {
-		const unsigned char* temp = proc.prepSeq(readseq, i); 
-		if (temp != NULL) { 
-			std::string ckmerseq = proc.getStr(temp);  
+	int kmerfound = 0;
+	int kmerstore = 0;
+	/*
+	 //For debugging purposes
+	 std::string ckmerlist;
+	 */
+	int i = 0;
+	while (i <= seqlen - k) {
+		const unsigned char* temp = proc.prepSeq(readseq, i);
+		if (temp != NULL) {
+			std::string ckmerseq = proc.getStr(temp);
 			totalnumckmers++;
 
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker */
 			if (kmap.count(ckmerseq) == 1) {
-				kmerfound++; 
-				numckmersfound++; 
-				corrConReci = kmap[ckmerseq]; 
+				kmerfound++;
+				numckmersfound++;
+				corrConReci = kmap[ckmerseq];
 				if (corrConReci != 0) {
-					ktrack[corrConReci]++; 
-					kmerstore++; 
-					numckmersrec++; 
+					ktrack[corrConReci]++;
+					kmerstore++;
+					numckmersrec++;
 				} else {
-					ckmersasdups++; 
+					ckmersasdups++;
 					kmerdups++;
 				}
 			}
 		} else {
-			numbadckmers++; 
+			numbadckmers++;
 		}
-		totalnumkmers++; 
-		i += k_shift; 
+		totalnumkmers++;
+		i += k_shift;
 	}
-	
-	double maxjaccardindex = 0; 
+
+	double maxjaccardindex = 0;
 	// for the read, find the contig that it is most compatible with based on the jaccard index
 	for (auto it = ktrack.begin(); it != ktrack.end(); ++it) {
-		double currjaccardindex = calcJacIndex(it->second, totalnumkmers); 
-		if (maxjaccardindex < currjaccardindex){
-			maxjaccardindex = currjaccardindex; 
-			corrConReci = it->first; 
+		double currjaccardindex = calcJacIndex(it->second, totalnumkmers);
+		if (maxjaccardindex < currjaccardindex) {
+			maxjaccardindex = currjaccardindex;
+			corrConReci = it->first;
 		}
 	}
 
 	// default accuracythreshold is 0.55)
 	if (maxjaccardindex > j_index) {
-		numreadspassingjaccard++; 
-		return corrConReci; 
+		numreadspassingjaccard++;
+		return corrConReci;
 	} else {
-		numreadsfailjaccard++; 
-		return 0; 
+		numreadsfailjaccard++;
+		return 0;
 	}
 }
 
-/* Read through longranger basic chromium output fastq file */ 
-void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexMap& imap, 
-			     std::unordered_map<std::string, int> &indexMultMap,
-			     ReadsProcessor &proc, 
-			     std::vector<ARCS::CI> &contigRecord) {
+/* Read through longranger basic chromium output fastq file */
+void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap,
+		ARCS::IndexMap& imap,
+		std::unordered_map<std::string, int> &indexMultMap,
+		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord) {
 
 	int ctpername = 1;
 	int stored_readpairs = 0;
-	int skipped_unpaired = 0; 
-	int skipped_invalidbarcode = 0; 
-	int skipped_nogoodcontig = 0; 
-	std::string prevname; 
-	int prevConReci = 0; 
+	int skipped_unpaired = 0;
+	int skipped_invalidbarcode = 0;
+	int skipped_nogoodcontig = 0;
+	std::string prevname;
+	int prevConReci = 0;
 
-	int count = 0; 
+	int count = 0;
 
-	gzFile fp2;  
-	int l; 
-	const char* filename = chromiumfile.c_str(); 
-	fp2 = gzopen(filename, "r"); 
+	gzFile fp2;
+	int l;
+	const char* filename = chromiumfile.c_str();
+	fp2 = gzopen(filename, "r");
 	if (fp2 == Z_NULL) {
-		cerr << "file " << filename << " cannot be opened" << endl; 
+		cerr << "file " << filename << " cannot be opened" << endl;
 		exit(1);
 	} else {
-		cerr << "Reading file " << filename << endl; 
+		cerr << "Reading file " << filename << endl;
 	}
 	kseq_t * seq2 = kseq_init(fp2);
-	while((l= kseq_read(seq2)) >= 0) {
+	while ((l = kseq_read(seq2)) >= 0) {
 		count++;
 
 		if (params.verbose) {
 			if (count % 100000 == 0) {
-				std::cout << "Processed " << count << " reads." << std::endl; 
-				std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
+				std::cout << "Processed " << count << " reads." << std::endl;
+				std::cout << "Cumulative memory usage: " << memory_usage()
+						<< std::endl;
 			}
 		}
 
-		std::string name = seq2->name.s; 
-		std::string comment = ""; 
-		std::string barcode = ""; 
+		std::string name = seq2->name.s;
+		std::string comment = "";
+		std::string barcode = "";
 		if (seq2->comment.l) {
-			comment = seq2->comment.s; 
+			comment = seq2->comment.s;
 			// Extract the barcode which is in the comment under this format: 
 			// 		BX:Z:<barcodeseq>-1
-			barcode.clear(); 
-			for (std::string::iterator i = comment.begin(); i != comment.end(); i++) {
+			barcode.clear();
+			for (std::string::iterator i = comment.begin(); i != comment.end();
+					i++) {
 				if (*i != 'B' && *i != 'X' && *i != ':' && *i != 'Z'
-					&& *i != '-' && *i != '1' && *i != '\n'){
+						&& *i != '-' && *i != '1' && *i != '\n') {
 					barcode += *i;
 				}
-			}	
+			}
 		}
 
-         	int indexMult = indexMultMap[barcode]; 
-       		if (indexMult < params.min_mult || indexMult > params.max_mult) {
+		int indexMult = indexMultMap[barcode];
+		if (indexMult < params.min_mult || indexMult > params.max_mult) {
 			//printf("Skipped Kmerization of read %s barcode %s because barcode not in multiplicity range or bad barcode.\n", name.c_str(), barcode.c_str()); 
 			//skipped_invalidbarcode++; 
-			ctpername = 1; 
-		} else {		
-		
-			std::string cread = seq2->seq.s; 
+			ctpername = 1;
+		} else {
+
+			std::string cread = seq2->seq.s;
 
 			if (!checkReadSequence(cread)) {
 				//std::string errmsg = "Warning: Skipped poor quality read: " + name;
@@ -666,99 +667,103 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			} else {
 				// Checks that it is a read pair
 				if (ctpername == 2 && name != prevname) {
-					skipped_unpaired ++; 
+					skipped_unpaired++;
 					//std::string warningmsg = "Warning: Skipping an unpaired read. File should be sorted in order of read name.\n\tPrev read: " + prevname + "\n\tCurr read: " + name; 
 					//printf("%s\n", warningmsg.c_str()); 			
-				
+
 					// reset count
-					ctpername = 1; 
+					ctpername = 1;
 				}
-	
+
 				int corrConReci = 0;
 				ARCS::CI corrContigId;
-				if (ctpername >=3) 
-					ctpername = 1; 
+				if (ctpername >= 3)
+					ctpername = 1;
 				if (ctpername == 1) {
 					if (name.compare(prevname) != 0) {
-						prevname = name; 
-	
-						// get the contig that the read matches
-						corrConReci = bestContig(kmap, cread, params.k_value, params.k_shift,
-										params.j_index, proc); 
+						prevname = name;
 
-						prevConReci = corrConReci; 
+						// get the contig that the read matches
+						corrConReci = bestContig(kmap, cread, params.k_value,
+								params.k_shift, params.j_index, proc);
+
+						prevConReci = corrConReci;
 					} else {
-						prevname = ""; 
-						ctpername = 0; 
+						prevname = "";
+						ctpername = 0;
 					}
 				} else if (ctpername == 2) {
 					assert(name == prevname);
-				
+
 					// get the contig that the read matches
-					corrConReci = bestContig(kmap, cread, params.k_value, params.k_shift, 
-									params.j_index, proc); 
+					corrConReci = bestContig(kmap, cread, params.k_value,
+							params.k_shift, params.j_index, proc);
 
 					// we only store barcode info in index map if read pairs have same contig + orientation	
 					// and if the corrContigId is not NULL (because it is above accuracy threshold)
 					if (corrConReci != 0 && corrConReci == prevConReci) {
-						corrContigId = contigRecord[corrConReci]; 
-						imap[barcode][corrContigId]++; 
+						corrContigId = contigRecord[corrConReci];
+						imap[barcode][corrContigId]++;
 
-						stored_readpairs++; 
+						stored_readpairs++;
 
 						std::string ht = HeadOrTail(corrContigId.second);
 					} else {
-						skipped_nogoodcontig++; 
+						skipped_nogoodcontig++;
 					}
-		
+
 					// reset previous records
-					prevname = ""; 
-					prevConReci = 0; 
+					prevname = "";
+					prevConReci = 0;
 				}
 				ctpername++;
-			} 
+			}
 		}
 	}
-	kseq_destroy(seq2); 
-	gzclose(fp2); 
+	kseq_destroy(seq2);
+	gzclose(fp2);
 
 	if (params.verbose) {
-		printf("Stored read pairs: %u\nSkipped reads with invalid barcodes: %u\nSkipped unpaired reads: %u\nSkipped reads pairs without a good contig: %u\n", 
-			 stored_readpairs, skipped_invalidbarcode, skipped_unpaired, skipped_nogoodcontig);
-		printf("Total valid kmers: %u\nNumber invalid kmers: %u\nNumber of kmers found in ContigKmap: %u\nNumber of kmers recorded in Ktrack: %u\nNumber of kmers found in ContigKmap but duplicate: %u\nNumber of reads passing jaccard threshold: %u\nNumber of reads failing jaccard threshold: %u\n", totalnumckmers, numbadckmers, numckmersfound, numckmersrec, ckmersasdups, numreadspassingjaccard, numreadsfailjaccard); 
+		printf(
+				"Stored read pairs: %u\nSkipped reads with invalid barcodes: %u\nSkipped unpaired reads: %u\nSkipped reads pairs without a good contig: %u\n",
+				stored_readpairs, skipped_invalidbarcode, skipped_unpaired,
+				skipped_nogoodcontig);
+		printf(
+				"Total valid kmers: %u\nNumber invalid kmers: %u\nNumber of kmers found in ContigKmap: %u\nNumber of kmers recorded in Ktrack: %u\nNumber of kmers found in ContigKmap but duplicate: %u\nNumber of reads passing jaccard threshold: %u\nNumber of reads failing jaccard threshold: %u\n",
+				totalnumckmers, numbadckmers, numckmersfound, numckmersrec,
+				ckmersasdups, numreadspassingjaccard, numreadsfailjaccard);
 	}
-
 
 	//writeImapToLog(imap); 
 
 }
 
-void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap, ARCS::IndexMap &imap, 
-			std::unordered_map<std::string, int> &indexMultMap, 
-			 ReadsProcessor &proc, 
-			 std::vector<ARCS::CI> &contigRecord) {
+void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap,
+		ARCS::IndexMap &imap,
+		std::unordered_map<std::string, int> &indexMultMap,
+		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord) {
 
-	std::ifstream fofName_stream(fofName.c_str()); 
-	
-	std::string chromFile; 
+	std::ifstream fofName_stream(fofName.c_str());
+
+	std::string chromFile;
 
 	while (getline(fofName_stream, chromFile)) {
 		if (params.verbose)
-			std::cout << "Filtering chrom " << chromFile << std::endl; 
-		filterChromiumFile(chromFile, indexMultMap); 
-		assert(fofName_stream); 
+			std::cout << "Filtering chrom " << chromFile << std::endl;
+		filterChromiumFile(chromFile, indexMultMap);
+		assert(fofName_stream);
 	}
-	fofName_stream.close(); 
+	fofName_stream.close();
 
-	std::ifstream fofName_stream2(fofName.c_str()); 
+	std::ifstream fofName_stream2(fofName.c_str());
 
 	while (getline(fofName_stream2, chromFile)) {
-		if (params.verbose) 
-			std::cout << "Reading chrom " << chromFile << std::endl; 
-		chromiumRead(chromFile, kmap, imap, indexMultMap, proc, contigRecord); 
-		assert(fofName_stream2); 
+		if (params.verbose)
+			std::cout << "Reading chrom " << chromFile << std::endl;
+		chromiumRead(chromFile, kmap, imap, indexMultMap, proc, contigRecord);
+		assert(fofName_stream2);
 	}
-	fofName_stream2.close(); 
+	fofName_stream2.close();
 }
 
 		
@@ -766,21 +771,21 @@ void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap, ARCS::IndexM
  * Check if SAM flag is one of the accepted ones.
  */
 static inline bool checkFlag(int flag) {
-    return (flag == 99 || flag == 163 || flag == 83 || flag == 147);
+	return (flag == 99 || flag == 163 || flag == 83 || flag == 147);
 }
 
 /*
  * Check if character is one of the accepted ones.
  */
 static inline bool checkChar(char c) {
-    return (c == 'M' || c == '=' || c == 'X' || c == 'I');
+	return (c == 'M' || c == '=' || c == 'X' || c == 'I');
 }
 
 /* Normal approximation to the binomial distribution */
 static inline float normalEstimation(int x, float p, int n) {
-    float mean = n * p;
-    float sd = std::sqrt(n * p * (1 - p));
-    return 0.5 * (1 + std::erf((x - mean)/(sd * std::sqrt(2))));
+	float mean = n * p;
+	float sd = std::sqrt(n * p * (1 - p));
+	return 0.5 * (1 + std::erf((x - mean) / (sd * std::sqrt(2))));
 }
 
 /*
@@ -789,18 +794,18 @@ static inline float normalEstimation(int x, float p, int n) {
  * different from a uniform distribution (p=0.5)
  */
 static inline std::pair<bool, bool> headOrTail(int head, int tail) {
-    int max = std::max(head, tail);
-    int sum = head + tail;
-    if (sum < params.min_reads) {
-        return std::pair<bool, bool> (false, false);
-    }
-    float normalCdf = normalEstimation(max, 0.5, sum);
-    if (1 - normalCdf < params.error_percent) {
-        bool isHead = (max == head);
-        return std::pair<bool, bool> (true, isHead);
-    } else {
-        return std::pair<bool, bool> (false, false);
-    }
+	int max = std::max(head, tail);
+	int sum = head + tail;
+	if (sum < params.min_reads) {
+		return std::pair<bool, bool>(false, false);
+	}
+	float normalCdf = normalEstimation(max, 0.5, sum);
+	if (1 - normalCdf < params.error_percent) {
+		bool isHead = (max == head);
+		return std::pair<bool, bool>(true, isHead);
+	} else {
+		return std::pair<bool, bool>(false, false);
+	}
 }
 
 
@@ -810,88 +815,99 @@ static inline std::pair<bool, bool> headOrTail(int head, int tail) {
  * is a map with a key of pairs of saffold names, and value
  * of number of links between the pair. (Each link is one index).
  */
-void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<std::string, int>& indexMultMap) {
+void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap,
+		std::unordered_map<std::string, int>& indexMultMap) {
 
-    /* Iterate through each index in IndexMap */
-    for(auto it = imap.begin(); it != imap.end(); ++it) {
+	/* Iterate through each index in IndexMap */
+	for (auto it = imap.begin(); it != imap.end(); ++it) {
 
-        /* Get index multiplicity from indexMultMap */
-        std::string index = it->first;
-        int indexMult = indexMultMap[index];
+		/* Get index multiplicity from indexMultMap */
+		std::string index = it->first;
+		int indexMult = indexMultMap[index];
 
-        if (indexMult >= params.min_mult && indexMult <= params.max_mult) {
+		if (indexMult >= params.min_mult && indexMult <= params.max_mult) {
 
-           /* Iterate through all the scafNames in ScafMap */ 
-            for (auto o = it->second.begin(); o != it->second.end(); ++o) {
-                for (auto p = it->second.begin(); p != it->second.end(); ++p) {
-                    std::string scafA, scafB;
-                    bool scafAflag, scafBflag;
-                    std::tie (scafA, scafAflag) = o->first;
-                    std::tie (scafB, scafBflag) = p->first;
+			/* Iterate through all the scafNames in ScafMap */
+			for (auto o = it->second.begin(); o != it->second.end(); ++o) {
+				for (auto p = it->second.begin(); p != it->second.end(); ++p) {
+					std::string scafA, scafB;
+					bool scafAflag, scafBflag;
+					std::tie(scafA, scafAflag) = o->first;
+					std::tie(scafB, scafBflag) = p->first;
 
-                    /* Only insert into pmap if scafA < scafB to avoid duplicates */
-                    if (scafA != scafB) {
-                        bool validA, validB, scafAhead, scafBhead;
+					/* Only insert into pmap if scafA < scafB to avoid duplicates */
+					if (scafA != scafB) {
+						bool validA, validB, scafAhead, scafBhead;
 
-                        std::tie(validA, scafAhead) = headOrTail(it->second[std::pair<std::string, bool>(scafA, true)], it->second[std::pair<std::string, bool>(scafA, false)]);
-                        std::tie(validB, scafBhead) = headOrTail(it->second[std::pair<std::string, bool>(scafB, true)], it->second[std::pair<std::string, bool>(scafB, false)]);
+						std::tie(validA, scafAhead) = headOrTail(
+								it->second[std::pair<std::string, bool>(scafA,
+										true)],
+								it->second[std::pair<std::string, bool>(scafA,
+										false)]);
+						std::tie(validB, scafBhead) = headOrTail(
+								it->second[std::pair<std::string, bool>(scafB,
+										true)],
+								it->second[std::pair<std::string, bool>(scafB,
+										false)]);
 
+						if (validA && validB) {
+							std::pair<std::string, std::string> pair(scafA,
+									scafB);
+							std::pair<std::string, std::string> reversepair(
+									scafB, scafA);
 
-                        if (validA && validB) {
-                            std::pair<std::string, std::string> pair (scafA, scafB);
-			    std::pair<std::string, std::string> reversepair (scafB, scafA); 
+							if (pmap.count(reversepair) != 0) {
+								pair = reversepair;
+								bool temp = scafAhead;
+								scafAhead = scafBhead;
+								scafBhead = temp;
+							}
 
-		    	    if (pmap.count(reversepair) != 0) {
-				pair = reversepair; 
-				bool temp = scafAhead; 
-				scafAhead = scafBhead;
-				scafBhead = temp; 
-			    }
-		    
-	
-                            if (pmap.count(pair) == 0) {
-                                std::vector<int> init(4,0); 
-                                pmap[pair] = init;
-                            }
+							if (pmap.count(pair) == 0) {
+								std::vector<int> init(4, 0);
+								pmap[pair] = init;
+							}
 
-                            // Head - Head
-                            if (scafAhead && scafBhead) {
-                                pmap[pair][0]++;
-                            // Head - Tail
-                            } else if (scafAhead && !scafBhead) {
-                                pmap[pair][1]++;
-                            // Tail - Head
-                            } else if (!scafAhead && scafBhead) {
-                                pmap[pair][2]++;
-                            // Tail - Tail
-                            } else if (!scafAhead && !scafBhead) {
-                                pmap[pair][3]++;
-			    }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    //writePairMapToLog(pmap); 
+							// Head - Head
+							if (scafAhead && scafBhead) {
+								pmap[pair][0]++;
+								// Head - Tail
+							} else if (scafAhead && !scafBhead) {
+								pmap[pair][1]++;
+								// Tail - Head
+							} else if (!scafAhead && scafBhead) {
+								pmap[pair][2]++;
+								// Tail - Tail
+							} else if (!scafAhead && !scafBhead) {
+								pmap[pair][3]++;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	//writePairMapToLog(pmap);
 }  
+
+
 
 /*
  * Return the max value and its index position
  * in the vector
  */
 std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
-    int max = 0;
-    int index = 0;
-    for (int i = 0; i < int(array.size()); i++) {
-        if (array[i] > max) {
-            max = array[i];
-            index = i;
-        }
-    }
+	int max = 0;
+	int index = 0;
+	for (int i = 0; i < int(array.size()); i++) {
+		if (array[i] > max) {
+			max = array[i];
+			index = i;
+		}
+	}
 
-    std::pair<int, int> result(max, index);
-    return result;
+	std::pair<int, int> result(max, index);
+	return result;
 }
 
 /* 
@@ -899,11 +915,11 @@ std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
  * is dominant
  */
 static inline bool checkSignificance(int max, int second) {
-    if (max < params.min_links) {
-        return false;
-    }
-    float normalCdf = normalEstimation(max, 0.5, second);
-    return (1 - normalCdf < params.error_percent);
+	if (max < params.min_links) {
+		return false;
+	}
+	float normalCdf = normalEstimation(max, 0.5, second);
+	return (1 - normalCdf < params.error_percent);
 }
 
 /*
@@ -914,71 +930,71 @@ static inline bool checkSignificance(int max, int second) {
  */
 void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
 
-    ARCS::VidVdesMap vmap;
+	ARCS::VidVdesMap vmap;
 
-    ARCS::PairMap::const_iterator it;
-    for(it = pmap.begin(); it != pmap.end(); ++it) {
-        std::string scaf1, scaf2;
-        std::tie (scaf1, scaf2) = it->first;
+	ARCS::PairMap::const_iterator it;
+	for (it = pmap.begin(); it != pmap.end(); ++it) {
+		std::string scaf1, scaf2;
+		std::tie(scaf1, scaf2) = it->first;
 
-        int max, index;
-        std::vector<int> count = it->second;
-        std::tie(max, index) = getMaxValueAndIndex(count);
+		int max, index;
+		std::vector<int> count = it->second;
+		std::tie(max, index) = getMaxValueAndIndex(count);
 
-        int second = 0;
-        for (int i = 0; i < int(count.size()); i++) {
-            if (count[i] != max && count[i] > second)
-                second = count[i];
-        }
+		int second = 0;
+		for (int i = 0; i < int(count.size()); i++) {
+			if (count[i] != max && count[i] > second)
+				second = count[i];
+		}
 
-        /* Only insert edge if orientation with max links is dominant */
-        if (checkSignificance(max, second)) {
+		/* Only insert edge if orientation with max links is dominant */
+		if (checkSignificance(max, second)) {
 
-            /* If scaf1 is not a node in the graph, add it */
-            if (vmap.count(scaf1) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf1;
-                vmap[scaf1] = v;
-            }
+			/* If scaf1 is not a node in the graph, add it */
+			if (vmap.count(scaf1) == 0) {
+				ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+				g[v].id = scaf1;
+				vmap[scaf1] = v;
+			}
 
-            /* If scaf2 is not a node in the graph, add it */
-            if (vmap.count(scaf2) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf2;
-                vmap[scaf2] = v;
-            }
+			/* If scaf2 is not a node in the graph, add it */
+			if (vmap.count(scaf2) == 0) {
+				ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+				g[v].id = scaf2;
+				vmap[scaf2] = v;
+			}
 
-            ARCS::Graph::edge_descriptor e;
-            bool inserted;
+			ARCS::Graph::edge_descriptor e;
+			bool inserted;
 
-            /* Add the edge representing the pair */
-            std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-            if (inserted) {
-                g[e].weight = max;
-                g[e].orientation = index;
-            }
-        }
-    }
-} 
+			/* Add the edge representing the pair */
+			std::tie(e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2],
+					g);
+			if (inserted) {
+				g[e].weight = max;
+				g[e].orientation = index;
+			}
+		}
+	}
+}
 
 /* 
  * Write out the boost graph in a .dot file.
  */
 void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
-    std::ofstream out(graphFile_dot.c_str());
-    assert(out);
+	std::ofstream out(graphFile_dot.c_str());
+	assert(out);
 
-    boost::dynamic_properties dp;
-    dp.property("id", get(&ARCS::VertexProperties::id, g));
-    dp.property("weight", get(&ARCS::EdgeProperties::weight, g));
-    dp.property("label", get(&ARCS::EdgeProperties::orientation, g));
-    dp.property("node_id", get(boost::vertex_index, g));
-    boost::write_graphviz_dp(out, g, dp);
-    assert(out);
+	boost::dynamic_properties dp;
+	dp.property("id", get(&ARCS::VertexProperties::id, g));
+	dp.property("weight", get(&ARCS::EdgeProperties::weight, g));
+	dp.property("label", get(&ARCS::EdgeProperties::orientation, g));
+	dp.property("node_id", get(boost::vertex_index, g));
+	boost::write_graphviz_dp(out, g, dp);
+	assert(out);
 
-    out.close();
+	out.close();
 }
-
 
 /* 
  * Remove all nodes from graph wich have a degree
@@ -986,22 +1002,22 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
  */
 void removeDegreeNodes(ARCS::Graph& g, int max_degree) {
 
-    boost::graph_traits<ARCS::Graph>::vertex_iterator vi, vi_end, next;
-    boost::tie(vi, vi_end) = boost::vertices(g);
+	boost::graph_traits<ARCS::Graph>::vertex_iterator vi, vi_end, next;
+	boost::tie(vi, vi_end) = boost::vertices(g);
 
-    std::vector<ARCS::VertexDes> dVertex;
-    for (next = vi; vi != vi_end; vi = next) {
-        ++next;
-        if (static_cast<int>(boost::degree(*vi, g)) > max_degree) {
-            dVertex.push_back(*vi);
-        }
-    }
+	std::vector<ARCS::VertexDes> dVertex;
+	for (next = vi; vi != vi_end; vi = next) {
+		++next;
+		if (static_cast<int>(boost::degree(*vi, g)) > max_degree) {
+			dVertex.push_back(*vi);
+		}
+	}
 
-    for (unsigned i = 0; i < dVertex.size(); i++) {
-        boost::clear_vertex(dVertex[i], g);
-        boost::remove_vertex(dVertex[i], g);
-    }
-    boost::renumber_indices(g);
+	for (unsigned i = 0; i < dVertex.size(); i++) {
+		boost::clear_vertex(dVertex[i], g);
+		boost::remove_vertex(dVertex[i], g);
+	}
+	boost::renumber_indices(g);
 }
 
 /* 
@@ -1009,17 +1025,18 @@ void removeDegreeNodes(ARCS::Graph& g, int max_degree) {
  * Write graph
  */
 void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
-    if (params.max_degree != 0) {
-        std::cout << "      Deleting nodes with degree > " << params.max_degree <<"... \n";
-        removeDegreeNodes(g, params.max_degree);
-    } else {
-        std::cout << "      Max Degree (-d) set to: " << params.max_degree << ". Will not delete any verticies from graph.\n";
-    }
+	if (params.max_degree != 0) {
+		std::cout << "      Deleting nodes with degree > " << params.max_degree
+				<< "... \n";
+		removeDegreeNodes(g, params.max_degree);
+	} else {
+		std::cout << "      Max Degree (-d) set to: " << params.max_degree
+				<< ". Will not delete any verticies from graph.\n";
+	}
 
-    std::cout << "      Writting graph file to " << graphFile << "...\n";
-    writeGraph(graphFile, g);
+	std::cout << "      Writting graph file to " << graphFile << "...\n";
+	writeGraph(graphFile, g);
 }
-
 
 void runArcs() {
     std::cout << "Entered runArcs()..." << std::endl; 
@@ -1115,99 +1132,109 @@ void runArcs() {
 
 int main(int argc, char** argv) {
 
-    printf("Reading user inputs... (in main)\n"); 
+	printf("Reading user inputs... (in main)\n");
 
-    bool die = false;
-    for (int c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;) {
-        std::istringstream arg(optarg != NULL ? optarg : "");
-        switch (c) {
-            case '?':
-                die = true; break;
-            case 'f':
-                arg >> params.file; break;
-	    case 'h': 
-		arg >> params.c_input; break; 
-            case 'c':
-                arg >> params.min_reads; break;
-	    case 'k':
-		arg >> params.k_value; break; 
-	    case 'g':
-		arg >> params.k_shift; break; 
-	    case 'j': 
-		arg >> params.j_index; break; 
-            case 'l':
-                arg >> params.min_links; break;
-            case 'z':
-                arg >> params.min_size; break;
-            case 'b':
-                arg >> params.base_name; break;
-            case 'm': {
-                std::string firstStr, secondStr;
-                std::getline(arg, firstStr, '-');
-                std::getline(arg, secondStr);
-                std::stringstream ss;
-                ss << firstStr << "\t" << secondStr;
-                ss >> params.min_mult >> params.max_mult;
-                }
-                break;
-            case 'd':
-                arg >> params.max_degree; break;
-            case 'e':
-                arg >> params.end_length; break;
-            case 'r':
-                arg >> params.error_percent; break;
-            case 'v':
-                ++params.verbose; break;
-            case OPT_HELP:
-                std::cout << USAGE_MESSAGE;
-                exit(EXIT_SUCCESS);
-            case OPT_VERSION:
-                std::cout << VERSION_MESSAGE;
-                exit(EXIT_SUCCESS);  
-        }
-        if (optarg != NULL && (!arg.eof() || arg.fail())) {
-            std::cerr << PROGRAM ": invalid option: `-"
-                << (char)c << optarg << "'\n";
-            exit(EXIT_FAILURE);
-        }
-    }
+	bool die = false;
+	for (int c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;
+			) {
+		std::istringstream arg(optarg != NULL ? optarg : "");
+		switch (c) {
+		case '?':
+			die = true;
+			break;
+		case 'f':
+			arg >> params.file;
+			break;
+		case 'h':
+			arg >> params.c_input;
+			break;
+		case 'c':
+			arg >> params.min_reads;
+			break;
+		case 'k':
+			arg >> params.k_value;
+			break;
+		case 'g':
+			arg >> params.k_shift;
+			break;
+		case 'j':
+			arg >> params.j_index;
+			break;
+		case 'l':
+			arg >> params.min_links;
+			break;
+		case 'z':
+			arg >> params.min_size;
+			break;
+		case 'b':
+			arg >> params.base_name;
+			break;
+		case 'm': {
+			std::string firstStr, secondStr;
+			std::getline(arg, firstStr, '-');
+			std::getline(arg, secondStr);
+			std::stringstream ss;
+			ss << firstStr << "\t" << secondStr;
+			ss >> params.min_mult >> params.max_mult;
+		}
+			break;
+		case 'd':
+			arg >> params.max_degree;
+			break;
+		case 'e':
+			arg >> params.end_length;
+			break;
+		case 'r':
+			arg >> params.error_percent;
+			break;
+		case 'v':
+			++params.verbose;
+			break;
+		case OPT_HELP:
+			std::cout << USAGE_MESSAGE;
+			exit(EXIT_SUCCESS);
+		case OPT_VERSION:
+			std::cout << VERSION_MESSAGE;
+			exit(EXIT_SUCCESS);
+		}
+		if (optarg != NULL && (!arg.eof() || arg.fail())) {
+			std::cerr << PROGRAM ": invalid option: `-" << (char) c << optarg
+					<< "'\n";
+			exit(EXIT_FAILURE);
+		}
+	}
 
-   std::ifstream f(params.c_input.c_str()); 
-   if (!f.good()) {
-	std::cerr << "Cannot find -h " << params.c_input << ". Exiting... \n"; 
-	die = true; 
-   }
+	std::ifstream f(params.c_input.c_str());
+	if (!f.good()) {
+		std::cerr << "Cannot find -h " << params.c_input << ". Exiting... \n";
+		die = true;
+	}
 
-    std::ifstream g(params.file.c_str());
-    if (!g.good()) {
-        std::cerr << "Cannot find -f " << params.file << ". Exiting... \n";
-        die = true;
-    }
+	std::ifstream g(params.file.c_str());
+	if (!g.good()) {
+		std::cerr << "Cannot find -f " << params.file << ". Exiting... \n";
+		die = true;
+	}
 
-    if (die) {
-        std::cerr << "Try " << PROGRAM << " --help for more information.\n";
-        exit(EXIT_FAILURE);
-    }
+	if (die) {
+		std::cerr << "Try " << PROGRAM << " --help for more information.\n";
+		exit(EXIT_FAILURE);
+	}
 
-    /* Setting base name if not previously set; name depends on type of arcs used */
-    if (params.base_name.empty()) {
-        std::ostringstream filename;
-        	filename << params.file << ".scaff" 
-		<< "k-method"
-            	<< "_c" << params.min_reads
-	   	<< "_k" << params.k_value     
-		<< "_g" << params.k_shift
-		<< "_j" << params.j_index  
-           	<< "_l" << params.min_links 
-           	<< "_d" << params.max_degree 
-            	<< "_e" << params.end_length
-           	<< "_r" << params.error_percent;
-        params.base_name = filename.str();
-    }
+	/* Setting base name if not previously set; name depends on type of arcs used */
+	if (params.base_name.empty()) {
+		std::ostringstream filename;
+		filename << params.file << ".scaff" << "k-method" << "_c"
+				<< params.min_reads << "_k" << params.k_value << "_g"
+				<< params.k_shift << "_j" << params.j_index << "_l"
+				<< params.min_links << "_d" << params.max_degree << "_e"
+				<< params.end_length << "_r" << params.error_percent;
+		params.base_name = filename.str();
+	}
 
-    printf("%s\n", "Finished reading user inputs...entering runArcs()..."); 
+	printf("%s\n", "Finished reading user inputs...entering runArcs()...");
 
-    runArcs();
+	runArcs();
 
-    return 0;
+	return 0;
 }
