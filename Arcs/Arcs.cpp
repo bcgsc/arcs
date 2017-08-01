@@ -253,9 +253,9 @@ int memory_usage() {
 /* ARCS PROCESSES FUNCTIONS */
 
 /* Returns the size of the array for storing contigs */
-int initContigArray(std::string contigfile) {
+size_t initContigArray(std::string contigfile) {
 
-	int count = 0;
+	size_t count = 0;
 
 	gzFile fp;
 
@@ -1123,7 +1123,7 @@ void runArcs() {
     // Initialize the contigRecord
     time(&rawtime); 
     std::cout << "\n=>Allocating the Contig Record... " << ctime(&rawtime); 
-    int size = initContigArray(params.file); 
+    size_t size = initContigArray(params.file);
     std::vector<ARCS::CI> contigRecord (size);
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
