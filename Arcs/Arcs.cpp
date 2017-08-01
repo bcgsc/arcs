@@ -388,7 +388,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 	kseq_t * seq = kseq_init(fp);
 
 #pragma omp parallel
-	while (l < 0) {
+	while (l >= 0) {
 		ReadsProcessor proc(params.k_value);
 		std::string contigID = "", sequence = "";
 		size_t tempConreci1 = 0;
