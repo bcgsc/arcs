@@ -41,7 +41,7 @@ static const char USAGE_MESSAGE[] =
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:h:s:c:k:g:j:l:z:b:m:d:e:r:v";
+static const char shortopts[] = "f:h:s:c:k:g:j:l:z:b:m:d:e:r:vt:";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -63,10 +63,13 @@ static const struct option longopts[] = {
     {"end_length", required_argument, NULL, 'e'},
     {"error_percent", required_argument, NULL, 'r'},
     {"run_verbose", no_argument, NULL, 'v'},
+	{"threads", required_argument, NULL, 't'},
     {"version", no_argument, NULL, OPT_VERSION},
     {"help", no_argument, NULL, OPT_HELP},
     { NULL, 0, NULL, 0 }
 };
+
+//TODO: PLEASE ADD THE s_ prefex (eg. s_numkmercollisions) to denote that these are static variables during the runtime of the program
 
 unsigned int numkmersmapped = 0, numkmercollisions = 0, numkmersremdup = 0,
 		numbadkmers = 0, uniquedraftkmers = 0;
@@ -323,11 +326,14 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 				numKmers++;
 
 				if (kmap.count(kmerseq) == 1) {
+#pragma omp atomic
 					numkmercollisions++;
 					if (kmap[kmerseq] != conreci) {
+#pragma omp atomic
 						numkmersremdup++;
 						if (kmap[kmerseq] != 0) {
 							//kmaplist += "\t\t\tremoved"; 
+#pragma omp atomic
 							uniquedraftkmers--;
 							kmap[kmerseq] = 0;
 						} else {
@@ -338,12 +344,15 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 				} else {
 					assert(kmap.count(kmerseq) == 0);
 					kmap[kmerseq] = conreci;
+#pragma omp atomic
 					uniquedraftkmers++;
+#pragma omp atomic
 					numkmersmapped++;
 				}
 				i += k_shift;
 			} else {
 				i += k;
+#pragma omp atomic
 				numbadkmers++;
 			}
 
@@ -360,7 +369,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
  *	int k							k-value (specified by user)
  */
 void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
-		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord) {
+		std::vector<ARCS::CI> &contigRecord) {
 
 	int totalNumContigs = 0;
 	int skippedContigs = 0;
@@ -368,7 +377,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 	int totalKmers = 0;
 
 	ARCS::CI collisionmarker("null contig", false);
-	int conreci = 0; // 0 is the null contig so we will later increment before adding
+	size_t conreci = 0; // 0 is the null contig so we will later increment before adding
 	contigRecord[conreci] = collisionmarker;
 
 	gzFile fp;
@@ -378,62 +387,80 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 	fp = gzopen(filename, "r");
 	kseq_t * seq = kseq_init(fp);
 
-	while ((l = kseq_read(seq)) >= 0) {
-		std::string contigID = seq->name.s;
-		std::string sequence = seq->seq.s;
-
+#pragma omp parallel
+	while (l < 0) {
+		ReadsProcessor proc(params.k_value);
+		std::string contigID = "", sequence = "";
+		size_t tempConreci1 = 0;
+		size_t tempConreci2 = 0;
+#pragma omp critical
+		{
+			l = kseq_read(seq);
+			if (l >= 0) {
+				contigID = seq->name.s;
+				sequence = seq->seq.s;
+				tempConreci1 = ++conreci;
+				tempConreci2 = ++conreci;
+			}
+		}
+#pragma omp atomic
 		totalNumContigs++;
 
-		if (!checkContigSequence(sequence)) {
-			std::string errormsg =
-					"Error: Contig contains non-base characters. Please check your draft genome input file.";
-			if (params.verbose) {
-				std::cerr << contigID << ": " << errormsg << std::endl;
-			}
-			skippedContigs++;
-		} else {
-
-			// If the sequence is above minimum contig length, then will extract kmers from both ends 
-			// If not will ignore the contig
-			int sequence_length = sequence.length();
-
-			if (sequence_length >= params.min_size) {
-
-				// If contig length is less than 2 x end_length, then we split the sequence 
-				// in half to decide head/tail (aka we changed the end_length)
-				int cutOff = params.end_length;
-				if (cutOff == 0 || sequence_length <= cutOff * 2)
-					cutOff = sequence_length / 2;
-
-				// Arbitrarily assign head or tail to ends of the contig
-				ARCS::CI headside(contigID, true);
-				ARCS::CI tailside(contigID, false);
-
-				//get ends of the sequence and put k-mers into the map
-				conreci++;
-				contigRecord[conreci] = headside;
-				std::string seqend;
-				seqend = sequence.substr(0, cutOff);
-				int num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
-						proc, conreci);
-				totalKmers += num;
-
-				conreci++;
-				contigRecord[conreci] = tailside;
-				seqend = sequence.substr(sequence_length - cutOff,
-						sequence_length);
-				num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
-						proc, conreci);
-				totalKmers += num;
-
-				validContigs++;
-			} else {
+		if (contigID != "") {
+			if (!checkContigSequence(sequence)) {
+				std::string errormsg =
+						"Error: Contig contains non-base characters. Please check your draft genome input file.";
+				if (params.verbose) {
+					std::cerr << contigID << ": " << errormsg << std::endl;
+				}
+#pragma omp atomic
 				skippedContigs++;
+			} else {
+
+				// If the sequence is above minimum contig length, then will extract kmers from both ends
+				// If not will ignore the contig
+				int sequence_length = sequence.length();
+
+				if (sequence_length >= params.min_size) {
+
+					// If contig length is less than 2 x end_length, then we split the sequence
+					// in half to decide head/tail (aka we changed the end_length)
+					int cutOff = params.end_length;
+					if (cutOff == 0 || sequence_length <= cutOff * 2)
+						cutOff = sequence_length / 2;
+
+					// Arbitrarily assign head or tail to ends of the contig
+					ARCS::CI headside(contigID, true);
+					ARCS::CI tailside(contigID, false);
+
+					//get ends of the sequence and put k-mers into the map
+					contigRecord[tempConreci1] = headside;
+					std::string seqend;
+					seqend = sequence.substr(0, cutOff);
+					int num = mapKmers(seqend, params.k_value, params.k_shift,
+							kmap, proc, tempConreci1);
+#pragma omp atomic
+					totalKmers += num;
+
+					contigRecord[tempConreci2] = tailside;
+					seqend = sequence.substr(sequence_length - cutOff,
+							sequence_length);
+					num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
+							proc, tempConreci2);
+#pragma omp atomic
+					totalKmers += num;
+#pragma omp atomic
+					validContigs++;
+				} else {
+#pragma omp atomic
+					skippedContigs++;
+				}
 			}
 		}
 
 		// printprogress
 		if (params.verbose) {
+#pragma omp critical
 			if (totalNumContigs % 1000 == 0) {
 				printf("Finished %d Contigs...\n", totalNumContigs);
 				std::cout << "Cumulative memory usage: " << memory_usage()
@@ -1104,7 +1131,7 @@ void runArcs() {
     // Read contig file, shred sequences into k-mers, and then map them 
     time(&rawtime); 
     std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime); 
-    getContigKmers(params.file, kmap, proc, contigRecord); 
+    getContigKmers(params.file, kmap, contigRecord);
 
 
 //Debugging purposes
@@ -1192,6 +1219,9 @@ int main(int argc, char** argv) {
 		case 'v':
 			++params.verbose;
 			break;
+		case 't':
+			arg >> params.threads;
+			break;
 		case OPT_HELP:
 			std::cout << USAGE_MESSAGE;
 			exit(EXIT_SUCCESS);
@@ -1205,6 +1235,7 @@ int main(int argc, char** argv) {
 			exit(EXIT_FAILURE);
 		}
 	}
+	omp_set_num_threads(params.threads);
 
 	std::ifstream f(params.c_input.c_str());
 	if (!f.good()) {
