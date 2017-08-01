@@ -62,7 +62,7 @@ static const struct option longopts[] = {
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
     {"error_percent", required_argument, NULL, 'r'},
-    {"run_verbose", required_argument, NULL, 'v'},
+    {"run_verbose", no_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
     {"help", no_argument, NULL, OPT_HELP},
     { NULL, 0, NULL, 0 }
