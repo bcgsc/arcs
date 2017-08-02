@@ -274,8 +274,8 @@ size_t initContigArray(std::string contigfile) {
 	gzclose(fp);
 
 	if (params.verbose) {
-		printf("Number of contigs: %d\nSize of Contig Array: %d\n", count,
-				(count * 2) + 1);
+		cerr << "Number of contigs:" << count << "\nSize of Contig Array:"
+				<< (count * 2) + 1 << endl;
 	}
 
 	//Let the first index represent the a null contig
@@ -289,7 +289,8 @@ size_t initContigArray(std::string contigfile) {
  *	ARCS::ContigKMap					ContigKMap for storage of kmers
  */
 int mapKmers(std::string seqToKmerize, int k, int k_shift,
-		ARCS::ContigKMap& kmap, ReadsProcessor &proc, int conreci) {
+		ARCS::ContigKMap& kmap, ReadsProcessor &proc, int conreci,
+		omp_lock_t* locks) {
 	/*
 	 //For debugging purposes:
 	 std::string kmaplist;*/
@@ -325,6 +326,12 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 
 				numKmers++;
 
+				//assign lock to same k-mer with minimal chance of collision with an other k-mer
+				//assuming lock is 2^16 in size
+				//ideally would want CAS operation but without special a datastructure this is difficult
+				unsigned num = (temp[0] << 24) + (temp[1] << 16) + (temp[2] << 8) + temp[3];
+
+				omp_set_lock(&(locks[num]));
 				if (kmap.count(kmerseq) == 1) {
 #pragma omp atomic
 					numkmercollisions++;
@@ -349,6 +356,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 #pragma omp atomic
 					numkmersmapped++;
 				}
+				omp_unset_lock(&(locks[num]));
 				i += k_shift;
 			} else {
 				i += k;
@@ -386,6 +394,12 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 	const char* filename = contigfile.c_str();
 	fp = gzopen(filename, "r");
 	kseq_t * seq = kseq_init(fp);
+
+	omp_lock_t locks[params.lockNum];
+
+	for (unsigned i = 0; i < params.lockNum; ++i) {
+		omp_init_lock(&(locks[i]));
+	}
 
 #pragma omp parallel
 	while (l >= 0) {
@@ -438,7 +452,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 					std::string seqend;
 					seqend = sequence.substr(0, cutOff);
 					int num = mapKmers(seqend, params.k_value, params.k_shift,
-							kmap, proc, tempConreci1);
+							kmap, proc, tempConreci1, locks);
 #pragma omp atomic
 					totalKmers += num;
 
@@ -446,7 +460,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 					seqend = sequence.substr(sequence_length - cutOff,
 							sequence_length);
 					num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
-							proc, tempConreci2);
+							proc, tempConreci2, locks);
 #pragma omp atomic
 					totalKmers += num;
 #pragma omp atomic
@@ -471,6 +485,10 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 	}
 	kseq_destroy(seq);
 	gzclose(fp);
+
+	for (unsigned i = 0; i < params.lockNum; i++) {
+		omp_destroy_lock(&(locks[i]));
+	}
 
 	if (params.verbose) {
 		printf(
