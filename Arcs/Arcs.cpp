@@ -266,7 +266,7 @@ size_t initContigArray(std::string contigfile) {
 
 	while ((l = kseq_read(seq)) >= 0) {
 		std::string sequence = seq->seq.s;
-		int sequence_length = sequence.length();
+		unsigned sequence_length = sequence.length();
 		if (checkContigSequence(sequence) && sequence_length >= params.min_size)
 			count++;
 	}
@@ -289,8 +289,7 @@ size_t initContigArray(std::string contigfile) {
  *	ARCS::ContigKMap					ContigKMap for storage of kmers
  */
 int mapKmers(std::string seqToKmerize, int k, int k_shift,
-		ARCS::ContigKMap& kmap, ReadsProcessor &proc, int conreci,
-		omp_lock_t* locks) {
+		ARCS::ContigKMap& kmap, ReadsProcessor &proc, int conreci) {
 	/*
 	 //For debugging purposes:
 	 std::string kmaplist;*/
@@ -312,7 +311,6 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 		int i = 0;
 		while (i <= seqsize - k) {
 			const unsigned char* temp = proc.prepSeq(seqToKmerize, i); // prepSeq returns NULL if it contains an N
-
 			// Ignore a NULL kmer
 			if (temp != NULL) {
 				std::string kmerseq = proc.getStr(temp);
@@ -326,44 +324,40 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 
 				numKmers++;
 
-				//assign lock to same k-mer with minimal chance of collision with an other k-mer
-				//assuming lock is 2^16 in size
+				//Critical section to prevent multiple thread from accessing datastructure
+				//only needed since we are writing to datastructure
 				//ideally would want CAS operation but without special a datastructure this is difficult
-				unsigned num = (temp[0] << 24) + (temp[1] << 16) + (temp[2] << 8) + temp[3];
 
-				omp_set_lock(&(locks[num]));
-				if (kmap.count(kmerseq) == 1) {
-#pragma omp atomic
+#pragma omp critical(kmerseq)
+				if (kmap.find(kmerseq) != kmap.end()) {
+//#pragma omp atomic
 					numkmercollisions++;
 					if (kmap[kmerseq] != conreci) {
-#pragma omp atomic
+//#pragma omp atomic
 						numkmersremdup++;
 						if (kmap[kmerseq] != 0) {
 							//kmaplist += "\t\t\tremoved"; 
-#pragma omp atomic
+//#pragma omp atomic
 							uniquedraftkmers--;
 							kmap[kmerseq] = 0;
 						} else {
 							kmap[kmerseq] = 0;
 						}
-
 					}
 				} else {
 					assert(kmap.count(kmerseq) == 0);
 					kmap[kmerseq] = conreci;
-#pragma omp atomic
+//#pragma omp atomic
 					uniquedraftkmers++;
-#pragma omp atomic
+//#pragma omp atomic
 					numkmersmapped++;
 				}
-				omp_unset_lock(&(locks[num]));
 				i += k_shift;
 			} else {
 				i += k;
 #pragma omp atomic
 				numbadkmers++;
 			}
-
 			//kmaplist += "\n"; 
 		}
 		//writeToKmapDebugLogFile(kmaplist); 
@@ -395,15 +389,16 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 	fp = gzopen(filename, "r");
 	kseq_t * seq = kseq_init(fp);
 
-	omp_lock_t locks[params.lockNum];
+	//each thread gets a proc;
+	vector<ReadsProcessor*> procs(params.threads);
 
-	for (unsigned i = 0; i < params.lockNum; ++i) {
-		omp_init_lock(&(locks[i]));
+	for (unsigned i = 0; i < params.threads; ++i) {
+		procs[i] = new ReadsProcessor(params.k_value);
 	}
 
 #pragma omp parallel
 	while (l >= 0) {
-		ReadsProcessor proc(params.k_value);
+		bool good = false;
 		std::string contigID = "", sequence = "";
 		size_t tempConreci1 = 0;
 		size_t tempConreci2 = 0;
@@ -413,29 +408,30 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 			if (l >= 0) {
 				contigID = seq->name.s;
 				sequence = seq->seq.s;
-				tempConreci1 = ++conreci;
-				tempConreci2 = ++conreci;
+				if (sequence.length() >= params.min_size) {
+					tempConreci1 = ++conreci;
+					tempConreci2 = ++conreci;
+					good = true;
+				}
 			}
 		}
 #pragma omp atomic
 		totalNumContigs++;
 
-		if (contigID != "") {
-			if (!checkContigSequence(sequence)) {
-				std::string errormsg =
-						"Error: Contig contains non-base characters. Please check your draft genome input file.";
-				if (params.verbose) {
-					std::cerr << contigID << ": " << errormsg << std::endl;
-				}
-#pragma omp atomic
-				skippedContigs++;
-			} else {
-
+		if (good) {
+//			if (!checkContigSequence(sequence)) {
+//				std::string errormsg =
+//						"Error: Contig contains non-base characters. Please check your draft genome input file.";
+//				if (params.verbose) {
+//					std::cerr << contigID << ": " << errormsg << std::endl;
+//				}
+//#pragma omp atomic
+//				skippedContigs++;
+//			} else {
 				// If the sequence is above minimum contig length, then will extract kmers from both ends
 				// If not will ignore the contig
 				int sequence_length = sequence.length();
-
-				if (sequence_length >= params.min_size) {
+//				if (sequence_length >= params.min_size) {
 
 					// If contig length is less than 2 x end_length, then we split the sequence
 					// in half to decide head/tail (aka we changed the end_length)
@@ -452,7 +448,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 					std::string seqend;
 					seqend = sequence.substr(0, cutOff);
 					int num = mapKmers(seqend, params.k_value, params.k_shift,
-							kmap, proc, tempConreci1, locks);
+							kmap, *procs[omp_get_thread_num()], tempConreci1);
 #pragma omp atomic
 					totalKmers += num;
 
@@ -460,7 +456,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 					seqend = sequence.substr(sequence_length - cutOff,
 							sequence_length);
 					num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
-							proc, tempConreci2, locks);
+							*procs[omp_get_thread_num()], tempConreci2);
 #pragma omp atomic
 					totalKmers += num;
 #pragma omp atomic
@@ -469,8 +465,8 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 #pragma omp atomic
 					skippedContigs++;
 				}
-			}
-		}
+//			}
+//		}
 
 		// printprogress
 		if (params.verbose) {
@@ -486,8 +482,9 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 	kseq_destroy(seq);
 	gzclose(fp);
 
-	for (unsigned i = 0; i < params.lockNum; i++) {
-		omp_destroy_lock(&(locks[i]));
+	// clean up
+	for (unsigned i = 0; i < params.threads; ++i) {
+		delete procs[i];
 	}
 
 	if (params.verbose) {

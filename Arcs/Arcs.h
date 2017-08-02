@@ -44,7 +44,7 @@ struct ArcsParams {
 	int k_shift;
 	double j_index;
 	int min_links;
-	int min_size;
+	unsigned min_size;
 	std::string base_name;
 	int min_mult;
 	int max_mult;
@@ -53,13 +53,12 @@ struct ArcsParams {
 	float error_percent;
 	int verbose;
 	unsigned threads;
-	unsigned lockNum;
 
 	ArcsParams() : /*arcs_type(0),*/
 			file(), /*fofName(),*/c_input(), /*seq_id(98),*/min_reads(5), k_value(
 					30), k_shift(1), j_index(0.55), min_links(0), min_size(500), base_name(
 					""), min_mult(50), max_mult(10000), max_degree(0), end_length(
-					0), error_percent(0.05), verbose(0), threads(1), lockNum(65536) {
+					0), error_percent(0.05), verbose(0), threads(1) {
 	}
 
 };
