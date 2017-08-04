@@ -388,7 +388,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 
 	gzFile fp;
 
-	int l;
+	int l = INT_MAX;
 	const char* filename = contigfile.c_str();
 	fp = gzopen(filename, "r");
 	kseq_t * seq = kseq_init(fp);
