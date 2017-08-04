@@ -406,6 +406,13 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 		std::string contigID = "", sequence = "";
 		size_t tempConreci1 = 0;
 		size_t tempConreci2 = 0;
+
+#if _OPENMP
+		int threadID = omp_get_thread_num();
+#else
+		int threadID = 1;
+#endif
+
 #pragma omp critical
 		{
 			l = kseq_read(seq);
@@ -452,7 +459,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 					std::string seqend;
 					seqend = sequence.substr(0, cutOff);
 					int num = mapKmers(seqend, params.k_value, params.k_shift,
-							kmap, *procs[omp_get_thread_num()], tempConreci1);
+							kmap, *procs[threadID], tempConreci1);
 #pragma omp atomic
 					totalKmers += num;
 
@@ -460,7 +467,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 					seqend = sequence.substr(sequence_length - cutOff,
 							sequence_length);
 					num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
-							*procs[omp_get_thread_num()], tempConreci2);
+							*procs[threadID], tempConreci2);
 #pragma omp atomic
 					totalKmers += num;
 #pragma omp atomic
@@ -1360,7 +1367,10 @@ int main(int argc, char** argv) {
 			exit(EXIT_FAILURE);
 		}
 	}
+
+#if _OPENMP
 	omp_set_num_threads(params.threads);
+#endif
 
 	std::ifstream f(params.c_input.c_str());
 	if (!f.good()) {
