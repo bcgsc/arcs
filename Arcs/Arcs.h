@@ -51,6 +51,7 @@ struct ArcsParams {
 	int max_degree;
 	int end_length;
 	float error_percent;
+	string contig_to_barcode_file;
 	int verbose;
 	unsigned threads;
 
@@ -106,6 +107,13 @@ typedef std::map<CI, int> ScafMap;
 typedef std::unordered_map<std::string, ScafMap> IndexMap;
 /* PairMap: key = pair of scaf sequence id, value = num links*/
 typedef std::map<std::pair<std::string, std::string>, std::vector<int>> PairMap;
+
+/* Chromium barcode sequence and number of mapped read pairs */
+typedef std::pair<std::string, int> BarcodeCount;
+/* a vector of Chromium barcodes and counts */
+typedef std::vector<BarcodeCount> BarcodeCounts;
+/* maps a contig head/tail to Chromium barcodes and their counts */
+typedef std::vector<BarcodeCounts> ContigToBarcodeMap;
 
 /* GRAPH DATA STRUCTURES: */
 

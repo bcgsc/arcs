@@ -35,13 +35,14 @@ static const char USAGE_MESSAGE[] =
 		"   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
 		"   -e  End length (bp) of sequences to consider (default: 30000)\n"
 		"   -r  Maximum p-value for H/T assignment and link orientation determination. Lower is more stringent (default: 0.05)\n"
+		"   -X  output filename for contig => barcode mappings\n"
 		"   -v  Runs in verbose mode (optional, default: 0)\n";
 
 /* ARCS PREPARATION AKA GLOBAL VARIABLES: */
 
 ARCS::ArcsParams params;
 
-static const char shortopts[] = "f:h:s:c:k:g:j:l:z:b:m:d:e:r:vt:";
+static const char shortopts[] = "f:h:s:c:k:g:j:l:z:b:m:d:e:r:vt:X:";
 
 enum { OPT_HELP = 1, OPT_VERSION};
 
@@ -640,11 +641,40 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
 	}
 }
 
+/* increment the count for a given contig => Chromium index mapping */
+void incrementBarcodeCount(int contigRecord, const std::string& barcode,
+	ARCS::ContigToBarcodeMap& contigToBarcodeMap)
+{
+	// note: factor of 2 is due to separate entries for contig head/tail
+	assert(contigRecord < int(contigToBarcodeMap.size() * 2));
+
+	ARCS::BarcodeCounts& barcodeCounts = contigToBarcodeMap.at(contigRecord);
+	bool incremented = false;
+	for (ARCS::BarcodeCounts::iterator it = barcodeCounts.begin();
+		 it != barcodeCounts.end(); ++it)
+	{
+		if (it->first == barcode) {
+			// same Chromium barcode should not occur more than once in list
+			assert(!incremented);
+			int& count = it->second;
+#pragma omp atomic
+			count++;
+			incremented = true;
+		}
+	}
+
+	if (!incremented) {
+#pragma omp critical(contigToBarcodeMap)
+		barcodeCounts.push_back(std::make_pair(barcode, 1));
+	}
+}
+
 /* Read through longranger basic chromium output fastq file */
 void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap,
 		ARCS::IndexMap& imap,
 		std::unordered_map<std::string, int> &indexMultMap,
-		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord) {
+		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord,
+		ARCS::ContigToBarcodeMap& contigToBarcodeMap) {
 
 	int ctpername = 1;
 	int stored_readpairs = 0;
@@ -747,7 +777,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap,
 					if (corrConReci != 0 && corrConReci == prevConReci) {
 						corrContigId = contigRecord[corrConReci];
 						imap[barcode][corrContigId]++;
-
+						if (!params.contig_to_barcode_file.empty())
+							incrementBarcodeCount(corrConReci, barcode, contigToBarcodeMap);
 						stored_readpairs++;
 
 						std::string ht = HeadOrTail(corrContigId.second);
@@ -784,7 +815,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap,
 void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap,
 		ARCS::IndexMap &imap,
 		std::unordered_map<std::string, int> &indexMultMap,
-		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord) {
+		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord,
+		ARCS::ContigToBarcodeMap& contigToBarcodeMap) {
 
 	std::ifstream fofName_stream(fofName.c_str());
 
@@ -803,7 +835,8 @@ void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap,
 	while (getline(fofName_stream2, chromFile)) {
 		if (params.verbose)
 			std::cout << "Reading chrom " << chromFile << std::endl;
-		chromiumRead(chromFile, kmap, imap, indexMultMap, proc, contigRecord);
+		chromiumRead(chromFile, kmap, imap, indexMultMap, proc, contigRecord,
+			contigToBarcodeMap);
 		assert(fofName_stream2);
 	}
 	fofName_stream2.close();
@@ -1039,6 +1072,59 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
 	out.close();
 }
 
+/*
+ * Output list of indices and their associated read pair counts.  The output
+ * format is a space-separated list:
+ *
+ * <index_seq_1>:<count> [<index_seq_2>:<count>] ...
+ */
+void writeBarcodeCounts(const ARCS::BarcodeCounts& barcodeCounts, std::ostream& out)
+{
+	if (barcodeCounts.size() == 0)
+		return;
+
+	ARCS::BarcodeCounts::const_iterator it = barcodeCounts.begin();
+	out << it->first << ':' << it->second;
+	for (++it; it != barcodeCounts.end(); ++it)
+		out << ' ' << it->first << ':' << it->second;
+}
+
+/* write TSV file of contig => Chromium index mappings and counts */
+void writeContigToBarcodeMap(const std::vector<ARCS::CI>& contigRecord,
+	const ARCS::ContigToBarcodeMap& contigToBarcodeMap, std::ostream& out)
+{
+	/* note: start at i = 1 because index 0 is represents "null contig" */
+
+	for (unsigned i = 1; i < contigRecord.size(); ++i)
+	{
+		// sanity check: contig IDs for records i and (i + 1)
+		// should be indentical (separate records for head and tail)
+
+		if (i % 2 == 1)
+			assert(contigRecord.at(i).first == contigRecord.at(i + 1).first);
+
+		// column 1: contig ID
+
+		out << contigRecord.at(i).first << '\t';
+
+		// column 2: HEAD or TAIL
+
+		if (i % 2 == 1)
+			out << "HEAD";
+		else
+			out << "TAIL";
+
+		// column 3: chromium index seqs and read pair counts
+
+		if (contigToBarcodeMap.at(i).size() > 0) {
+			out << '\t';
+			writeBarcodeCounts(contigToBarcodeMap.at(i), out);
+		}
+
+		out << '\n';
+	}
+}
+ 
 /* 
  * Remove all nodes from graph wich have a degree
  * greater than max_degree
@@ -1141,6 +1227,18 @@ void runArcs() {
     size_t size = initContigArray(params.file);
     std::vector<ARCS::CI> contigRecord (size);
 
+    ARCS::ContigToBarcodeMap contigToBarcodeMap;
+    std::ofstream contigToBarcodeOut;
+
+    if (!params.contig_to_barcode_file.empty())
+    {
+        contigToBarcodeOut.open(params.contig_to_barcode_file.c_str());
+        assert(contigToBarcodeOut);
+
+        // only allocate additional memory when '-X' option is enabled
+        contigToBarcodeMap.resize(size);
+    }
+
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 	
     // Read contig file, shred sequences into k-mers, and then map them 
@@ -1154,7 +1252,8 @@ void runArcs() {
 
     time(&rawtime); 
     std::cout << "\n=>Reading Chromium FASTQ file(s)... " << ctime(&rawtime); 
-    readChroms(params.c_input, kmap, imap, indexMultMap, proc, contigRecord); 
+    readChroms(params.c_input, kmap, imap, indexMultMap, proc, contigRecord,
+        contigToBarcodeMap);
 
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl; 
 
@@ -1169,6 +1268,12 @@ void runArcs() {
     time(&rawtime);
     std::cout << "\n=>Starting to write graph file... " << ctime(&rawtime) << "\n";
     writePostRemovalGraph(g, graphFile);
+
+    if (!params.contig_to_barcode_file.empty()) {
+        time(&rawtime);
+        std::cout << "\n=>Starting to write contig => barcode mappings... " << ctime(&rawtime) << "\n";
+        writeContigToBarcodeMap(contigRecord, contigToBarcodeMap, contigToBarcodeOut);
+    }
 
     time(&rawtime);
     std::cout << "\n=>Done. " << ctime(&rawtime);
@@ -1237,6 +1342,8 @@ int main(int argc, char** argv) {
 		case 't':
 			arg >> params.threads;
 			break;
+		case 'X':
+			arg >> params.contig_to_barcode_file; break;
 		case OPT_HELP:
 			std::cout << USAGE_MESSAGE;
 			exit(EXIT_SUCCESS);
