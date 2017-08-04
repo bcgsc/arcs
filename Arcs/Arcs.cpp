@@ -852,21 +852,6 @@ void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap,
 	fofName_stream2.close();
 }
 
-		
-/*
- * Check if SAM flag is one of the accepted ones.
- */
-static inline bool checkFlag(int flag) {
-	return (flag == 99 || flag == 163 || flag == 83 || flag == 147);
-}
-
-/*
- * Check if character is one of the accepted ones.
- */
-static inline bool checkChar(char c) {
-	return (c == 'M' || c == '=' || c == 'X' || c == 'I');
-}
-
 /* Normal approximation to the binomial distribution */
 static inline float normalEstimation(int x, float p, int n) {
 	float mean = n * p;
