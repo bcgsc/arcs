@@ -3,7 +3,10 @@
 #include <zlib.h>
 #include "kseq.h"
 #include <cassert>
+
+#if _OPENMP
 #include <omp.h>
+#endif
 
 KSEQ_INIT(gzFile, gzread)
 
