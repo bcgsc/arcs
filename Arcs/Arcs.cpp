@@ -514,7 +514,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap& kmap,
 }
 
 void filterChromiumFile(std::string chromfile,
-		std::unordered_map<std::string, int>& indexMultMap) {
+		ARCS::IndexMultMap& indexMultMap) {
 	gzFile fp3;
 	int l;
 	std::string chromiumfile = chromfile;
@@ -682,7 +682,7 @@ void incrementBarcodeCount(int contigRecord, const std::string& barcode,
 /* Read through longranger basic chromium output fastq file */
 void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap,
 		ARCS::IndexMap& imap,
-		std::unordered_map<std::string, int> &indexMultMap,
+		ARCS::IndexMultMap &indexMultMap,
 		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord,
 		ARCS::ContigToBarcodeMap& contigToBarcodeMap) {
 
@@ -735,8 +735,9 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap,
 			}
 		}
 
-		int indexMult = indexMultMap[barcode];
-		if (indexMult < params.min_mult || indexMult > params.max_mult) {
+		ARCS::IndexMultMap::const_iterator it = indexMultMap.find(barcode);
+		if (it == indexMultMap.end() || it->second < params.min_mult
+			|| it->second > params.max_mult) {
 			//printf("Skipped Kmerization of read %s barcode %s because barcode not in multiplicity range or bad barcode.\n", name.c_str(), barcode.c_str()); 
 			//skipped_invalidbarcode++; 
 			ctpername = 1;
@@ -824,7 +825,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap,
 
 void readChroms(const std::string& fofName, ARCS::ContigKMap &kmap,
 		ARCS::IndexMap &imap,
-		std::unordered_map<std::string, int> &indexMultMap,
+		ARCS::IndexMultMap &indexMultMap,
 		ReadsProcessor &proc, std::vector<ARCS::CI> &contigRecord,
 		ARCS::ContigToBarcodeMap& contigToBarcodeMap) {
 
@@ -887,7 +888,7 @@ static inline std::pair<bool, bool> headOrTail(int head, int tail) {
  * of number of links between the pair. (Each link is one index).
  */
 void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap,
-		std::unordered_map<std::string, int>& indexMultMap) {
+		ARCS::IndexMultMap& indexMultMap) {
 
 	/* Iterate through each index in IndexMap */
 	for (auto it = imap.begin(); it != imap.end(); ++it) {
@@ -1205,7 +1206,7 @@ void runArcs() {
     ARCS::IndexMap imap;
     ARCS::PairMap pmap;
     ARCS::Graph g;
-    std::unordered_map<std::string, int> indexMultMap;
+	ARCS::IndexMultMap indexMultMap;
 
     std::time_t rawtime;
 

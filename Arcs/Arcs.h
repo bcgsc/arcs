@@ -115,6 +115,9 @@ typedef std::vector<BarcodeCount> BarcodeCounts;
 /* maps a contig head/tail to Chromium barcodes and their counts */
 typedef std::vector<BarcodeCounts> ContigToBarcodeMap;
 
+/* maps Chromium barcode to number of occurrences */
+typedef std::unordered_map<std::string, int> IndexMultMap;
+
 /* GRAPH DATA STRUCTURES: */
 
 struct VertexProperties {
