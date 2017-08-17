@@ -826,7 +826,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			}
 			count += 2; 
 			if (params.verbose) {
-				if (count % 2000000 == 0) {
+				if (count % 10000000 == 0) {
 					std::cout << "Processed " << count << " read pairs." << std::endl; 
 				}
 			}
