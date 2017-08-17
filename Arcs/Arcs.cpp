@@ -1,5 +1,4 @@
 #include "Arcs.h"
-// for the inputted Fasta or Fastq file of contigs (if it is compressed with gzip)
 #include <zlib.h>
 #include "kseq.h"
 #include <cassert>
@@ -95,15 +94,13 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
-//TODO: PLEASE ADD THE s_ prefex (eg. s_numkmercollisions) to denote that these are static variables during the runtime of the program
+unsigned int s_numkmersmapped = 0, s_numkmercollisions = 0, s_numkmersremdup = 0,
+		s_numbadkmers = 0, s_uniquedraftkmers = 0;
 
-unsigned int numkmersmapped = 0, numkmercollisions = 0, numkmersremdup = 0,
-		numbadkmers = 0, uniquedraftkmers = 0;
+unsigned int s_totalnumckmers = 0, s_ckmersasdups = 0, s_numckmersfound = 0,
+		s_numckmersrec = 0, s_numbadckmers = 0;
 
-unsigned int totalnumckmers = 0, ckmersasdups = 0, numckmersfound = 0,
-		numckmersrec = 0, numbadckmers = 0;
-
-unsigned int numreadspassingjaccard = 0, numreadsfailjaccard = 0;
+unsigned int s_numreadspassingjaccard = 0, s_numreadsfailjaccard = 0;
 
 bool full = false; 
 bool alignc = false; 
@@ -258,8 +255,9 @@ void writeIndexMap(ARCS::IndexMap &imap) {
 /* Create indexMultMap from Barcode Multiplicity File */
 void createIndexMultMap(std::string multfile, std::unordered_map<std::string, int> &indexMultMap) {
 
-	size_t numreadskept; 
-	size_t numbarcodes;
+	size_t numreadstotal=0; 
+	size_t numreadskept=0; 
+	size_t numbarcodes=0;
 
 	// Decide if it is a tsv or csv file
 	bool tsv = false;
@@ -277,21 +275,24 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 	std::string line; 
 	while(getline(multfile_stream, line)) {
 
-		numbarcodes++; 
-
-		std::stringstream sst(line); 
-
 		std::string barcode; 
 		std::string multiplicity_string;
-		int multiplicity; 
+		size_t multiplicity; 
 
 		if (tsv) { 
+			std::stringstream sst(line); 
 			sst >> barcode >> multiplicity_string; 
+			numbarcodes++; 
 			multiplicity = std::stoi(multiplicity_string);  
 		} else {
-			getline(getline(sst, barcode, ','), multiplicity_string, ','); 
+			std::istringstream iss(line); 
+			getline(iss, barcode, ','); 
+			iss >> multiplicity_string; 
+			numbarcodes++; 
 			multiplicity = std::stoi(multiplicity_string); 
 		}
+
+		numreadstotal += multiplicity; 
 
 		if (!barcode.empty() && checkIndex(barcode)) {
 			numreadskept += multiplicity; 
@@ -305,7 +306,7 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 	multfile_stream.close(); 	
 
 	if (params.verbose) {
-		std::cout << "Saw " << numbarcodes << " barcodes and kept " << numreadskept << " reads." << std::endl; 
+		std::cout << "Saw " << numbarcodes << " barcodes and keeping " << numreadskept << " read pairs out of " << numreadstotal << std::endl; 
 	}
 			
 }
@@ -487,26 +488,26 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 				if (exists) {
 					if (alreadyconreci != conreci) {
 //#pragma omp atomic
-						numkmersremdup++;
+						s_numkmersremdup++;
 						if (alreadyconreci != 0) {
-							uniquedraftkmers--; 
+							s_uniquedraftkmers--; 
 //#pragma omp critical(duplicate)			
 							kmap[kmerseq] = 0; 
 						}
 					}
 //#pragma omp atomic
-					numkmercollisions++;
+					s_numkmercollisions++;
 				} else {
 //#pragma omp critical(insertkmerseq) 
 					kmap[kmerseq] = conreci; 
-					uniquedraftkmers++; 
-					numkmersmapped++; 
+					s_uniquedraftkmers++; 
+					s_numkmersmapped++; 
 				}
 				i += k_shift;
 			} else {
 				i += k;
 //#pragma omp atomic
-				numbadkmers++;
+				s_numbadkmers++;
 			}
 		}
 		return numKmers;
@@ -625,9 +626,9 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap &kmap,
 			if (totalNumContigs % 1000 == 0) {
 
 				printf("Finished %d Contigs...\n", totalNumContigs);
-				//std::cout << "Cumulative memory usage: " << memory_usage()
-				//		<< std::endl;
-				//std::cout << "Kmers so far: " << numkmersmapped << std::endl;
+				// for memory tracking + debugging usage: 
+					//std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
+					//std::cout << "Kmers so far: " << s_numkmersmapped << std::endl;
 			}
 		}
 	}
@@ -647,11 +648,11 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap &kmap,
 				"Total valid contigs: ", validContigs,
 				"Total skipped contigs: ", skippedContigs,
 				"Total number of Kmers: ", totalKmers, "Number Null Kmers: ",
-				numbadkmers, "Number Kmers Recorded: ", numkmersmapped,
-				"Number Kmer Collisions: ", numkmercollisions,
+				s_numbadkmers, "Number Kmers Recorded: ", s_numkmersmapped,
+				"Number Kmer Collisions: ", s_numkmercollisions,
 				"Number Times Kmers Removed (since duplicate in different contig): ",
-				numkmersremdup, "Number of unique kmers (only one contig): ",
-				uniquedraftkmers);
+				s_numkmersremdup, "Number of unique kmers (only one contig): ",
+				s_uniquedraftkmers);
 	}
 }
 
@@ -669,7 +670,7 @@ static inline double calcJacIndex(int smallCount, int overallCount) {
  *      double j_index				Jaccard Index (default 0.5)
  *	ReadsProcessor				kmerizer
  */
-int bestContig(ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
+int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
 		double j_index, ReadsProcessor &proc) {
 
 	// to keep track of what contig+H/T that the k-mer from barcode matches to
@@ -678,16 +679,14 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
 	std::map<int, int> ktrack;
 
 	// k-merize readsequence
-	int corrConReci = 0;
+	int corrbestConReci = 0;
 	int seqlen = readseq.length();
 
 	int totalnumkmers = 0;
 	int kmerdups = 0; 
 	int kmerfound = 0;
 	int kmerstore = 0;
-	
-	 //For debugging purposes
-	 //std::string ckmerlist;
+
 
 	int i = 0;
 
@@ -696,35 +695,35 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
 #pragma omp atomic 
 		totalnumkmers++;
 		if (temp != NULL) {
-			std::string ckmerseq = proc.getStr(temp);
+			const std::string ckmerseq = proc.getStr(temp);
 #pragma omp atomic
-			totalnumckmers++;
+			s_totalnumckmers++;
 
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker
 			if (kmap.find(ckmerseq) != kmap.end()) {
 
-				corrConReci = kmap[ckmerseq];
+				int corrConReci = kmap[ckmerseq];
 				if (corrConReci != 0) {
 					ktrack[corrConReci]++;
 #pragma omp atomic
 					kmerstore++;
 #pragma omp atomic
-					numckmersrec++;
+					s_numckmersrec++;
 				} else {
 #pragma omp atomic 
-					ckmersasdups++;
+					s_ckmersasdups++;
 #pragma omp atomic
 					kmerdups++; 
 				}
 #pragma omp atomic 
 				kmerfound++;
 #pragma omp atomic 
-				numckmersfound++;
+				s_numckmersfound++;
 
 			}
 		} else {
 #pragma omp atomic 
-			numbadckmers++;
+			s_numbadckmers++;
 		}
 		i += k_shift;
 	}
@@ -735,16 +734,17 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
 		double currjaccardindex = calcJacIndex(it->second, totalnumkmers);
 		if (maxjaccardindex < currjaccardindex) {
 			maxjaccardindex = currjaccardindex;
-			corrConReci = it->first;
+			corrbestConReci = it->first;
 		}
 	}
 
-	// default accuracythreshold is 0.5)
+	// default jaccard threshold is 0.5
 	if (maxjaccardindex > j_index) {
-		numreadspassingjaccard++;
-		return corrConReci;
+		s_numreadspassingjaccard++;
+		return corrbestConReci;
 	} else {
-		numreadsfailjaccard++;
+
+		s_numreadsfailjaccard++;
 		return 0;
 	}
 }
@@ -752,13 +752,14 @@ int bestContig(ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
 
 /* Read through longranger basic chromium output fastq file */
 void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexMap& imap,
-			std::unordered_map<std::string, int> &indexMultMap,
-			std::vector<ARCS::CI> &contigRecord) {
+			const std::unordered_map<std::string, int> &indexMultMap,
+			const std::vector<ARCS::CI> &contigRecord) {
 
 	int stored_readpairs = 0;
 	int skipped_unpaired = 0;
 	int skipped_invalidreadpair = 0;
 	int skipped_nogoodcontig = 0;
+	int invalidbarcode = 0; 
 
 	int count = 0;
 	bool stop = false; 
@@ -771,7 +772,6 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	}
 
 	gzFile fp2;
-	int l;
 	const char* filename = chromiumfile.c_str();
 	fp2 = gzopen(filename, "r");
 	if (fp2 == Z_NULL) {
@@ -784,19 +784,18 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	
 #pragma omp parallel 
 	while (!stop) {
+		int l;
 		std::string read1_name = ""; 
 		std::string read2_name = ""; 
-		std::string barcode1 = ""; 
-		std::string barcode2 = ""; 
+		std::string barcode1; 
+		std::string barcode2; 
 		std::string cread1 = ""; 
 		std::string cread2 = ""; 
 		std::string comment1 = ""; 
 		std::string comment2 = ""; 
 		bool paired = false; 
-		int indexMult = 0; 
 		int corrConReci1 = 0;
 		int corrConReci2 = 0; 
-		ARCS::CI corrContigId;
 #pragma omp critical(checkread1or2) 
 		{	
 			l = kseq_read(seq2);
@@ -832,49 +831,58 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				}
 			}
 		} 
-		barcode1.clear();
-		for (std::string::iterator i = comment1.begin(); i != comment1.end();
-				i++) {
-			if (*i != 'B' && *i != 'X' && *i != ':' && *i != 'Z'
-					&& *i != '-' && *i != '1' && *i != '\n') {
-				barcode1 += *i;
-			}
-		}
-		barcode2.clear(); 
-		for (std::string::iterator i = comment2.begin(); i != comment2.end();
-				i++) {
-			if (*i != 'B' && *i != 'X' && *i != ':' && *i != 'Z'
-					&& *i != '-' && *i != '1' && *i != '\n') {
-				barcode2 += *i;
-			}
-		}
 
-		bool good = paired && !barcode1.empty() && !barcode2.empty() && (barcode1==barcode2); 
-		if (!stop && good) {			
-			indexMult = indexMultMap[barcode1]; 
-			bool goodmult = indexMult > params.min_mult || indexMult < params.max_mult;
-			if (goodmult && checkReadSequence(cread1) && checkReadSequence(cread2)) {
-				corrConReci1 = bestContig(kmap, cread1, params.k_value, params.k_shift, params.j_index, *procs[omp_get_thread_num()]); 
-				corrConReci2 = bestContig(kmap, cread2, params.k_value, params.k_shift, params.j_index, *procs[omp_get_thread_num()]);
-			} else {
-#pragma omp atomic
-				skipped_invalidreadpair++; 
-			}
-			// we only store barcode info in index map if read pairs have same contig + orientation	
-			// and if the corrContigId is not NULL (because it is above accuracy threshold)
-			if (corrConReci1 != 0 && corrConReci1 == corrConReci2) {
-				corrContigId = contigRecord[corrConReci1];
-#pragma omp critical(imap)
-				{
-					imap[barcode1][corrContigId]++;
+		if (!stop) {
+			barcode1.clear();
+			for (std::string::iterator i = comment1.begin(); i != comment1.end();
+					i++) {
+				if (*i != 'B' && *i != 'X' && *i != ':' && *i != 'Z'
+						&& *i != '-' && *i != '1' && *i != '\n') {
+					barcode1 += *i;
 				}
+			}
+			barcode2.clear(); 
+			for (std::string::iterator i = comment2.begin(); i != comment2.end();
+					i++) {
+				if (*i != 'B' && *i != 'X' && *i != ':' && *i != 'Z'
+						&& *i != '-' && *i != '1' && *i != '\n') {
+					barcode2 += *i;
+				}
+			}
+
+			bool validbarcode = indexMultMap.find(barcode1) != indexMultMap.end(); 
+
+			if (!validbarcode) {
+#pragma omp atomic
+				invalidbarcode++; 
+			}
+
+			if (paired && validbarcode && !barcode1.empty() && !barcode2.empty() && (barcode1==barcode2)) {	
+				const int indexMult = indexMultMap.at(barcode1); 
+				bool goodmult = indexMult > params.min_mult || indexMult < params.max_mult;
+				if (goodmult && checkReadSequence(cread1) && checkReadSequence(cread2)) {
+					corrConReci1 = bestContig(kmap, cread1, params.k_value, params.k_shift, params.j_index, *procs[omp_get_thread_num()]); 
+					corrConReci2 = bestContig(kmap, cread2, params.k_value, params.k_shift, params.j_index, *procs[omp_get_thread_num()]);
+				} else {
+#pragma omp atomic
+					skipped_invalidreadpair++; 
+				}
+				// we only store barcode info in index map if read pairs have same contig + orientation	
+				// and if the corrContigId is not NULL (because it is above accuracy threshold)
+				if (corrConReci1 != 0 && corrConReci1 == corrConReci2) {
+					const ARCS::CI corrContigId = contigRecord[corrConReci1];
+#pragma omp critical(imap)
+					{
+						imap[barcode1][corrContigId]++;
+					}
 
 #pragma omp atomic
-				stored_readpairs++;
+					stored_readpairs++;
 
-			} else {
+				} else {
 #pragma omp atomic
-				skipped_nogoodcontig++;
+					skipped_nogoodcontig++;
+				}
 			}
 		}
 	}
@@ -893,16 +901,19 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				skipped_nogoodcontig);
 		printf(
 				"Total valid kmers: %u\nNumber invalid kmers: %u\nNumber of kmers found in ContigKmap: %u\nNumber of kmers recorded in Ktrack: %u\nNumber of kmers found in ContigKmap but duplicate: %u\nNumber of reads passing jaccard threshold: %u\nNumber of reads failing jaccard threshold: %u\n",
-				totalnumckmers, numbadckmers, numckmersfound, numckmersrec,
-				ckmersasdups, numreadspassingjaccard, numreadsfailjaccard);
+				s_totalnumckmers, s_numbadckmers, s_numckmersfound, s_numckmersrec,
+				s_ckmersasdups, s_numreadspassingjaccard, s_numreadsfailjaccard);
+		if (invalidbarcode > 0)
+			printf("WARNING:: Your chromium read file has %d read pairs that have barcodes not in the barcode multiplicity file.", invalidbarcode); 
+			
 	}
 } 
 
 
 void readChroms(vector<string> inputFiles, ARCS::ContigKMap &kmap,
 		ARCS::IndexMap &imap,
-		std::unordered_map<std::string, int> &indexMultMap,
-		std::vector<ARCS::CI> &contigRecord) {
+		const std::unordered_map<std::string, int> &indexMultMap,
+		const std::vector<ARCS::CI> &contigRecord) {
 
 	std::string chromFile;
 
@@ -1035,7 +1046,6 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap,
 			}
 		}
 	}
-	//writePairMapToLog(pmap);
 }  
 
 
@@ -1240,7 +1250,6 @@ void runArcs(vector<string> inputFiles) {
 
 	std::cout << "\n----Full ARKS----\n" << std::endl;  
 		
-    	// Read contig file, shred sequences into k-mers, and then map them 
     	time(&rawtime); 
     	std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime) << std::endl; 
     	getContigKmers(params.file, kmap, contigRecord);
@@ -1438,7 +1447,7 @@ int main(int argc, char** argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	/* Setting base name if not previously set; name depends on type of arcs used */
+	/* Setting base name if not previously set */
 	if (params.base_name.empty()) {
 		std::ostringstream filename;
 		filename << params.file << ".scaff" << "k-method" << "_c"
