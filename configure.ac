@@ -70,6 +70,7 @@ AC_CONFIG_FILES([
 		Common/Makefile
 		DataLayer/Makefile
 		Graph/Makefile
+		Test/Makefile
 ])
 AC_OUTPUT
 
