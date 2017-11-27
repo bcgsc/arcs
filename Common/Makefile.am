@@ -17,10 +17,13 @@ libcommon_a_SOURCES = \
 	gzstream.C gzstream.h \
 	HashFunction.h \
 	IOUtil.h \
+	MapUtil.h \
 	Options.cpp Options.h \
+	PairHash.h \
 	ReadsProcessor.cpp ReadsProcessor.h \
 	SeqEval.h \
 	Sequence.cpp Sequence.h \
 	SignalHandler.cpp SignalHandler.h \
+	StatUtil.h \
 	StringUtil.h \
 	Uncompress.cpp Uncompress.h
