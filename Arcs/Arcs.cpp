@@ -53,6 +53,8 @@ PROGRAM " " VERSION "\n"
 "   -B, --bin_size=N        estimate distance using N closest Jaccard scores [20]\n"
 "   -D, --dist_est          enable distance estimation\n"
 "       --no_dist_est       disable distance estimation [default]\n"
+"       --dist_median       use median distance in ABySS dist.gv [default]\n"
+"       --dist_upper        use upper bound distance in ABySS dist.gv\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
 "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
@@ -66,7 +68,9 @@ enum {
     OPT_BARCODE_COUNTS,
     OPT_SAMPLES_TSV,
     OPT_DIST_TSV,
-    OPT_NO_DIST_EST
+    OPT_NO_DIST_EST,
+    OPT_DIST_MEDIAN,
+    OPT_DIST_UPPER
 };
 
 static const struct option longopts[] = {
@@ -80,6 +84,8 @@ static const struct option longopts[] = {
     {"min_reads", required_argument, NULL, 'c'},
     {"dist_est", no_argument, NULL, 'D'},
     {"no_dist_est", no_argument, NULL, OPT_NO_DIST_EST},
+    {"dist_median", no_argument, NULL, OPT_DIST_MEDIAN},
+    {"dist_upper", no_argument, NULL, OPT_DIST_UPPER},
     {"min_links", required_argument, NULL, 'l'},
     {"min_size", required_argument, NULL, 'z'},
     {"base_name", required_argument, NULL, 'b'},
@@ -667,6 +673,16 @@ void createAbyssGraph(const std::unordered_map<std::string, int>& scaffSizeMap, 
         ep.stdDev = params.gap;
         ep.numPairs = einp.weight;
 
+        /* use distance estimates, if enabled */
+        if (params.dist_est) {
+            if (params.dist_mode == ARCS::DIST_MEDIAN) {
+                ep.distance = einp.dist;
+            } else {
+                assert(params.dist_mode == ARCS::DIST_UPPER);
+                ep.distance = einp.maxDist;
+            }
+        }
+
         graph_traits<DistGraph>::edge_descriptor e;
         bool inserted;
         std::tie(e, inserted) = add_edge(u, v, ep, gout);
@@ -963,6 +979,10 @@ int main(int argc, char** argv) {
                 arg >> params.dist_tsv; break;
             case OPT_NO_DIST_EST:
                 params.dist_est = false; break;
+            case OPT_DIST_MEDIAN:
+                params.dist_mode = ARCS::DIST_MEDIAN; break;
+            case OPT_DIST_UPPER:
+                params.dist_mode = ARCS::DIST_UPPER; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');

@@ -26,6 +26,9 @@
 
 namespace ARCS {
 
+    /** value to use for 'd' in ABySS dist.gv */
+    enum DistMode { DIST_MEDIAN=0, DIST_UPPER };
+
     /**
      * Parameters controlling ARCS run
      */
@@ -43,6 +46,8 @@ namespace ARCS {
         std::string dist_samples_tsv;
         /** output path for inter-contig distance estimates (TSV) */
         std::string dist_tsv;
+        /** chooses median or upper bound for `d` in ABySS dist.gv */
+        DistMode dist_mode;
         int min_links;
         int min_size;
         std::string base_name;
@@ -62,6 +67,7 @@ namespace ARCS {
             min_reads(5),
             dist_est(false),
             dist_bin_size(20),
+            dist_mode(DIST_MEDIAN),
             min_links(0),
             min_size(500),
             gap(100),
