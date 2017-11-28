@@ -141,7 +141,7 @@ namespace ARCS {
                 assert(ep.dist != std::numeric_limits<int>::max());
                 assert(ep.maxDist != std::numeric_limits<int>::max());
                 assert(ep.jaccard >= 0.0f);
-                out << ','
+                out << ", "
                     << "d=" << ep.dist << ", "
                     << "maxd=" << ep.maxDist;
             }
@@ -160,7 +160,7 @@ namespace ARCS {
         VertexPropertyWriter(GraphT& g) : m_g(g) {}
         void operator()(std::ostream& out, const V& v) const
         {
-            out << "[id=" << m_g[v].id << "]";
+            out << " [id=" << m_g[v].id << "]";
         }
     };
 
