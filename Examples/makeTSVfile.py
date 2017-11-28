@@ -31,7 +31,7 @@ def writeTSVFile(infile, outfile):
     with open(infile, 'r') as f:
         with open(outfile, 'w') as w:
             for line in f:
-                test = re.match(r"(\d+)--(\d+)\s+\[label=(\d+), weight=(\d+)\]", line.rstrip())
+                test = re.search(r"(\d+)--(\d+)\s+\[label=(\d+), weight=(\d+)", line.rstrip())
                 if test:
                     scaffA = index2scaff_name[test.group(1)]
                     scaffB = index2scaff_name[test.group(2)]
@@ -76,14 +76,17 @@ def writeTSVFile(infile, outfile):
                         rOutScaffB = "f" + links_numbering[scaffB]
                         rOutScaffA = "r" + links_numbering[scaffA]
 
-                    gap = links*10
+                    match = re.search(r"d=(\d+)", line.rstrip())
+                    if match:
+                        gap = int(match.group(1))
+                    else:
+                        gap = links*10
 
                     string = str(500) + "\t"  + outScaffA + "\t" + outScaffB + "\t" + str(links) + "\t" + str(gap) + "\n"
                     w.write(string)
 
                     stringR = str(500) + "\t" + rOutScaffB + "\t" + rOutScaffA + "\t" + str(links) + "\t" + str(gap) + "\n"
                     w.write(stringR)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create a XXX.tigpair_checkpoint.tsv file from ARCS graph output that LINKS can utilize')
