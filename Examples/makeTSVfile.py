@@ -4,7 +4,7 @@ import sys
 import re
 import argparse
 
-index2scaff_name = {} 
+index2scaff_name = {}
 links_numbering = {}
 
 def readGraphFile(infile):
@@ -25,8 +25,8 @@ def makeLinksNumbering(scaffolds_fasta):
                 seq_id = line.rstrip().split()[0][1:]
                 counter += 1
                 links_numbering[seq_id] = str(counter)
-                
-                    
+
+
 def writeTSVFile(infile, outfile):
     with open(infile, 'r') as f:
         with open(outfile, 'w') as w:
@@ -37,7 +37,7 @@ def writeTSVFile(infile, outfile):
                     scaffB = index2scaff_name[test.group(2)]
                     label = int(test.group(3))
                     links = int(test.group(4))
-                    
+
                     if scaffA > scaffB:
                         scaffA, scaffB = scaffB, scaffA
 
