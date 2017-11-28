@@ -1,5 +1,6 @@
 #include "config.h"
 #include "Arcs.h"
+#include "Arcs/DistanceEst.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
 #include "Graph/ContigGraph.h"
@@ -28,6 +29,7 @@ PROGRAM " " VERSION "\n"
 "NOTE 2: read names in BAM_FILE must be formatted as <READ_NAME>_<BARCODE_SEQ>\n"
 "\n"
 " Options:"
+"\n"
 "   -f, --file=FILE       input sequences to scaffold [required]\n"
 "   -a, --fofName=FILE    text file listing input BAM filenames\n"
 "   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
@@ -44,23 +46,40 @@ PROGRAM " " VERSION "\n"
 "   -e, --end_length=N    contig head/tail length for masking alignments [30000]\n"
 "   -r, --error_percent=N p-value for head/tail assignment and link orientation\n"
 "                         (lower is more stringent) [0.05]\n"
-"   -v, --run_verbose     verbose logging\n";
+"   -v, --run_verbose     verbose logging\n"
+"\n"
+" Distance Estimation Options:\n"
+"\n"
+"   -B, --bin_size=N        estimate distance using N closest Jaccard scores [20]\n"
+"   -D, --dist_est          enable distance estimation\n"
+"       --no_dist_est       disable distance estimation [default]\n"
+"       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
+"       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
-static const char shortopts[] = "f:a:s:c:l:z:b:g:m:d:e:r:v";
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
 
 enum {
     OPT_HELP = 1,
     OPT_VERSION,
     OPT_GAP,
     OPT_TSV,
-    OPT_BARCODE_COUNTS
+    OPT_BARCODE_COUNTS,
+    OPT_SAMPLES_TSV,
+    OPT_DIST_TSV,
+    OPT_NO_DIST_EST
 };
 
 static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
+    {"bin_size", required_argument, NULL, 'B'},
+    {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
+    {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'}, 
     {"min_reads", required_argument, NULL, 'c'},
+    {"min_reads", required_argument, NULL, 'c'},
+    {"dist_est", no_argument, NULL, 'D'},
+    {"no_dist_est", no_argument, NULL, OPT_NO_DIST_EST},
     {"min_links", required_argument, NULL, 'l'},
     {"min_size", required_argument, NULL, 'z'},
     {"base_name", required_argument, NULL, 'b'},
@@ -569,22 +588,20 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
     }
 } 
 
-/* 
+/*
  * Write out the boost graph in a .dot file.
  */
-void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
-    std::ofstream out(graphFile_dot.c_str());
-    assert(out);
+void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g)
+{
+	std::ofstream out(graphFile_dot.c_str());
+	assert(out);
 
-    boost::dynamic_properties dp;
-    dp.property("id", get(&ARCS::VertexProperties::id, g));
-    dp.property("weight", get(&ARCS::EdgeProperties::weight, g));
-    dp.property("label", get(&ARCS::EdgeProperties::orientation, g));
-    dp.property("node_id", get(boost::vertex_index, g));
-    boost::write_graphviz_dp(out, g, dp);
-    assert(out);
+	ARCS::VertexPropertyWriter<ARCS::Graph> vpWriter(g);
+	ARCS::EdgePropertyWriter<ARCS::Graph> epWriter(g);
 
-    out.close();
+	boost::write_graphviz(out, g, vpWriter, epWriter);
+	assert(out);
+	out.close();
 }
 
 /* 
@@ -771,6 +788,51 @@ static const char* maybeNA(const std::string& s)
     return s.empty() ? "NA" : s.c_str();
 }
 
+/**
+ * calculate distance estimates for edges, based on number of shared
+ * barcodes between contig ends
+ */
+static inline void calcDistanceEstimates(
+    const ARCS::IndexMap& imap,
+    const std::unordered_map<std::string, int> &indexMultMap,
+    const ARCS::ContigToLength& contigToLength,
+    ARCS::Graph& g)
+{
+    std::time_t rawtime;
+
+    time(&rawtime);
+    std::cout << "\n\t=>Measuring intra-contig distances / shared barcodes... "
+        << ctime(&rawtime);
+    DistSampleMap distSamples;
+    calcDistSamples(imap, contigToLength, indexMultMap, params, distSamples);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Writing intra-contig distance samples to TSV... "
+        << ctime(&rawtime);
+    writeDistSamplesTSV(params.dist_samples_tsv, distSamples);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Building Jaccard => distance map... "
+        << ctime(&rawtime);
+    JaccardToDist jaccardToDist;
+    buildJaccardToDist(distSamples, jaccardToDist);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Calculating barcode stats for scaffold pairs... "
+        << ctime(&rawtime);
+    PairToBarcodeStats pairToStats;
+    buildPairToBarcodeStats(imap, indexMultMap, contigToLength, params, pairToStats);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Adding edge distances... " << ctime(&rawtime);
+    addEdgeDistances(pairToStats, jaccardToDist, params, g);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Writing distance estimates to TSV... "
+        << ctime(&rawtime);
+    writeDistTSV(params.dist_tsv, pairToStats, g);
+}
+
 /** Run ARCS. */
 void runArcs(const std::vector<std::string>& filenames) {
 
@@ -835,6 +897,11 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
     createGraph(pmap, g);
 
+    if (params.dist_est) {
+        std::cout << "\n=>Calculating distance estimates... " << ctime(&rawtime);
+        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+    }
+
     time(&rawtime);
     std::cout << "\n=>Starting to write graph file... " << ctime(&rawtime) << "\n";
     writePostRemovalGraph(g, graphFile);
@@ -868,10 +935,14 @@ int main(int argc, char** argv) {
                 arg >> params.file; break;
             case 'a':
                 arg >> params.fofName; break;
+            case 'B':
+                arg >> params.dist_bin_size; break;
             case 's':
                 arg >> params.seq_id; break;
             case 'c':
                 arg >> params.min_reads; break;
+            case 'D':
+                params.dist_est = true; break;
             case 'l':
                 arg >> params.min_links; break;
             case 'z':
@@ -886,6 +957,12 @@ int main(int argc, char** argv) {
                 arg >> params.gap; break;
             case OPT_BARCODE_COUNTS:
                 arg >> params.barcode_counts_name; break;
+            case OPT_SAMPLES_TSV:
+                arg >> params.dist_samples_tsv; break;
+            case OPT_DIST_TSV:
+                arg >> params.dist_tsv; break;
+            case OPT_NO_DIST_EST:
+                params.dist_est = false; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
