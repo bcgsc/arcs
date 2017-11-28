@@ -15,10 +15,11 @@
 struct DistanceEstimate
 {
 	int minDist;
+	int dist;
 	int maxDist;
 	double jaccard;
 
-	DistanceEstimate() : minDist(0), maxDist(0), jaccard(0.0) {}
+	DistanceEstimate() : minDist(0), dist(0), maxDist(0), jaccard(0.0) {}
 };
 
 /**
@@ -367,10 +368,12 @@ std::pair<DistanceEstimate, bool> estimateDistance(
 
 	std::sort(distances.begin(), distances.end());
 
-	/* use 99th percentile as upper bound on distance */
+	/* use 1st percentile, median, and 99th percentile */
 
 	result.minDist =
 		(int)floor(quantile(distances.begin(), distances.end(), 0.01));
+	result.dist =
+		(int)round(quantile(distances.begin(), distances.end(), 0.5));
 	result.maxDist =
 		(int)ceil(quantile(distances.begin(), distances.end(), 0.99));
 
@@ -411,6 +414,7 @@ static inline void addEdgeDistances(
 			continue;
 
 		g[e].minDist = est.minDist;
+		g[e].dist = est.dist;
 		g[e].maxDist = est.maxDist;
 		g[e].jaccard = est.jaccard;
 
@@ -434,6 +438,7 @@ static inline void writeDistTSV(const std::string& path,
 	tsvOut << "contig1" << '\t'
 		<< "contig2" << '\t'
 		<< "min_dist" << '\t'
+		<< "dist" << '\t'
 		<< "max_dist" << '\t'
 		<< "barcodes1" << '\t'
 		<< "barcodes2" << '\t'
@@ -463,9 +468,13 @@ static inline void writeDistTSV(const std::string& path,
 		tsvOut << pair.first << (sense1 ? '-' : '+') << '\t'
 			<< pair.second << (sense2 ? '-' : '+') << '\t';
 		if (g[e].jaccard >= 0) {
-			tsvOut << g[e].minDist << '\t' << g[e].maxDist << '\t';
+			tsvOut << g[e].minDist << '\t'
+				<< g[e].dist << '\t'
+				<< g[e].maxDist << '\t';
 		} else {
-			tsvOut << "NA" << '\t' << "NA" << '\t';
+			tsvOut << "NA" << '\t'
+				<< "NA" << '\t'
+				<< "NA" << '\t';
 		}
 		tsvOut << stats.barcodes1 << '\t'
 			<< stats.barcodes2 << '\t'
@@ -475,9 +484,13 @@ static inline void writeDistTSV(const std::string& path,
 		tsvOut << pair.second << (sense2 ? '+' : '-') << '\t'
 			<< pair.first << (sense1 ? '+' : '-') << '\t';
 		if (g[e].jaccard >= 0) {
-			tsvOut << g[e].minDist << '\t' << g[e].maxDist << '\t';
+			tsvOut << g[e].minDist << '\t'
+				<< g[e].dist << '\t'
+				<< g[e].maxDist << '\t';
 		} else {
-			tsvOut << "NA" << '\t' << "NA" << '\t';
+			tsvOut << "NA" << '\t'
+				<< "NA" << '\t'
+				<< "NA" << '\t';
 		}
 		tsvOut << stats.barcodes2 << '\t'
 			<< stats.barcodes1 << '\t'

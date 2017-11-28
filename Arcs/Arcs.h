@@ -102,11 +102,13 @@ namespace ARCS {
         int orientation;
         int weight;
         int minDist;
+        int dist;
         int maxDist;
         float jaccard;
         EdgeProperties() :
             orientation(0), weight(0),
             minDist(std::numeric_limits<int>::min()),
+            dist(std::numeric_limits<int>::max()),
             maxDist(std::numeric_limits<int>::max()),
             jaccard(-1.0f)
             {}
@@ -126,17 +128,16 @@ namespace ARCS {
         {
             EP ep = m_g[e];
             out << '['
-                << "label=" << ep.orientation << ','
+                << "label=" << ep.orientation << ", "
                 << "weight=" << ep.weight;
 
             if (ep.minDist != std::numeric_limits<int>::min()) {
+                assert(ep.dist != std::numeric_limits<int>::max());
                 assert(ep.maxDist != std::numeric_limits<int>::max());
                 assert(ep.jaccard >= 0.0f);
                 out << ','
-                    << "mind=" << ep.minDist << ','
-                    << "maxd=" << ep.maxDist << ','
-                    << std::fixed << std::setprecision(2)
-                    << "j=" << ep.jaccard;
+                    << "d=" << ep.dist << ", "
+                    << "maxd=" << ep.maxDist;
             }
             out << ']';
         }
