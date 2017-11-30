@@ -235,7 +235,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     int ct = 1; 
 
     std::string line;
-    int linecount = 0;
+    size_t linecount = 0;
 
     // Number of unpaired reads.
     size_t countUnpaired = 0;
