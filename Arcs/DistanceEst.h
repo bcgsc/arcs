@@ -213,6 +213,7 @@ static inline void buildPairToBarcodeStats(
 	PairToBarcodeStats& pairToStats)
 {
 	typedef std::unordered_map<ARCS::CI, size_t, PairHash> ContigEndToBarcodeCount;
+	typedef typename ContigEndToBarcodeCount::const_iterator BarcodeCountConstIt;
 	ContigEndToBarcodeCount contigEndToBarcodeCount;
 
 	/* calculate number of shared barcodes for candidate contig end pairs */
@@ -308,9 +309,16 @@ static inline void buildPairToBarcodeStats(
 			ARCS::CI tail1(id1, i == HH || i == HT);
 			ARCS::CI tail2(id2, i == HH || i == TH);
 
-			stats.barcodes1 = contigEndToBarcodeCount.at(tail1);
+			BarcodeCountConstIt countIt1 = contigEndToBarcodeCount.find(tail1);
+			if (countIt1 == contigEndToBarcodeCount.end())
+				continue;
+			stats.barcodes1 = countIt1->second;
 			assert(stats.barcodes1 > 0);
-			stats.barcodes2 = contigEndToBarcodeCount.at(tail2);
+
+			BarcodeCountConstIt countIt2 = contigEndToBarcodeCount.find(tail2);
+			if (countIt2 == contigEndToBarcodeCount.end())
+				continue;
+			stats.barcodes2 = countIt2->second;
 			assert(stats.barcodes2 > 0);
 
 			assert(stats.barcodes1 + stats.barcodes2 >= stats.barcodesIntersect);
