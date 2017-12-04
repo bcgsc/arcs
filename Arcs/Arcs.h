@@ -26,6 +26,9 @@
 
 namespace ARCS {
 
+    /** value to use for 'd' in ABySS dist.gv */
+    enum DistMode { DIST_MEDIAN=0, DIST_UPPER };
+
     /**
      * Parameters controlling ARCS run
      */
@@ -35,9 +38,23 @@ namespace ARCS {
         std::string fofName;
         int seq_id;
         int min_reads;
+        /** enable/disable distance estimation on graph edges */
+        bool dist_est;
+        /** bin size when computing distance estimates */
+        unsigned dist_bin_size;
+        /** output path for intra-contig distance/barcode samples (TSV) */
+        std::string dist_samples_tsv;
+        /** output path for inter-contig distance estimates (TSV) */
+        std::string dist_tsv;
+        /** chooses median or upper bound for `d` in ABySS dist.gv */
+        DistMode dist_mode;
         int min_links;
         int min_size;
         std::string base_name;
+        std::string dist_graph_name;
+        std::string tsv_name;
+        std::string barcode_counts_name;
+        unsigned gap;
         int min_mult;
         int max_mult;
         int max_degree;
@@ -45,16 +62,42 @@ namespace ARCS {
         float error_percent;
         int verbose;
 
-        ArcsParams() : file(), fofName(), seq_id(98), min_reads(5), min_links(0), min_size(500), base_name(""), min_mult(50), max_mult(10000), max_degree(0), end_length(0), error_percent(0.05), verbose(0) {}
+        ArcsParams() :
+            seq_id(98),
+            min_reads(5),
+            dist_est(false),
+            dist_bin_size(20),
+            dist_mode(DIST_MEDIAN),
+            min_links(0),
+            min_size(500),
+            gap(100),
+            min_mult(50),
+            max_mult(10000),
+            max_degree(0),
+            end_length(0),
+            error_percent(0.05),
+            verbose(0) {
+        }
 
     };
 
     /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
     typedef std::map<std::pair<std::string, bool>, int> ScafMap;
+    typedef typename ScafMap::const_iterator ScafMapConstIt;
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap; 
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
-    typedef std::map<std::pair<std::string, std::string>, std::vector<int>> PairMap; 
+    typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
+
+    /** A contig end: (FASTA ID, head?) */
+    typedef std::pair<std::string, bool> CI;
+
+    /** a pair of contig IDs */
+    typedef std::pair<std::string, std::string> ContigPair;
+
+    /** maps contig FASTA ID to contig length (bp) */
+    typedef std::unordered_map<std::string, int> ContigToLength;
+    typedef typename ContigToLength::const_iterator ContigToLengthIt;
 
     struct VertexProperties {
         std::string id;
@@ -64,7 +107,61 @@ namespace ARCS {
     struct EdgeProperties {
         int orientation;
         int weight;
-        EdgeProperties(): orientation(0), weight(0) {}
+        int minDist;
+        int dist;
+        int maxDist;
+        float jaccard;
+        EdgeProperties() :
+            orientation(0), weight(0),
+            minDist(std::numeric_limits<int>::min()),
+            dist(std::numeric_limits<int>::max()),
+            maxDist(std::numeric_limits<int>::max()),
+            jaccard(-1.0f)
+            {}
+    };
+
+    template <class GraphT>
+    struct EdgePropertyWriter
+    {
+        typedef typename boost::graph_traits<GraphT>::edge_descriptor E;
+        typedef typename boost::edge_property<GraphT>::type EP;
+
+        GraphT& m_g;
+
+        EdgePropertyWriter(GraphT& g) : m_g(g) {}
+
+        void operator()(std::ostream& out, const E& e) const
+        {
+            EP ep = m_g[e];
+            out << '['
+                << "label=" << ep.orientation << ", "
+                << "weight=" << ep.weight;
+
+            if (ep.minDist != std::numeric_limits<int>::min()) {
+                assert(ep.dist != std::numeric_limits<int>::max());
+                assert(ep.maxDist != std::numeric_limits<int>::max());
+                assert(ep.jaccard >= 0.0f);
+                out << ", "
+                    << "d=" << ep.dist << ", "
+                    << "maxd=" << ep.maxDist;
+            }
+            out << ']';
+        }
+    };
+
+    template <class GraphT>
+    struct VertexPropertyWriter
+    {
+        typedef typename boost::graph_traits<GraphT>::vertex_descriptor V;
+        typedef typename boost::vertex_property<GraphT>::type VP;
+
+        GraphT& m_g;
+
+        VertexPropertyWriter(GraphT& g) : m_g(g) {}
+        void operator()(std::ostream& out, const V& v) const
+        {
+            out << " [id=" << m_g[v].id << "]";
+        }
     };
 
 	typedef boost::undirected_graph<VertexProperties, EdgeProperties> Graph;

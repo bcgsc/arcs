@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(ARCS, 2.0.13b, cjustin@bcgsc.ca)
+AC_INIT(arcs, 1.0.1, rwarren@bcgsc.ca)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([Arcs/Arcs.cpp])
 AC_CONFIG_HEADER([config.h])
@@ -66,9 +66,11 @@ AC_SUBST(AM_CXXFLAGS, '-Wall -Wextra -Werror -std=c++0x')
 
 AC_CONFIG_FILES([
 		Makefile
+		Arcs/Makefile
 		Common/Makefile
 		DataLayer/Makefile
-		Arcs/Makefile
+		Graph/Makefile
+		Test/Makefile
 ])
 AC_OUTPUT
 

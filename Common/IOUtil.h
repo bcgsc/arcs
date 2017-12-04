@@ -9,6 +9,16 @@
 #include <iostream>
 #include <limits> // for numeric_limits
 #include <string>
+#include <unistd.h>
+
+/** Print an error message and exit if path is not readable. */
+static inline void assert_readable(const std::string& path)
+{
+	if (access(path.c_str(), R_OK) == -1) {
+		std::cerr << "error: `" << path << "': " << strerror(errno) << std::endl;
+		exit(EXIT_FAILURE);
+	}
+}
 
 /** Print an error message and exit if stream is not good. */
 static inline void assert_good(const std::ios& stream,

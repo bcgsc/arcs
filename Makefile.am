@@ -1,9 +1,11 @@
 SUBDIRS = \
 	Common \
 	DataLayer \
-	Arcs
+	Graph \
+	Arcs \
+	Test
 
 dist_doc_DATA = \
 	README.md
-	
+
 EXTRA_DIST = autogen.sh

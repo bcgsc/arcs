@@ -4,7 +4,7 @@ import sys
 import re
 import argparse
 
-index2scaff_name = {} 
+index2scaff_name = {}
 links_numbering = {}
 
 def readGraphFile(infile):
@@ -25,19 +25,19 @@ def makeLinksNumbering(scaffolds_fasta):
                 seq_id = line.rstrip().split()[0][1:]
                 counter += 1
                 links_numbering[seq_id] = str(counter)
-                
-                    
+
+
 def writeTSVFile(infile, outfile):
     with open(infile, 'r') as f:
         with open(outfile, 'w') as w:
             for line in f:
-                test = re.match(r"(\d+)--(\d+)\s+\[label=(\d+), weight=(\d+)\]", line.rstrip())
+                test = re.search(r"(\d+)--(\d+)\s+\[label=(\d+), weight=(\d+)", line.rstrip())
                 if test:
                     scaffA = index2scaff_name[test.group(1)]
                     scaffB = index2scaff_name[test.group(2)]
                     label = int(test.group(3))
                     links = int(test.group(4))
-                    
+
                     if scaffA > scaffB:
                         scaffA, scaffB = scaffB, scaffA
 
@@ -76,14 +76,30 @@ def writeTSVFile(infile, outfile):
                         rOutScaffB = "f" + links_numbering[scaffB]
                         rOutScaffA = "r" + links_numbering[scaffA]
 
-                    gap = links*10
+                    match = re.search(r"d=(\d+)", line.rstrip())
+                    if match:
+                        dist = int(match.group(1))
+                    else:
+                        dist = 10
 
-                    string = str(500) + "\t"  + outScaffA + "\t" + outScaffB + "\t" + str(links) + "\t" + str(gap) + "\n"
+                    if dist < 0:
+                        dist_category = -1
+                    elif dist < 500:
+                        dist_category = 500
+                    elif dist < 1000:
+                        dist_category = 1000
+                    elif dist < 5000:
+                        dist_category = 5000
+                    else:
+                        dist_category = 10000
+
+                    gap = links * dist
+
+                    string = str(dist_category) + "\t"  + outScaffA + "\t" + outScaffB + "\t" + str(links) + "\t" + str(gap) + "\n"
                     w.write(string)
 
-                    stringR = str(500) + "\t" + rOutScaffB + "\t" + rOutScaffA + "\t" + str(links) + "\t" + str(gap) + "\n"
+                    stringR = str(dist_category) + "\t" + rOutScaffB + "\t" + rOutScaffA + "\t" + str(links) + "\t" + str(gap) + "\n"
                     w.write(stringR)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create a XXX.tigpair_checkpoint.tsv file from ARCS graph output that LINKS can utilize')

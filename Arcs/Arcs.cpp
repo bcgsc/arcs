@@ -1,11 +1,19 @@
+#include "config.h"
 #include "Arcs.h"
+#include "Arcs/DistanceEst.h"
+#include "Common/ContigProperties.h"
+#include "Common/Estimate.h"
+#include "Graph/ContigGraph.h"
+#include "Graph/DirectedGraph.h"
+#include "Graph/DotIO.h"
+#include <algorithm>
 #include <cassert>
 
 #define PROGRAM "arcs"
 #define VERSION "1.0.1"
 
-static const char VERSION_MESSAGE[] = 
-"VERSION: " PROGRAM " " VERSION "\n"
+static const char VERSION_MESSAGE[] =
+PROGRAM " " VERSION "\n"
 "\n"
 "http://www.bcgsc.ca/platform/bioinfo/software/links \n"
 "We hope this code is useful to you -- Please send comments & suggestions to rwarren * bcgsc.ca.\n"
@@ -14,37 +22,77 @@ static const char VERSION_MESSAGE[] =
 "LINKS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. \n";
 
 static const char USAGE_MESSAGE[] =
-"Usage: [" PROGRAM " " VERSION "]\n"
-"   -f  Assembled Sequences to further scaffold (Multi-Fasta format, required)\n"
-"   -a  File of File Names listing all input BAM alignment files (required). \n"
-"       NOTE: alignments must be sorted in order of name\n"
-"             index must be included in read name in the format read1_indexA\n"
-"   -s  Minimum sequence identity (min. required to include the read's scaffold alignment in the graph file, default: 98)\n"
-"   -c  Minimum number of mapping read pairs/Index required before creating edge in graph. (default: 5)\n"
-"   -l  Minimum number of links to create edge in graph (default: 0)\n"
-"   -z  Minimum contig length to consider for scaffolding (default: 500)\n"
-"   -b  Base name for your output files (optional)\n"
-"   -m  Range (in the format min-max) of index multiplicity (only reads with indices in this multiplicity range will be included in graph) (default: 50-10000)\n"
-"   -d  Maximum degree of nodes in graph. All nodes with degree greater than this number will be removed from the graph prior to printing final graph. For no node removal, set to 0 (default: 0)\n"
-"   -e  End length (bp) of sequences to consider (default: 30000)\n"
-"   -r  Maximum p-value for H/T assignment and link orientation determination. Lower is more stringent (default: 0.05)\n"
-"   -v  Runs in verbose mode (optional, default: 0)\n";
+PROGRAM " " VERSION "\n"
+"Usage: arcs [OPTION]... -f FASTA_FILE BAM_FILE...\n"
+"\n"
+"NOTE 1: BAM_FILE must be sorted in order of name\n"
+"NOTE 2: read names in BAM_FILE must be formatted as <READ_NAME>_<BARCODE_SEQ>\n"
+"\n"
+" Options:"
+"\n"
+"   -f, --file=FILE       input sequences to scaffold [required]\n"
+"   -a, --fofName=FILE    text file listing input BAM filenames\n"
+"   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
+"   -c, --min_reads=N     min aligned read pairs per barcode mapping [5]\n"
+"   -l, --min_links=N     min shared barcodes between contigs [0]\n"
+"   -z, --min_size=N      min contig length [500]\n"
+"   -b, --base_name=STR   output file prefix\n"
+"   -g, --graph=FILE      write the ABySS dist.gv to FILE\n"
+"       --gap=N           fixed gap size for ABySS dist.gv file [100]\n"
+"       --tsv=FILE        write graph in TSV format to FILE\n"
+"       --barcode-counts=FILE       write number of reads per barcode to FILE\n"
+"   -m, --index_multiplicity=RANGE  barcode multiplicity range [50-10000]\n"
+"   -d, --max_degree=N    max node degree in scaffold graph [0]\n"
+"   -e, --end_length=N    contig head/tail length for masking alignments [30000]\n"
+"   -r, --error_percent=N p-value for head/tail assignment and link orientation\n"
+"                         (lower is more stringent) [0.05]\n"
+"   -v, --run_verbose     verbose logging\n"
+"\n"
+" Distance Estimation Options:\n"
+"\n"
+"   -B, --bin_size=N        estimate distance using N closest Jaccard scores [20]\n"
+"   -D, --dist_est          enable distance estimation\n"
+"       --no_dist_est       disable distance estimation [default]\n"
+"       --dist_median       use median distance in ABySS dist.gv [default]\n"
+"       --dist_upper        use upper bound distance in ABySS dist.gv\n"
+"       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
+"       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
 
-ARCS::ArcsParams params;
-
-static const char shortopts[] = "f:a:s:c:l:z:b:m:d:e:r:v";
-
-enum { OPT_HELP = 1, OPT_VERSION};
+enum {
+    OPT_HELP = 1,
+    OPT_VERSION,
+    OPT_GAP,
+    OPT_TSV,
+    OPT_BARCODE_COUNTS,
+    OPT_SAMPLES_TSV,
+    OPT_DIST_TSV,
+    OPT_NO_DIST_EST,
+    OPT_DIST_MEDIAN,
+    OPT_DIST_UPPER
+};
 
 static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
+    {"bin_size", required_argument, NULL, 'B'},
+    {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
+    {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'}, 
     {"min_reads", required_argument, NULL, 'c'},
+    {"min_reads", required_argument, NULL, 'c'},
+    {"dist_est", no_argument, NULL, 'D'},
+    {"no_dist_est", no_argument, NULL, OPT_NO_DIST_EST},
+    {"dist_median", no_argument, NULL, OPT_DIST_MEDIAN},
+    {"dist_upper", no_argument, NULL, OPT_DIST_UPPER},
     {"min_links", required_argument, NULL, 'l'},
     {"min_size", required_argument, NULL, 'z'},
     {"base_name", required_argument, NULL, 'b'},
+    {"graph", required_argument, NULL, 'g'},
+    {"tsv", required_argument, NULL, OPT_TSV},
+    {"barcode-counts", required_argument, NULL, OPT_BARCODE_COUNTS},
+    {"gap", required_argument, NULL, OPT_GAP },
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
@@ -55,7 +103,37 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
+/** Command line parameters. */
+static ARCS::ArcsParams params;
 
+// Declared in Graph/Options.h and used by DotIO
+namespace opt {
+    /** The size of a k-mer. */
+    unsigned k;
+
+    /** The file format of the graph when writing. */
+    int format;
+}
+
+/** A distance estimate graph. */
+typedef ContigGraph<DirectedGraph<Length, DistanceEst>> DistGraph;
+
+/** A dictionary of contig names. */
+Dictionary g_contigNames;
+unsigned g_nextContigName;
+
+/**
+ * One end of a scaffold.
+ * The left (head) is true and the right (tail) is false.
+ */
+typedef std::pair<std::string, bool> ScaffoldEnd;
+
+/** Hash a ScaffoldEnd. */
+struct HashScaffoldEnd {
+    size_t operator()(const ScaffoldEnd& key) const {
+        return std::hash<std::string>()(key.first) ^ key.second;
+    }
+};
 
 /* Returns true if seqence only contains ATGC and is of length indexLen */
 bool checkIndex(std::string seq) {
@@ -150,17 +228,14 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     /* Open BAM file */
     std::ifstream bamName_stream;
     bamName_stream.open(bamName.c_str());
-    if (!bamName_stream) {
-        std::cerr << "Could not open " << bamName << ". --fatal.\n";
-        exit(EXIT_FAILURE);
-    }
+    assert_good(bamName_stream, bamName);
 
     std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
     int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
     int ct = 1; 
 
     std::string line;
-    long long int linecount = 0;
+    size_t linecount = 0;
 
     // Number of unpaired reads.
     size_t countUnpaired = 0;
@@ -241,8 +316,8 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                             * pair <X, true> indicates read pair aligns to head,
                             * pair <X, false> indicates read pair aligns to tail
                             */
-                           std::pair<std::string, bool> key(readyToAddRefName, true);
-                           std::pair<std::string, bool> keyR(readyToAddRefName, false);
+                           ScaffoldEnd key(readyToAddRefName, true);
+                           ScaffoldEnd keyR(readyToAddRefName, false);
 
                            /* Aligns to head */
                            if (readyToAddPos <= cutOff) {
@@ -293,31 +368,64 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     }
 
     /* Close BAM file */
+    assert_eof(bamName_stream, bamName);
     bamName_stream.close();
 
     if (countUnpaired > 0)
         std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. BAM file should be sorted in order of read name.\n";
 }
 
-/* 
- * Reading each BAM file from fofName
+/**
+ * Read the file of file names.
  */
-void readBAMS(const std::string& fofName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
-
-    std::ifstream fofName_stream(fofName.c_str());
-    if (!fofName_stream) {
-        std::cerr << "Could not open " << fofName << " ...\n";
+static std::vector<std::string> readFof(const std::string& fofName)
+{
+    std::vector<std::string> filenames;
+    if (fofName.empty())
+      return filenames;
+    std::ifstream fin(fofName);
+    assert_good(fin, fofName);
+    for (std::string bamName; getline(fin, bamName);)
+        filenames.push_back(bamName);
+    assert_eof(fin, fofName);
+    if (filenames.empty()) {
+        cerr << PROGRAM ": error: " << fofName << " is empty" << std::endl;
         exit(EXIT_FAILURE);
     }
+    for (const auto& filename : filenames)
+      assert_readable(filename);
+    return filenames;
+}
 
-    std::string bamName;
-    while (getline(fofName_stream, bamName)) {
+/**
+ * Read the BAM files.
+ */
+void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+    assert(!bamNames.empty());
+    for (const auto& bamName : bamNames) {
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
         readBAM(bamName, imap, indexMultMap, sMap);
-        assert(fofName_stream);
     }
-    fofName_stream.close();
+}
+
+/** Count barcodes. */
+static size_t countBarcodes(ARCS::IndexMap& imap, const std::unordered_map<std::string, int>& indexMultMap)
+{
+    size_t barcodeCount = 0;
+    for (auto x : indexMultMap)
+        if (x.second >= params.min_mult && x.second <= params.max_mult)
+            ++barcodeCount;
+
+    std::cout
+        << "{ \"All_barcodes_unfiltered\":" << indexMultMap.size()
+        << ", \"All_barcodes_filtered\":" << barcodeCount
+        << ", \"Scaffold_end_barcodes\":" << imap.size()
+        << ", \"Min_barcode_reads_threshold\":" << params.min_mult
+        << ", \"Max_barcode_reads_threshold\":" << params.max_mult
+        << " }\n";
+
+    return barcodeCount;
 }
 
 /* Normal approximation to the binomial distribution */
@@ -376,15 +484,13 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
                     if (scafA < scafB && scafAflag && scafBflag) {
                         bool validA, validB, scafAhead, scafBhead;
 
-                        std::tie(validA, scafAhead) = headOrTail(it->second[std::pair<std::string, bool>(scafA, true)], it->second[std::pair<std::string, bool>(scafA, false)]);
-                        std::tie(validB, scafBhead) = headOrTail(it->second[std::pair<std::string, bool>(scafB, true)], it->second[std::pair<std::string, bool>(scafB, false)]);
+                        std::tie(validA, scafAhead) = headOrTail(it->second[ScaffoldEnd(scafA, true)], it->second[ScaffoldEnd(scafA, false)]);
+                        std::tie(validB, scafBhead) = headOrTail(it->second[ScaffoldEnd(scafB, true)], it->second[ScaffoldEnd(scafB, false)]);
 
                         if (validA && validB) {
                             std::pair<std::string, std::string> pair (scafA, scafB);
-                            if (pmap.count(pair) == 0) {
-                                std::vector<int> init(4,0); 
-                                pmap[pair] = init;
-                            }
+                            if (pmap.count(pair) == 0)
+                                pmap[pair].resize(4);
                             // Head - Head
                             if (scafAhead && scafBhead)
                                 pmap[pair][0]++;
@@ -409,18 +515,16 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
  * Return the max value and its index position
  * in the vector
  */
-std::pair<int, int> getMaxValueAndIndex(const std::vector<int> array) {
-    int max = 0;
-    int index = 0;
-    for (int i = 0; i < int(array.size()); i++) {
+std::pair<unsigned, unsigned> getMaxValueAndIndex(const ARCS::PairMap::value_type::second_type& array) {
+    unsigned max = 0;
+    unsigned index = 0;
+    for (unsigned i = 0; i < array.size(); ++i) {
         if (array[i] > max) {
             max = array[i];
             index = i;
         }
     }
-
-    std::pair<int, int> result(max, index);
-    return result;
+    return std::make_pair(max, index);
 }
 
 /* 
@@ -450,12 +554,12 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
         std::string scaf1, scaf2;
         std::tie (scaf1, scaf2) = it->first;
 
-        int max, index;
-        std::vector<int> count = it->second;
+        unsigned max, index;
+        const auto& count = it->second;
         std::tie(max, index) = getMaxValueAndIndex(count);
 
-        int second = 0;
-        for (int i = 0; i < int(count.size()); i++) {
+        unsigned second = 0;
+        for (unsigned i = 0; i < count.size(); ++i) {
             if (count[i] != max && count[i] > second)
                 second = count[i];
         }
@@ -490,24 +594,21 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
     }
 } 
 
-/* 
+/*
  * Write out the boost graph in a .dot file.
  */
-void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g) {
-    std::ofstream out(graphFile_dot.c_str());
-    assert(out);
+void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g)
+{
+	std::ofstream out(graphFile_dot.c_str());
+	assert(out);
 
-    boost::dynamic_properties dp;
-    dp.property("id", get(&ARCS::VertexProperties::id, g));
-    dp.property("weight", get(&ARCS::EdgeProperties::weight, g));
-    dp.property("label", get(&ARCS::EdgeProperties::orientation, g));
-    dp.property("node_id", get(boost::vertex_index, g));
-    boost::write_graphviz_dp(out, g, dp);
-    assert(out);
+	ARCS::VertexPropertyWriter<ARCS::Graph> vpWriter(g);
+	ARCS::EdgePropertyWriter<ARCS::Graph> epWriter(g);
 
-    out.close();
+	boost::write_graphviz(out, g, vpWriter, epWriter);
+	assert(out);
+	out.close();
 }
-
 
 /* 
  * Remove all nodes from graph wich have a degree
@@ -549,26 +650,236 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
     writeGraph(graphFile, g);
 }
 
+/*
+ * Construct an ABySS distance estimate graph from a boost graph.
+ */
+void createAbyssGraph(const std::unordered_map<std::string, int>& scaffSizeMap, const ARCS::Graph& gin, DistGraph& gout) {
+    // Add the vertices.
+    for (const auto& it : scaffSizeMap) {
+        vertex_property<DistGraph>::type vp;
+        vp.length = it.second;
+        const auto u = add_vertex(vp, gout);
+        put(vertex_name, gout, u, it.first);
+    }
 
-void runArcs() {
+    // Add the edges.
+    for (const auto ein : boost::make_iterator_range(boost::edges(gin))) {
+        const auto einp = gin[ein];
+        const auto u = find_vertex(gin[source(ein, gin)].id, einp.orientation < 2, gout);
+        const auto v = find_vertex(gin[target(ein, gin)].id, einp.orientation % 2, gout);
+
+        edge_property<DistGraph>::type ep;
+        ep.distance = params.gap;
+        ep.stdDev = params.gap;
+        ep.numPairs = einp.weight;
+
+        /* use distance estimates, if enabled */
+        if (params.dist_est) {
+            if (params.dist_mode == ARCS::DIST_MEDIAN) {
+                ep.distance = einp.dist;
+            } else {
+                assert(params.dist_mode == ARCS::DIST_UPPER);
+                ep.distance = einp.maxDist;
+            }
+        }
+
+        graph_traits<DistGraph>::edge_descriptor e;
+        bool inserted;
+        std::tie(e, inserted) = add_edge(u, v, ep, gout);
+        if (!inserted) {
+            std::cerr << "error: Duplicate edge: \"" <<
+                get(vertex_name, gout, u) << "\" -> \"" <<
+                get(vertex_name, gout, v) << '"' << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+/*
+ * Write out an ABySS distance estimate graph to a .dist.gv file.
+ */
+void writeAbyssGraph(const std::string& path, const DistGraph& g) {
+    if (path.empty())
+        return;
+    ofstream out(path.c_str());
+    assert_good(out, path);
+    write_dot(out, g, "arcs");
+    assert_good(out, path);
+}
+
+/** Write a TSV file of the number of reads per barcode.
+ * - Barcode: the barcode
+ * - Reads: the number of reads
+ */
+void writeBarcodeCountsTSV(
+        const std::string& tsvFile,
+        const std::unordered_map<std::string, int>& indexMultMap)
+{
+    if (tsvFile.empty())
+        return;
+
+    // Sort the barcodes by their counts and then their sequence.
+    typedef std::vector<std::pair<std::string, unsigned>> Sorted;
+    Sorted sorted(indexMultMap.begin(), indexMultMap.end());
+    sort(sorted.begin(), sorted.end(),
+            [](const Sorted::value_type& a, const Sorted::value_type& b) {
+                return a.second != b.second ? a.second > b.second : a.first < b.first;
+            });
+
+    std::ofstream f(tsvFile);
+    assert_good(f, tsvFile);
+    f << "Barcode\tReads\n";
+    assert_good(f, tsvFile);
+    for (auto x : sorted)
+        f << x.first << '\t' << x.second << '\n';
+    assert_good(f, tsvFile);
+}
+
+/** Write a TSV file to calculate a hypergeometric test.
+ * For each pair of scaffolds...
+ * - CountBoth: the number of barcodes shared between scaffold ends U and V
+ * - CountU: the number of barcodes on scaffold end U
+ * - CountV: the number of barcodes on scaffold end V
+ * - CountAll: the total number of barcodes observed
+ */
+void writeTSV(
+        const std::string& tsvFile,
+        const ARCS::IndexMap& imap,
+        const ARCS::PairMap& pmap,
+        size_t barcodeCount)
+{
+    if (tsvFile.empty())
+        return;
+
+    // Count the number of barcodes seen per scaffold end.
+    std::unordered_map<ScaffoldEnd, unsigned, HashScaffoldEnd> barcodes_per_scaffold_end;
+    for (const auto& it : imap) {
+        for (const auto& scaffold_count : it.second) {
+            const auto& scaffold = scaffold_count.first;
+            const auto& count = scaffold_count.second;
+            if (count >= params.min_reads)
+               ++barcodes_per_scaffold_end[scaffold];
+        }
+    }
+
+    std::ofstream f(tsvFile);
+    assert_good(f, tsvFile);
+    f << "U\tV\tBest_orientation\tShared_barcodes\tU_barcodes\tV_barcodes\tAll_barcodes\n";
+    assert_good(f, tsvFile);
+    for (const auto& it : pmap) {
+        const auto& u = it.first.first;
+        const auto& v = it.first.second;
+        const auto& counts = it.second;
+        assert(!counts.empty());
+        unsigned max_counts = *std::max_element(counts.begin(), counts.end());
+        for (unsigned i = 0; i < counts.size(); ++i) {
+            if (counts[i] == 0)
+                continue;
+            bool usense = i < 2;
+            bool vsense = i % 2;
+            f << u << (usense ? '-' : '+')
+                << '\t' << v << (vsense ? '-' : '+')
+                << '\t' << (counts[i] == max_counts ? "T" : "F")
+                << '\t' << counts[i]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
+                << '\t' << barcodeCount
+                << '\n';
+            f << v << (vsense ? '+' : '-')
+                << '\t' << u << (usense ? '+' : '-')
+                << '\t' << (counts[i] == max_counts ? "T" : "F")
+                << '\t' << counts[i]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
+                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
+                << '\t' << barcodeCount
+                << '\n';
+        }
+    }
+    assert_good(f, tsvFile);
+}
+
+/** Return NA if the specified string is empty, and the string itself otherwise. */
+static const char* maybeNA(const std::string& s)
+{
+    return s.empty() ? "NA" : s.c_str();
+}
+
+/**
+ * calculate distance estimates for edges, based on number of shared
+ * barcodes between contig ends
+ */
+static inline void calcDistanceEstimates(
+    const ARCS::IndexMap& imap,
+    const std::unordered_map<std::string, int> &indexMultMap,
+    const ARCS::ContigToLength& contigToLength,
+    ARCS::Graph& g)
+{
+    std::time_t rawtime;
+
+    time(&rawtime);
+    std::cout << "\n\t=>Measuring intra-contig distances / shared barcodes... "
+        << ctime(&rawtime);
+    DistSampleMap distSamples;
+    calcDistSamples(imap, contigToLength, indexMultMap, params, distSamples);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Writing intra-contig distance samples to TSV... "
+        << ctime(&rawtime);
+    writeDistSamplesTSV(params.dist_samples_tsv, distSamples);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Building Jaccard => distance map... "
+        << ctime(&rawtime);
+    JaccardToDist jaccardToDist;
+    buildJaccardToDist(distSamples, jaccardToDist);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Calculating barcode stats for scaffold pairs... "
+        << ctime(&rawtime);
+    PairToBarcodeStats pairToStats;
+    buildPairToBarcodeStats(imap, indexMultMap, contigToLength, params, pairToStats);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Adding edge distances... " << ctime(&rawtime);
+    addEdgeDistances(pairToStats, jaccardToDist, params, g);
+
+    time(&rawtime);
+    std::cout << "\n\t=>Writing distance estimates to TSV... "
+        << ctime(&rawtime);
+    writeDistTSV(params.dist_tsv, pairToStats, g);
+}
+
+/** Run ARCS. */
+void runArcs(const std::vector<std::string>& filenames) {
 
     std::cout << "Running: " << PROGRAM << " " << VERSION 
         << "\n pid " << ::getpid()
-        << "\n -f " << params.file 
-        << "\n -a " << params.fofName
-        << "\n -s " << params.seq_id 
-        << "\n -c " << params.min_reads 
-        << "\n -l " << params.min_links     
-        << "\n -z " << params.min_size
-        << "\n -b " << params.base_name
-        << "\n Min index multiplicity: " << params.min_mult 
-        << "\n Max index multiplicity: " << params.max_mult 
-        << "\n -d " << params.max_degree 
+        // Options
+        << "\n -c " << params.min_reads
+        << "\n -d " << params.max_degree
         << "\n -e " << params.end_length
+        << "\n -l " << params.min_links
+        << "\n -m " << params.min_mult << '-' << params.max_mult
         << "\n -r " << params.error_percent
-        << "\n -v " << params.verbose << "\n";
+        << "\n -s " << params.seq_id
+        << "\n -v " << params.verbose
+        << "\n -z " << params.min_size
+        << "\n --gap=" << params.gap
+        // Output files
+        << "\n -b " << maybeNA(params.base_name)
+        << "\n -g " << maybeNA(params.dist_graph_name)
+        << "\n --barcode-counts=" << maybeNA(params.barcode_counts_name)
+        << "\n --tsv=" << maybeNA(params.tsv_name)
+        // Input files
+        << "\n -a " << maybeNA(params.fofName)
+        << "\n -f " << maybeNA(params.file)
+        << '\n';
+    for (const auto& filename : filenames)
+        std::cout << ' ' << filename << '\n';
+    std::cout.flush();
 
     std::string graphFile = params.base_name + "_original.gv";
+    std::string distGraphFile = !params.dist_graph_name.empty() ? params.dist_graph_name : params.base_name + ".dist.gv";
 
     ARCS::IndexMap imap;
     ARCS::PairMap pmap;
@@ -584,7 +895,15 @@ void runArcs() {
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
     std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
-    readBAMS(params.fofName, imap, indexMultMap, scaffSizeMap);
+    std::vector<std::string> bamFiles = readFof(params.fofName);
+    std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
+    readBAMS(bamFiles, imap, indexMultMap, scaffSizeMap);
+
+    size_t barcodeCount = countBarcodes(imap, indexMultMap);
+
+    time(&rawtime);
+    std::cout << "\n=>Starting to write reads per barcode TSV file... " << ctime(&rawtime) << "\n";
+    writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
 
     time(&rawtime);
     std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
@@ -594,9 +913,27 @@ void runArcs() {
     std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
     createGraph(pmap, g);
 
+    if (params.dist_est) {
+        std::cout << "\n=>Calculating distance estimates... " << ctime(&rawtime);
+        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+    }
+
     time(&rawtime);
     std::cout << "\n=>Starting to write graph file... " << ctime(&rawtime) << "\n";
     writePostRemovalGraph(g, graphFile);
+
+    time(&rawtime);
+    std::cout << "\n=>Starting to create ABySS graph... " << ctime(&rawtime);
+    DistGraph gdist;
+    createAbyssGraph(scaffSizeMap, g, gdist);
+
+    time(&rawtime);
+    std::cout << "\n=>Starting to write ABySS graph file... " << ctime(&rawtime) << "\n";
+    writeAbyssGraph(distGraphFile, gdist);
+
+    time(&rawtime);
+    std::cout << "\n=>Starting to write TSV file... " << ctime(&rawtime) << "\n";
+    writeTSV(params.tsv_name, imap, pmap, barcodeCount);
 
     time(&rawtime);
     std::cout << "\n=>Done. " << ctime(&rawtime);
@@ -614,16 +951,38 @@ int main(int argc, char** argv) {
                 arg >> params.file; break;
             case 'a':
                 arg >> params.fofName; break;
+            case 'B':
+                arg >> params.dist_bin_size; break;
             case 's':
                 arg >> params.seq_id; break;
             case 'c':
                 arg >> params.min_reads; break;
+            case 'D':
+                params.dist_est = true; break;
             case 'l':
                 arg >> params.min_links; break;
             case 'z':
                 arg >> params.min_size; break;
             case 'b':
                 arg >> params.base_name; break;
+            case 'g':
+                arg >> params.dist_graph_name; break;
+            case OPT_TSV:
+                arg >> params.tsv_name; break;
+            case OPT_GAP:
+                arg >> params.gap; break;
+            case OPT_BARCODE_COUNTS:
+                arg >> params.barcode_counts_name; break;
+            case OPT_SAMPLES_TSV:
+                arg >> params.dist_samples_tsv; break;
+            case OPT_DIST_TSV:
+                arg >> params.dist_tsv; break;
+            case OPT_NO_DIST_EST:
+                params.dist_est = false; break;
+            case OPT_DIST_MEDIAN:
+                params.dist_mode = ARCS::DIST_MEDIAN; break;
+            case OPT_DIST_UPPER:
+                params.dist_mode = ARCS::DIST_UPPER; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
@@ -655,21 +1014,27 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::ifstream f(params.fofName.c_str());
-    if (!f.good()) {
-        std::cerr << "Cannot find -a " << params.fofName << ". Exiting... \n";
+    if (params.file.empty()) {
+        cerr << PROGRAM ": missing -f option\n";
         die = true;
     }
-    std::ifstream g(params.file.c_str());
-    if (!g.good()) {
-        std::cerr << "Cannot find -f " << params.file << ". Exiting... \n";
+
+    std::vector<std::string> filenames(argv + optind, argv + argc);
+    if (params.fofName.empty() && filenames.empty()) {
+        cerr << PROGRAM ": missing either BAM files or -a option\n";
         die = true;
     }
 
     if (die) {
-        std::cerr << "Try " << PROGRAM << " --help for more information.\n";
+        std::cerr << "Try " PROGRAM " --help for more information.\n";
         exit(EXIT_FAILURE);
     }
+
+    assert_readable(params.file);
+    if (!params.fofName.empty())
+      assert_readable(params.fofName);
+    for (const auto& filename : filenames)
+      assert_readable(filename);
 
     /* Setting base name if not previously set */
     if (params.base_name.empty()) {
@@ -684,8 +1049,7 @@ int main(int argc, char** argv) {
         params.base_name = filename.str();
     }
 
-
-    runArcs();
+    runArcs(filenames);
 
     return 0;
 }
