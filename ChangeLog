@@ -1,0 +1,14 @@
+2017-12-04  Ben Vandervalk <benv@bcgsc.ca>
+
+	* Release version v1.0.1
+	* added `--dist_est` option to estimate gap sizes
+	  * distance estimations are based on number of shared Chromium
+	  barcodes between neighbouring contig head/tail regions
+	* added unit tests (`make check`)
+	* added `--tsv` option to output graph in TSV format
+	* added `--barcode-counts` option to output number of
+	  reads per barcode in TSV format
+
+2016-09-15  Sarah Yeo <syeo@bcgsc.ca>
+
+	* Release version v1.0.0
