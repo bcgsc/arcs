@@ -10,10 +10,9 @@
 #include <cassert>
 
 #define PROGRAM "arcs"
-#define VERSION "1.0.1"
 
 static const char VERSION_MESSAGE[] =
-PROGRAM " " VERSION "\n"
+PROGRAM " " PACKAGE_VERSION "\n"
 "\n"
 "http://www.bcgsc.ca/platform/bioinfo/software/links \n"
 "We hope this code is useful to you -- Please send comments & suggestions to rwarren * bcgsc.ca.\n"
@@ -22,7 +21,7 @@ PROGRAM " " VERSION "\n"
 "LINKS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  All rights reserved. \n";
 
 static const char USAGE_MESSAGE[] =
-PROGRAM " " VERSION "\n"
+PROGRAM " " PACKAGE_VERSION "\n"
 "Usage: arcs [OPTION]... -f FASTA_FILE BAM_FILE...\n"
 "\n"
 "NOTE 1: BAM_FILE must be sorted in order of name\n"
@@ -852,7 +851,7 @@ static inline void calcDistanceEstimates(
 /** Run ARCS. */
 void runArcs(const std::vector<std::string>& filenames) {
 
-    std::cout << "Running: " << PROGRAM << " " << VERSION 
+    std::cout << "Running: " << PROGRAM << " " << PACKAGE_VERSION
         << "\n pid " << ::getpid()
         // Options
         << "\n -c " << params.min_reads
