@@ -1,3 +1,5 @@
+![Logo](https://github.com/bcgsc/arcs/blob/master/arcs-logo.png)
+
 # ARCS
 
 Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data.
