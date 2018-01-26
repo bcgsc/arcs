@@ -258,7 +258,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
             /* Parse the index from the readName */
             std::string index = "", readNameSpl = "";
-            std::size_t found = readName.find("_");
+            std::size_t found = readName.rfind("_");
             if (found!=std::string::npos)
                 readNameSpl = readName.substr(found+1);
             if (checkIndex(readNameSpl))
