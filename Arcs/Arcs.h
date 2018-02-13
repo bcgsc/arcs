@@ -74,7 +74,7 @@ namespace ARCS {
             min_mult(50),
             max_mult(10000),
             max_degree(0),
-            end_length(3000),
+            end_length(30000),
             error_percent(0.05),
             verbose(0) {
         }
