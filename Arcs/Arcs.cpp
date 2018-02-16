@@ -9,6 +9,7 @@
 #include "Graph/DotIO.h"
 #include <algorithm>
 #include <cassert>
+#include <utility>
 
 #define PROGRAM "arcs"
 
@@ -206,7 +207,7 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
 
 
 /* Get all scaffold sizes from FASTA file */
-void getScaffSizes(std::string file, std::unordered_map<std::string, int>& sMap) {
+void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
 
     int counter = 0;
     FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
@@ -214,8 +215,7 @@ void getScaffSizes(std::string file, std::unordered_map<std::string, int>& sMap)
         counter++;
         std::string  scafName = rec.id;
         int size = rec.seq.length();
-        //assert(sMap.count(scafName) == 0);
-        sMap[scafName] = size;
+        scaffSizes.push_back(std::make_pair(rec.id, size));
     }
     
     if (params.verbose)
@@ -661,9 +661,9 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
 /*
  * Construct an ABySS distance estimate graph from a boost graph.
  */
-void createAbyssGraph(const std::unordered_map<std::string, int>& scaffSizeMap, const ARCS::Graph& gin, DistGraph& gout) {
+void createAbyssGraph(const ARCS::ScaffSizeList& scaffSizes, const ARCS::Graph& gin, DistGraph& gout) {
     // Add the vertices.
-    for (const auto& it : scaffSizeMap) {
+    for (const auto& it : scaffSizes) {
         vertex_property<DistGraph>::type vp;
         vp.length = it.second;
         const auto u = add_vertex(vp, gout);
@@ -895,10 +895,12 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     std::time_t rawtime;
 
-    std::unordered_map<std::string, int> scaffSizeMap;
+    ARCS::ScaffSizeList scaffSizeList;
     time(&rawtime);
     std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
-    getScaffSizes(params.file, scaffSizeMap);
+    getScaffSizes(params.file, scaffSizeList);
+    ARCS::ScaffSizeMap scaffSizeMap(
+        scaffSizeList.begin(), scaffSizeList.end());
 
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
@@ -933,7 +935,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     time(&rawtime);
     std::cout << "\n=>Starting to create ABySS graph... " << ctime(&rawtime);
     DistGraph gdist;
-    createAbyssGraph(scaffSizeMap, g, gdist);
+    createAbyssGraph(scaffSizeList, g, gdist);
 
     time(&rawtime);
     std::cout << "\n=>Starting to write ABySS graph file... " << ctime(&rawtime) << "\n";

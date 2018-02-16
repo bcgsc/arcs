@@ -97,6 +97,18 @@ namespace ARCS {
     /** a pair of contig IDs */
     typedef std::pair<std::string, std::string> ContigPair;
 
+    /**
+     * a list of the input scaffolds and their lengths, in the order
+     * that they appear in the input contigs FASTA file
+     */
+    typedef std::vector< std::pair<std::string, int> > ScaffSizeList;
+
+    /**
+     * a list of the input scaffolds and their lengths, in the order
+     * that they appear in the input contigs FASTA file
+     */
+    typedef std::unordered_map<std::string, int> ScaffSizeMap;
+
     /** maps contig FASTA ID to contig length (bp) */
     typedef std::unordered_map<std::string, int> ContigToLength;
     typedef typename ContigToLength::const_iterator ContigToLengthIt;
