@@ -3,6 +3,7 @@
 #include "Arcs/DistanceEst.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
+#include "Common/ParseUtil.h"
 #include "Graph/ContigGraph.h"
 #include "Graph/DirectedGraph.h"
 #include "Graph/DotIO.h"
@@ -26,9 +27,11 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "\n"
 "NOTE 1: BAM_FILE must be sorted in order of name\n"
 "NOTE 2: read names in BAM_FILE must be formatted as <READ_NAME>_<BARCODE_SEQ>\n"
+"        unless --bx is used\n"
 "\n"
-" Options:"
+" Options:\n"
 "\n"
+"       --bx              extract barcode sequences from BX tag\n"
 "   -f, --file=FILE       input sequences to scaffold [required]\n"
 "   -a, --fofName=FILE    text file listing input BAM filenames\n"
 "   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
@@ -62,6 +65,7 @@ static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
 enum {
     OPT_HELP = 1,
     OPT_VERSION,
+    OPT_BX,
     OPT_GAP,
     OPT_TSV,
     OPT_BARCODE_COUNTS,
@@ -76,6 +80,7 @@ static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
     {"bin_size", required_argument, NULL, 'B'},
+    {"bx", no_argument, NULL, OPT_BX },
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'}, 
@@ -247,22 +252,26 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             linecount++;
 
             std::stringstream ss(line);
-            std::string readName, scafName, cigar, rnext, seq, qual;
+            std::string readName, scafName, cigar, rnext, seq, qual, tags;
             int flag, pos, mapq, pnext, tlen;
 
             ss >> readName >> flag >> scafName >> pos >> mapq >> cigar
-                >> rnext >> pnext >> tlen >> seq >> qual;
+                >> rnext >> pnext >> tlen >> seq >> qual >> std::ws;
 
-            /* If there are no numbers in name, will return 0 - ie "*" */
-            //scafName = getIntFromScafName(scafNameString);
+            getline(ss, tags);
 
             /* Parse the index from the readName */
-            std::string index = "", readNameSpl = "";
-            std::size_t found = readName.rfind("_");
-            if (found!=std::string::npos)
-                readNameSpl = readName.substr(found+1);
-            if (checkIndex(readNameSpl))
-                index = readNameSpl;
+            std::string index;
+            if (params.bx) {
+                index = getBarcodeSeq(tags);
+            } else {
+                std::size_t found = readName.rfind("_");
+                if (found!=std::string::npos)
+                    index = readName.substr(found+1);
+            }
+
+            if (!checkIndex(index))
+                index.clear();
 
             /* Keep track of index multiplicity */
             if (!index.empty())
@@ -966,6 +975,8 @@ int main(int argc, char** argv) {
                 arg >> params.base_name; break;
             case 'g':
                 arg >> params.dist_graph_name; break;
+            case OPT_BX:
+                params.bx = true; break;
             case OPT_TSV:
                 arg >> params.tsv_name; break;
             case OPT_GAP:

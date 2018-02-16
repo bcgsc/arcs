@@ -34,6 +34,7 @@ namespace ARCS {
      */
     struct ArcsParams {
 
+        bool bx;
         std::string file;
         std::string fofName;
         int seq_id;
@@ -63,6 +64,7 @@ namespace ARCS {
         int verbose;
 
         ArcsParams() :
+            bx(false),
             seq_id(98),
             min_reads(5),
             dist_est(false),
