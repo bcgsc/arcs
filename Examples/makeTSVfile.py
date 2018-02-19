@@ -82,16 +82,18 @@ def writeTSVFile(infile, outfile):
                     else:
                         dist = 10
 
-                    if dist < 0:
-                        dist_category = -1
-                    elif dist < 500:
-                        dist_category = 500
-                    elif dist < 1000:
-                        dist_category = 1000
-                    elif dist < 5000:
-                        dist_category = 5000
-                    else:
-                        dist_category = 10000
+                   # if dist < 0:
+                   #     dist_category = -1
+                   # elif dist < 500:
+                   #     dist_category = 500
+                   # elif dist < 1000:
+                   #     dist_category = 1000
+                   # elif dist < 5000:
+                   #     dist_category = 5000
+                   # else:
+                   #     dist_category = 10000
+
+                    dist_category = 500
 
                     gap = links * dist
 
