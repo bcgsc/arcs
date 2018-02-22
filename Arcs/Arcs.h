@@ -13,10 +13,10 @@
 #include <unordered_map>
 #include <fstream>
 #include <sstream>
-#include <utility> 
+#include <utility>
 #include <vector>
 #include <iterator>
-#include <time.h> 
+#include <time.h>
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/graphviz.hpp>
 #include "Common/Uncompress.h"
@@ -87,7 +87,7 @@ namespace ARCS {
     typedef std::map<std::pair<std::string, bool>, int> ScafMap;
     typedef typename ScafMap::const_iterator ScafMapConstIt;
     /* IndexMap: key = index sequence, value = ScafMap */
-    typedef std::unordered_map<std::string, ScafMap> IndexMap; 
+    typedef std::unordered_map<std::string, ScafMap> IndexMap;
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
     typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
 
