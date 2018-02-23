@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include "ThirdParty/Catch/catch.hpp"
 
-#include "Common/SegmentUtil.h"
+#include "Common/Segment.h"
 
 TEST_CASE("posToSegmentIndex (no remainder)", "[SegmentUtil]")
 {

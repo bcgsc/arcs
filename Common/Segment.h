@@ -1,5 +1,5 @@
-#ifndef _SEGMENT_UTIL_H_
-#define _SEGMENT_UTIL_H_ 1
+#ifndef _SEGMENT_H_
+#define _SEGMENT_H_ 1
 
 #include <cassert>
 

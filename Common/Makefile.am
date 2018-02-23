@@ -22,7 +22,7 @@ libcommon_a_SOURCES = \
 	PairHash.h \
 	ParseUtil.h \
 	ReadsProcessor.cpp ReadsProcessor.h \
-	SegmentUtil.h \
+	Segment.h \
 	SeqEval.h \
 	Sequence.cpp Sequence.h \
 	SignalHandler.cpp SignalHandler.h \

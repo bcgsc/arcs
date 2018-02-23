@@ -13,9 +13,9 @@ ParseUtilTest_SOURCES = \
 	$(top_srcdir)/ThirdParty/Catch/catch.hpp \
 	ParseUtilTest.cpp
 
-check_PROGRAMS += SegmentUtilTest
-SegmentUtilTest_SOURCES = \
+check_PROGRAMS += SegmentTest
+SegmentTest_SOURCES = \
 	$(top_srcdir)/ThirdParty/Catch/catch.hpp \
-	SegmentUtilTest.cpp
+	SegmentTest.cpp
 
 TESTS = $(check_PROGRAMS)
