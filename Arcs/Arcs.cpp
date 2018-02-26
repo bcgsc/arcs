@@ -864,21 +864,26 @@ static const char* maybeNA(const std::string& s)
 static inline void calcDistanceEstimates(
     const ARCS::IndexMap& imap,
     const std::unordered_map<std::string, int> &indexMultMap,
-    const ARCS::ContigToLength& contigToLength,
+    const ARCS::ScaffSizeList& scaffSizes,
+    const SegmentToBarcode& segmentToBarcode,
     ARCS::Graph& g)
 {
     std::time_t rawtime;
+
+    ARCS::ScaffSizeMap scaffSizeMap(
+        scaffSizes.begin(), scaffSizes.end());
 
     time(&rawtime);
     std::cout << "\n\t=>Measuring intra-contig distances / shared barcodes... "
         << ctime(&rawtime);
     DistSampleMap distSamples;
-    calcDistSamples(imap, contigToLength, indexMultMap, params, distSamples);
+    calcDistSamples(imap, scaffSizeMap, indexMultMap, params, distSamples);
 
     time(&rawtime);
     std::cout << "\n\t=>Writing intra-contig distance samples to TSV... "
         << ctime(&rawtime);
-    writeDistSamplesTSV(params.dist_samples_tsv, distSamples);
+    writeDistSamplesTSV(params.dist_samples_tsv, segmentToBarcode,
+        scaffSizes, params);
 
     time(&rawtime);
     std::cout << "\n\t=>Building Jaccard => distance map... "
@@ -890,7 +895,7 @@ static inline void calcDistanceEstimates(
     std::cout << "\n\t=>Calculating barcode stats for scaffold pairs... "
         << ctime(&rawtime);
     PairToBarcodeStats pairToStats;
-    buildPairToBarcodeStats(imap, indexMultMap, contigToLength, params, pairToStats);
+    buildPairToBarcodeStats(imap, indexMultMap, scaffSizeMap, params, pairToStats);
 
     time(&rawtime);
     std::cout << "\n\t=>Adding edge distances... " << ctime(&rawtime);
@@ -976,7 +981,8 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     if (params.dist_est) {
         std::cout << "\n=>Calculating distance estimates... " << ctime(&rawtime);
-        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+        calcDistanceEstimates(imap, indexMultMap, scaffSizeList,
+            segmentToBarcode, g);
     }
 
     time(&rawtime);

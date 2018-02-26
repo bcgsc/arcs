@@ -2,8 +2,10 @@
 #define _DISTANCE_EST_H_ 1
 
 #include "Arcs/Arcs.h"
+#include "Common/Barcode.h"
 #include "Common/MapUtil.h"
 #include "Common/PairHash.h"
+#include "Common/Segment.h"
 #include "Common/StatUtil.h"
 #include <array>
 #include <cstdlib>
@@ -558,6 +560,181 @@ static inline void writeDistSamplesTSV(const std::string& path,
 	samplesOut.open(path.c_str());
 	assert(samplesOut);
 	writeDistSamplesTSV(samplesOut, distSamples);
+	assert(samplesOut);
+	samplesOut.close();
+}
+
+static inline void writeDistSample(
+	const Segment& segment1, const Segment& segment2,
+	unsigned length, unsigned dist,
+	const SegmentToBarcode& segmentToBarcode,
+	const ARCS::ArcsParams& params, std::ostream& out)
+{
+	/* filter barcodes by number of read mappings */
+
+	BarcodeSet barcodes1, barcodes2;
+	SegmentToBarcodeConstIt segmentIt;
+
+	segmentIt = segmentToBarcode.find(segment1);
+	if (segmentIt == segmentToBarcode.end()) {
+		return;
+	}
+
+	for (BarcodeToCountConstIt it = segmentIt->second.begin();
+			it != segmentIt->second.end(); ++it)
+	{
+		if (it->second >= (unsigned)params.min_reads) {
+			barcodes1.insert(it->first);
+		}
+	}
+
+	segmentIt = segmentToBarcode.find(segment2);
+	if (segmentIt == segmentToBarcode.end()) {
+		return;
+	}
+
+	for (BarcodeToCountConstIt it = segmentIt->second.begin();
+		it != segmentIt->second.end(); ++it)
+	{
+		if (it->second >= (unsigned)params.min_reads) {
+			barcodes2.insert(it->first);
+		}
+	}
+
+	/* calc barcode intersection/union */
+
+	BarcodeSet _union(barcodes1.begin(), barcodes1.end());
+	_union.insert(barcodes2.begin(), barcodes2.end());
+
+	BarcodeSet intersect;
+	for (BarcodeSetConstIt it = barcodes1.begin();
+		it != barcodes1.end(); ++it)
+	{
+		if (barcodes2.find(*it) != barcodes2.end()) {
+			intersect.insert(*it);
+		}
+	}
+
+	/* write stats */
+
+	const unsigned segmentSize = params.segment_length;
+	SegmentCalc calc(segmentSize);
+
+	const std::string& id1 = segment1.first;
+	unsigned index1 = segment1.second;
+	unsigned start1 = calc.start(length, index1);
+
+	unsigned index2 = segment2.second;
+	unsigned start2 = calc.start(length, index2);
+
+	out << id1 << '\t'
+		<< length << '\t'
+		<< index1 << '\t'
+		<< start1 << '\t'
+		<< start1 + segmentSize - 1 << '\t'
+		<< index2 << '\t'
+		<< start2 << '\t'
+		<< start2 + segmentSize - 1 << '\t'
+		<< dist << '\t'
+		<< barcodes1.size() << '\t'
+		<< barcodes2.size() << '\t'
+		<< intersect.size() << '\t'
+		<< _union.size() << '\n';
+}
+
+static inline void writeDistSamplesTSV(
+	const ARCS::ScaffSizeList& scaffSizes,
+	const SegmentToBarcode& segmentToBarcode,
+	const ARCS::ArcsParams& params, std::ostream& out)
+{
+	/* print column headers */
+
+	out << "id" << '\t'
+		<< "l" << '\t'
+		<< "segment1" << '\t'
+		<< "start1" << '\t'
+		<< "end1" << '\t'
+		<< "segment2" << '\t'
+		<< "start2" << '\t'
+		<< "end2" << '\t'
+		<< "dist" << '\t'
+		<< "barcodes1" << '\t'
+		<< "barcodes2" << '\t'
+		<< "intersect" << '\t'
+		<< "union" << '\n';
+
+	/* calculate and print intra-contig barcode/distance stats */
+
+	const unsigned segmentSize = params.segment_length;
+	SegmentCalc calc(segmentSize);
+
+	for (const auto& it : scaffSizes) {
+
+		const std::string& id = it.first;
+		unsigned l = it.second;
+
+		/* sequences < 2 * segmentSize have no segments */
+		if (l < 2 * segmentSize) {
+			continue;
+		}
+
+		if (l % segmentSize == 0) {
+
+			/* CASE 1: seq length is divisible by segment length */
+
+			unsigned segments = calc.segments(l);
+			for (unsigned i = 0; i < segments - 1; ++i) {
+				for (unsigned j = i + 1; j < segments; ++j) {
+					Segment segmenti(id, i);
+					Segment segmentj(id, j);
+				    unsigned dist = (j - i) * segmentSize;
+					writeDistSample(segmenti, segmentj, l, dist,
+						segmentToBarcode, params, out);
+				}
+			}
+
+		} else {
+
+			/* CASE 2: seq length is not divisible by segment length */
+
+			unsigned segsPerHalf = calc.segmentsPerHalf(l);
+
+			/* pairs of segments in left half of seq */
+			for (unsigned i = 0; i < segsPerHalf - 1; ++i) {
+				for (unsigned j = i + 1; j < segsPerHalf; ++j) {
+					Segment segmenti(id, i);
+					Segment segmentj(id, j);
+				    unsigned dist = (j - i) * segmentSize;
+					writeDistSample(segmenti, segmentj, l, dist,
+						segmentToBarcode, params, out);
+				}
+			}
+
+			/* pairs of segments in right half of seq */
+			for (unsigned i = segsPerHalf; i < 2 * segsPerHalf - 1; ++i) {
+				for (unsigned j = i + 1; j < 2 * segsPerHalf; ++j) {
+					Segment segmenti(id, i);
+					Segment segmentj(id, j);
+					unsigned dist = (j - i) * segmentSize;
+					writeDistSample(segmenti, segmentj, l, dist,
+						segmentToBarcode, params, out);
+				}
+			}
+
+		}
+	}
+}
+
+static inline void writeDistSamplesTSV(const std::string& path,
+	const SegmentToBarcode& segmentToBarcode,
+	const ARCS::ScaffSizeList& scaffSizes,
+	const ARCS::ArcsParams& params)
+{
+	ofstream samplesOut;
+	samplesOut.open(path.c_str());
+	assert(samplesOut);
+	writeDistSamplesTSV(scaffSizes, segmentToBarcode,
+		params, samplesOut);
 	assert(samplesOut);
 	samplesOut.close();
 }
