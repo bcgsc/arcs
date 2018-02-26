@@ -3,6 +3,7 @@ noinst_LIBRARIES = libcommon.a
 libcommon_a_CPPFLAGS = -I$(top_srcdir)
 
 libcommon_a_SOURCES = \
+	Alignment.h \
 	BloomFilter.cpp BloomFilter.h \
 	BloomFilterInfo.cpp BloomFilterInfo.h \
 	city.cc city.h citycrc.h\
@@ -22,6 +23,7 @@ libcommon_a_SOURCES = \
 	PairHash.h \
 	ParseUtil.h \
 	ReadsProcessor.cpp ReadsProcessor.h \
+	SAM.h \
 	Segment.h \
 	SeqEval.h \
 	Sequence.cpp Sequence.h \
