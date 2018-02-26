@@ -1,9 +1,12 @@
 #include "config.h"
 #include "Arcs.h"
 #include "Arcs/DistanceEst.h"
+#include "Common/Barcode.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
 #include "Common/ParseUtil.h"
+#include "Common/SAM.h"
+#include "Common/Segment.h"
 #include "Graph/ContigGraph.h"
 #include "Graph/DirectedGraph.h"
 #include "Graph/DotIO.h"
@@ -227,7 +230,12 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
  */
-void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+void readBAM(const std::string bamName, ARCS::IndexMap& imap,
+    std::unordered_map<std::string, int>& indexMultMap,
+    BarcodeToIndexMap& barcodeToIndex,
+    SegmentToBarcode& segmentToBarcode,
+    std::unordered_map<std::string, int> sMap)
+{
 
     /* Open BAM file */
     std::ifstream bamName_stream;
@@ -235,7 +243,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     assert_good(bamName_stream, bamName);
 
     std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
-    int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
+    int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1,
+        prevTSpan = -1, readyToAddPos = -1, readyToAddTStart = -1,
+        readyToAddTEnd = -1;
     int ct = 1;
 
     std::string line;
@@ -259,6 +269,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 >> rnext >> pnext >> tlen >> seq >> qual >> std::ws;
 
             getline(ss, tags);
+
+            /* calculate req/query alignment coords from CIGAR string */
+            SAMAlignment::CigarCoord cigarCoords(cigar);
 
             /* Parse the index from the readName */
             std::string index;
@@ -301,7 +314,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     prevMapq = mapq;
                     prevRef = scafName;
                     prevPos = pos;
-
+                    prevTSpan = cigarCoords.tspan;
 
                     /*
                      * Read names are different so we can add the previous index and scafName as
@@ -342,7 +355,28 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                                    imap[readyToAddIndex][key] = 0;
                            }
 
+                           BarcodeIndex barcodeIndex =
+                               barcodeToIndex.getIndex(readyToAddIndex);
+
+                           assert(readyToAddTStart > 0);
+                           assert(readyToAddTEnd > 0);
+
+                           SegmentCalc calc(params.segment_length);
+                           std::pair<SegmentIndex, SegmentIndex> range;
+                           bool valid;
+                           boost::tie(range, valid) = calc.indexRange(
+                               readyToAddTStart, readyToAddTEnd, size);
+
+                           if (valid) {
+                               for (unsigned i = range.first;
+                                    i <= range.second; ++i) {
+                                   Segment segment(readyToAddRefName, i);
+                                   segmentToBarcode[segment][barcodeIndex]++;
+                               }
+                           }
+
                         }
+
                         readyToAddIndex = "";
                         readyToAddRefName = "";
                         readyToAddPos = -1;
@@ -363,6 +397,12 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                         readyToAddRefName = scafName;
                         /* Take average read alignment position between read pairs */
                         readyToAddPos = (prevPos + pos)/2;
+
+                        assert(cigarCoords.tspan > 0);
+                        assert(prevTSpan > 0);
+                        readyToAddTStart = std::min(pos, prevPos);
+                        readyToAddTEnd = std::max(pos + cigarCoords.tspan - 1,
+                            unsigned(prevPos + prevTSpan - 1));
                     }
                 }
             }
@@ -408,12 +448,17 @@ static std::vector<std::string> readFof(const std::string& fofName)
 /**
  * Read the BAM files.
  */
-void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap,
+    std::unordered_map<std::string, int>& indexMultMap,
+    BarcodeToIndexMap& barcodeToIndex,
+    SegmentToBarcode& segmentToBarcode,
+    std::unordered_map<std::string, int> sMap) {
     assert(!bamNames.empty());
     for (const auto& bamName : bamNames) {
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
-        readBAM(bamName, imap, indexMultMap, sMap);
+        readBAM(bamName, imap, indexMultMap,
+            barcodeToIndex, segmentToBarcode, sMap);
     }
 }
 
@@ -902,12 +947,18 @@ void runArcs(const std::vector<std::string>& filenames) {
     ARCS::ScaffSizeMap scaffSizeMap(
         scaffSizeList.begin(), scaffSizeList.end());
 
+    /* maps Chromium barcodes to integer indices */
+    BarcodeToIndexMap barcodeToIndex;
+    /* maps contig segments to barcodes */
+    SegmentToBarcode segmentToBarcode;
+    /* maps Chromium barcode sequence to number of read pair mappings */
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
     std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
     std::vector<std::string> bamFiles = readFof(params.fofName);
     std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
-    readBAMS(bamFiles, imap, indexMultMap, scaffSizeMap);
+    readBAMS(bamFiles, imap, indexMultMap, barcodeToIndex,
+        segmentToBarcode, scaffSizeMap);
 
     size_t barcodeCount = countBarcodes(imap, indexMultMap);
 
