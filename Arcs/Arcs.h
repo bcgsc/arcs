@@ -60,6 +60,7 @@ namespace ARCS {
         int max_mult;
         int max_degree;
         int end_length;
+        unsigned segment_length;
         float error_percent;
         int verbose;
 
@@ -77,6 +78,7 @@ namespace ARCS {
             max_mult(10000),
             max_degree(0),
             end_length(30000),
+            segment_length(1000),
             error_percent(0.05),
             verbose(0) {
         }
