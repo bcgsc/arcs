@@ -408,7 +408,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap,
             }
            ct++;
 
-            if (params.verbose && linecount % 10000000 == 0)
+            if (params.verbose && linecount % 100000 == 0)
                 std::cout << "On line " << linecount << std::endl;
 
         }
