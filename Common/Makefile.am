@@ -4,6 +4,7 @@ libcommon_a_CPPFLAGS = -I$(top_srcdir)
 
 libcommon_a_SOURCES = \
 	Alignment.h \
+	Barcode.h \
 	BloomFilter.cpp BloomFilter.h \
 	BloomFilterInfo.cpp BloomFilterInfo.h \
 	city.cc city.h citycrc.h\
