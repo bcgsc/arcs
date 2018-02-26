@@ -3,34 +3,41 @@
 
 #include "Common/Segment.h"
 
-TEST_CASE("posToSegmentIndex (no remainder)", "[SegmentUtil]")
+#include <limits>
+
+TEST_CASE("SegmentCalc.index() (no remainder)", "[SegmentUtil]")
 {
-    const unsigned seqLen = 9;
-    const unsigned segLen = 3;
+    const unsigned seqSize = 9;
+    const unsigned segmentSize = 3;
+
+    SegmentCalc calc(segmentSize);
 
     /* position lands in left half of seq */
-    REQUIRE(posToSegmentIndex(3, seqLen, segLen) == 0);
+    REQUIRE(calc.index(3, seqSize) == 0);
 
     /* position lands in middle remainder seg */
-    REQUIRE(posToSegmentIndex(4, seqLen, segLen) == 1);
+    REQUIRE(calc.index(4, seqSize) == 1);
 
     /* position lands in right half of seq */
-    REQUIRE(posToSegmentIndex(7, seqLen, segLen) == 2);
+    REQUIRE(calc.index(7, seqSize) == 2);
 }
 
 TEST_CASE("posToSegmentIndex (with remainder)", "[SegmentUtil]")
 {
-    const unsigned seqLen = 11;
-    const unsigned segLen = 3;
+    const unsigned NO_INDEX = std::numeric_limits<unsigned>::max();
+
+    const unsigned seqSize = 11;
+    const unsigned segmentSize = 3;
+
+    SegmentCalc calc(segmentSize);
 
     /* position lands in left half of seq */
-    REQUIRE(posToSegmentIndex(2, seqLen, segLen) == 0);
+    REQUIRE(calc.index(2, seqSize) == 0);
 
     /* position lands in middle remainder seg */
-    REQUIRE(posToSegmentIndex(4, seqLen, segLen)
-        == std::numeric_limits<unsigned>::max());
+    REQUIRE(calc.index(4, seqSize) == NO_INDEX);
 
     /* position lands in right half of seq */
-    REQUIRE(posToSegmentIndex(10, seqLen, segLen) == 1);
+    REQUIRE(calc.index(10, seqSize) == 1);
 }
 
