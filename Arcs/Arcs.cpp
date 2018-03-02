@@ -62,7 +62,8 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_median       use median distance in ABySS dist.gv [default]\n"
 "       --dist_upper        use upper bound distance in ABySS dist.gv\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
-"       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
+"       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n"
+"       --segment_length=N  contig segment size in bp [1000]\n";
 
 static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
 
@@ -77,7 +78,8 @@ enum {
     OPT_DIST_TSV,
     OPT_NO_DIST_EST,
     OPT_DIST_MEDIAN,
-    OPT_DIST_UPPER
+    OPT_DIST_UPPER,
+    OPT_SEGMENT_LENGTH
 };
 
 static const struct option longopts[] = {
@@ -86,6 +88,7 @@ static const struct option longopts[] = {
     {"bin_size", required_argument, NULL, 'B'},
     {"bx", no_argument, NULL, OPT_BX },
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
+    {"segment_length", required_argument, NULL, OPT_SEGMENT_LENGTH},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'},
     {"min_reads", required_argument, NULL, 'c'},
@@ -1044,6 +1047,8 @@ int main(int argc, char** argv) {
                 arg >> params.barcode_counts_name; break;
             case OPT_SAMPLES_TSV:
                 arg >> params.dist_samples_tsv; break;
+            case OPT_SEGMENT_LENGTH:
+                arg >> params.segment_length; break;
             case OPT_DIST_TSV:
                 arg >> params.dist_tsv; break;
             case OPT_NO_DIST_EST:
