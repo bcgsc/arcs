@@ -41,3 +41,66 @@ TEST_CASE("SegmentCalc.index() (with remainder)", "[Segment]")
     REQUIRE(calc.index(10, seqSize) == 1);
 }
 
+TEST_CASE("SegmentPairIterator (no remainder)", "[Segment]")
+{
+    const unsigned NO_INDEX = std::numeric_limits<unsigned>::max();
+
+	const std::string id("id");
+    const unsigned seqSize = 9;
+    const unsigned segmentSize = 3;
+
+    SegmentPairIterator it(id, seqSize, segmentSize);
+	SegmentPairIterator end;
+
+    REQUIRE(it != end);
+	REQUIRE(it->first.second == 0);
+	REQUIRE(it->second.second == 1);
+	++it;
+	REQUIRE(it != end);
+	REQUIRE(it->first.second == 0);
+	REQUIRE(it->second.second == 2);
+	++it;
+	REQUIRE(it != end);
+	REQUIRE(it->first.second == 1);
+	REQUIRE(it->second.second == 2);
+	++it;
+	REQUIRE(it == end);
+}
+
+TEST_CASE("SegmentPairIterator (with remainder)", "[Segment]")
+{
+    const unsigned NO_INDEX = std::numeric_limits<unsigned>::max();
+
+	const std::string id("id");
+    const unsigned seqSize = 13;
+    const unsigned segmentSize = 2;
+
+    SegmentPairIterator it(id, seqSize, segmentSize);
+	SegmentPairIterator end;
+
+    REQUIRE(it != end);
+	REQUIRE(it->first.second == 0);
+	REQUIRE(it->second.second == 1);
+	++it;
+	REQUIRE(it != end);
+	REQUIRE(it->first.second == 0);
+	REQUIRE(it->second.second == 2);
+	++it;
+	REQUIRE(it != end);
+	REQUIRE(it->first.second == 1);
+	REQUIRE(it->second.second == 2);
+	++it;
+	REQUIRE(it != end);
+	REQUIRE(it->first.second == 3);
+	REQUIRE(it->second.second == 4);
+	++it;
+	REQUIRE(it != end);
+	REQUIRE(it->first.second == 3);
+	REQUIRE(it->second.second == 5);
+	++it;
+	REQUIRE(it != end);
+	REQUIRE(it->first.second == 4);
+	REQUIRE(it->second.second == 5);
+	++it;
+	REQUIRE(it == end);
+}

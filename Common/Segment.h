@@ -4,6 +4,7 @@
 #include "Common/Barcode.h"
 
 #include <cassert>
+#include <iterator>
 #include <limits>
 #include <string>
 #include <utility>
@@ -39,6 +40,7 @@ class SegmentCalc
 {
 public:
 
+    SegmentCalc() : m_segmentSize(0) {}
     SegmentCalc(unsigned segmentSize) : m_segmentSize(segmentSize) {}
 
     /**
@@ -171,6 +173,146 @@ protected:
 
     /** length of a contig segment in base pairs */
     unsigned m_segmentSize;
+};
+
+
+typedef std::pair<Segment, Segment> SegmentPair;
+
+/**
+ * Iterate over all segments pairs whose distances are integer
+ * multiples of the segment length.
+ */
+class SegmentPairIterator
+    : public std::iterator<std::input_iterator_tag, const SegmentPair>
+{
+public:
+
+    SegmentPairIterator()
+        : m_length(0), m_segmentSize(0), m_divisible(false),
+        m_pair(std::make_pair("", std::numeric_limits<unsigned>::max()),
+            std::make_pair("", std::numeric_limits<unsigned>::max()))
+    {}
+
+    SegmentPairIterator(const std::string& id,
+        unsigned length, unsigned segmentSize)
+    	: m_length(length), m_segmentSize(segmentSize),
+        m_divisible(false), m_calc(segmentSize),
+        m_pair(std::make_pair(id, std::numeric_limits<unsigned>::max()),
+            std::make_pair(id, std::numeric_limits<unsigned>::max()))
+    {
+        if (m_length < 2 * m_segmentSize) {
+            return;
+        }
+
+        unsigned& i = m_pair.first.second;
+        unsigned& j = m_pair.second.second;
+
+        m_divisible = m_length % m_segmentSize == 0;
+
+        if (m_divisible) {
+            i = 0;
+            j = 1;
+            return;
+        }
+
+        if (m_calc.segmentsPerHalf(m_length) < 2) {
+            return;
+        }
+
+        i = 0;
+        j = 1;
+    }
+
+    const SegmentPair& operator *() const
+    {
+        return m_pair;
+    }
+
+    const SegmentPair* operator ->() const
+    {
+        return &m_pair;
+    }
+
+    bool operator ==(const SegmentPairIterator& it) const
+    {
+        const unsigned& i1 = m_pair.first.second;
+        const unsigned& j1 = m_pair.second.second;
+        const unsigned& i2 = it.m_pair.first.second;
+        const unsigned& j2 = it.m_pair.second.second;
+        return i1 == i2 && j1 == j2;
+    }
+
+    bool operator !=(const SegmentPairIterator& it) const
+    {
+        return !this->operator==(it);
+    }
+
+    SegmentPairIterator& operator ++()
+    {
+        next();
+        return *this;
+    }
+
+    SegmentPairIterator operator ++(int)
+    {
+        SegmentPairIterator it = *this;
+        next();
+        return it;
+    }
+
+protected:
+
+    /** advance to the next segment pair */
+    void next()
+    {
+        unsigned& i = m_pair.first.second;
+        unsigned& j = m_pair.second.second;
+
+        if (m_divisible) {
+            /*
+             * special case: sequence length is perfectly
+             * divisible by segment length
+             */
+            unsigned segments = m_calc.segments(m_length);
+            for (; i < segments - 1; ++i, j=i) {
+                for (++j; j < segments;) {
+                    return;
+                }
+            }
+        } else {
+            unsigned segsPerHalf = m_calc.segmentsPerHalf(m_length);
+            /* segment pairs in left half of seq */
+            for (; i < segsPerHalf - 1; ++i, j=i) {
+                for (++j; j < segsPerHalf;) {
+                    return;
+                }
+            }
+            if (i < segsPerHalf) {
+                ++i;
+                j=i;
+            }
+            /* segment pairs in right half of seq */
+            for (; i < 2 * segsPerHalf - 1; ++i, j=i) {
+                for (++j; j < 2 * segsPerHalf;) {
+                    return;
+                }
+            }
+        }
+
+        i = std::numeric_limits<unsigned>::max();
+        j = std::numeric_limits<unsigned>::max();
+    }
+
+    /** sequence length */
+    const unsigned m_length;
+    /** segment length */
+    const unsigned m_segmentSize;
+    /** true if sequence is perfectly divisible by segment length */
+    bool m_divisible;
+    /** performs segment-related calculations */
+    SegmentCalc m_calc;
+    /** current segment pair */
+    SegmentPair m_pair;
 };
 
 #endif
