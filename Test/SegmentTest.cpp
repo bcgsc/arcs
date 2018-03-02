@@ -5,7 +5,7 @@
 
 #include <limits>
 
-TEST_CASE("SegmentCalc.index() (no remainder)", "[SegmentUtil]")
+TEST_CASE("SegmentCalc.index() (no remainder)", "[Segment]")
 {
     const unsigned seqSize = 9;
     const unsigned segmentSize = 3;
@@ -22,7 +22,7 @@ TEST_CASE("SegmentCalc.index() (no remainder)", "[SegmentUtil]")
     REQUIRE(calc.index(7, seqSize) == 2);
 }
 
-TEST_CASE("posToSegmentIndex (with remainder)", "[SegmentUtil]")
+TEST_CASE("SegmentCalc.index() (with remainder)", "[Segment]")
 {
     const unsigned NO_INDEX = std::numeric_limits<unsigned>::max();
 
