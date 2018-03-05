@@ -513,57 +513,6 @@ static inline void writeDistTSV(const std::string& path,
 	tsvOut.close();
 }
 
-/**
- * Write distance samples to an output stream.  The distance
- * samples record the distance between the head and tail regions
- * of the same contig with associated barcode stats (e.g.
- * barcode intersection size).
- */
-static inline std::ostream& writeDistSamplesTSV(std::ostream& out,
-	const DistSampleMap& distSamples)
-{
-	out << "contig_id" << '\t'
-		<< "distance" << '\t'
-		<< "barcodes_head" << '\t'
-		<< "barcodes_tail" << '\t'
-		<< "barcodes_union" << '\t'
-		<< "barcodes_intersect" << '\n';
-
-	for (DistSampleConstIt it = distSamples.begin();
-		it != distSamples.end(); ++it)
-	{
-		const std::string& contigID = it->first;
-		const DistSample& sample = it->second;
-
-		out << contigID << '\t'
-			<< sample.distance << '\t'
-			<< sample.barcodesHead << '\t'
-			<< sample.barcodesTail << '\t'
-			<< sample.barcodesUnion << '\t'
-			<< sample.barcodesIntersect << '\n';
-	}
-
-	return out;
-}
-
-/**
- * Write intra-contig distance samples and barcode counts to a
- * TSV file.
- */
-static inline void writeDistSamplesTSV(const std::string& path,
-	const DistSampleMap& distSamples)
-{
-	if (path.empty())
-		return;
-
-	ofstream samplesOut;
-	samplesOut.open(path.c_str());
-	assert(samplesOut);
-	writeDistSamplesTSV(samplesOut, distSamples);
-	assert(samplesOut);
-	samplesOut.close();
-}
-
 static inline void writeDistSample(
 	const Segment& segment1, const Segment& segment2,
 	unsigned length, unsigned dist,
