@@ -614,63 +614,25 @@ static inline void writeDistSamplesTSV(
 
 	/* calculate and print intra-contig barcode/distance stats */
 
-	const unsigned segmentSize = params.segment_length;
-	SegmentCalc calc(segmentSize);
+	SegmentCalc calc(params.segment_length);
 
-	for (const auto& it : scaffSizes) {
+	for (const auto& rec : scaffSizes) {
 
-		const std::string& id = it.first;
-		unsigned l = it.second;
+		const std::string& id = rec.first;
+		unsigned length = rec.second;
 
-		/* sequences < 2 * segmentSize have no segments */
-		if (l < 2 * segmentSize) {
-			continue;
-		}
+		SegmentPairIterator pairIt(id, length, params.segment_length);
+		SegmentPairIterator pairEnd;
 
-		if (l % segmentSize == 0) {
-
-			/* CASE 1: seq length is divisible by segment length */
-
-			unsigned segments = calc.segments(l);
-			for (unsigned i = 0; i < segments - 1; ++i) {
-				for (unsigned j = i + 1; j < segments; ++j) {
-					Segment segmenti(id, i);
-					Segment segmentj(id, j);
-				    unsigned dist = (j - i) * segmentSize;
-					writeDistSample(segmenti, segmentj, l, dist,
-						segmentToBarcode, params, out);
-				}
+		for (; pairIt != pairEnd; ++pairIt) {
+			const Segment& segment1 = pairIt->first;
+			const Segment& segment2 = pairIt->second;
+			unsigned dist = calc.start(length, segment2.second)
+				- calc.start(length, segment1.second);
+			writeDistSample(pairIt->first, pairIt->second,
+				length, dist, segmentToBarcode, params, out);
 			}
 
-		} else {
-
-			/* CASE 2: seq length is not divisible by segment length */
-
-			unsigned segsPerHalf = calc.segmentsPerHalf(l);
-
-			/* pairs of segments in left half of seq */
-			for (unsigned i = 0; i < segsPerHalf - 1; ++i) {
-				for (unsigned j = i + 1; j < segsPerHalf; ++j) {
-					Segment segmenti(id, i);
-					Segment segmentj(id, j);
-				    unsigned dist = (j - i) * segmentSize;
-					writeDistSample(segmenti, segmentj, l, dist,
-						segmentToBarcode, params, out);
-				}
-			}
-
-			/* pairs of segments in right half of seq */
-			for (unsigned i = segsPerHalf; i < 2 * segsPerHalf - 1; ++i) {
-				for (unsigned j = i + 1; j < 2 * segsPerHalf; ++j) {
-					Segment segmenti(id, i);
-					Segment segmentj(id, j);
-					unsigned dist = (j - i) * segmentSize;
-					writeDistSample(segmenti, segmentj, l, dist,
-						segmentToBarcode, params, out);
-				}
-			}
-
-		}
 	}
 }
 
