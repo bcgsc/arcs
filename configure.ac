@@ -69,6 +69,7 @@ AC_CONFIG_FILES([
 		Arcs/Makefile
 		Common/Makefile
 		DataLayer/Makefile
+		DistanceEst/Makefile
 		Graph/Makefile
 		Test/Makefile
 ])

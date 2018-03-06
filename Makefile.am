@@ -1,6 +1,7 @@
 SUBDIRS = \
 	Common \
 	DataLayer \
+	DistanceEst \
 	Graph \
 	Arcs \
 	Test

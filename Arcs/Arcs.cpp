@@ -1,6 +1,6 @@
 #include "config.h"
 #include "Arcs.h"
-#include "Arcs/DistanceEst.h"
+#include "DistanceEst/DistanceEst.h"
 #include "Common/Barcode.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"

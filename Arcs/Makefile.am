@@ -13,6 +13,5 @@ arcs_LDADD = $(top_builddir)/DataLayer/libdatalayer.a \
 arcs_LDFLAGS = $(OPENMP_CXXFLAGS)
 
 arcs_SOURCES = \
-	DistanceEst.h \
 	Arcs.h \
 	Arcs.cpp
