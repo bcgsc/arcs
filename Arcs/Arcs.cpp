@@ -239,6 +239,7 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
 void readBAM(const std::string bamName, ARCS::IndexMap& imap,
     std::unordered_map<std::string, int>& indexMultMap,
     BarcodeToIndexMap& barcodeToIndex,
+    BarcodeMultMap& barcodeMultMap,
     SegmentToBarcode& segmentToBarcode,
     std::unordered_map<std::string, int> sMap)
 {
@@ -295,6 +296,11 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap,
             /* Keep track of index multiplicity */
             if (!index.empty())
                 indexMultMap[index]++;
+
+            BarcodeIndex barcodeIndex = barcodeToIndex.getIndex(index);
+            if (barcodeIndex >= barcodeMultMap.size())
+                barcodeMultMap.resize(barcodeIndex + 1);
+            barcodeMultMap.at(barcodeIndex)++;
 
             /* Calculate the sequence identity */
             int si = calcSequenceIdentity(line, cigar, seq);
@@ -457,6 +463,7 @@ static std::vector<std::string> readFof(const std::string& fofName)
 void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap,
     std::unordered_map<std::string, int>& indexMultMap,
     BarcodeToIndexMap& barcodeToIndex,
+    BarcodeMultMap& barcodeMultMap,
     SegmentToBarcode& segmentToBarcode,
     std::unordered_map<std::string, int> sMap) {
     assert(!bamNames.empty());
@@ -464,7 +471,7 @@ void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap,
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
         readBAM(bamName, imap, indexMultMap,
-            barcodeToIndex, segmentToBarcode, sMap);
+            barcodeToIndex, barcodeMultMap, segmentToBarcode, sMap);
     }
 }
 
@@ -870,14 +877,20 @@ static const char* maybeNA(const std::string& s)
 static inline void calcDistanceEstimates(
     const ARCS::IndexMap& imap,
     const std::unordered_map<std::string, int> &indexMultMap,
+    const BarcodeMultMap& barcodeMultMap,
     const ARCS::ScaffSizeList& scaffSizes,
-    const SegmentToBarcode& segmentToBarcode,
+    SegmentToBarcode& segmentToBarcode,
     ARCS::Graph& g)
 {
     std::time_t rawtime;
 
     ARCS::ScaffSizeMap scaffSizeMap(
         scaffSizes.begin(), scaffSizes.end());
+
+    /* remove barcode mappings that don't satisfy thresholds */
+    std::cout << "\n\t=>Filtering segment-to-barcode mappings... "
+        << ctime(&rawtime);
+    filterBarcodeMappings(segmentToBarcode, barcodeMultMap, params);
 
     if (!params.dist_samples_tsv.empty()) {
     time(&rawtime);
@@ -976,14 +989,17 @@ void runArcs(const std::vector<std::string>& filenames) {
     BarcodeToIndexMap barcodeToIndex;
     /* maps contig segments to barcodes */
     SegmentToBarcode segmentToBarcode;
-    /* maps Chromium barcode sequence to number of read pair mappings */
+    /* maps Chromium barcode sequence => number of reads */
     std::unordered_map<std::string, int> indexMultMap;
+    /* maps Chromium barcode => number of reads */
+    BarcodeMultMap barcodeMultMap;
+    barcodeMultMap.reserve(5000000);
     time(&rawtime);
     std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
     std::vector<std::string> bamFiles = readFof(params.fofName);
     std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
     readBAMS(bamFiles, imap, indexMultMap, barcodeToIndex,
-        segmentToBarcode, scaffSizeMap);
+        barcodeMultMap, segmentToBarcode, scaffSizeMap);
 
     size_t barcodeCount = countBarcodes(imap, indexMultMap);
 
@@ -1001,8 +1017,8 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     if (params.dist_est) {
         std::cout << "\n=>Calculating distance estimates... " << ctime(&rawtime);
-        calcDistanceEstimates(imap, indexMultMap, scaffSizeList,
-            segmentToBarcode, g);
+        calcDistanceEstimates(imap, indexMultMap, barcodeMultMap,
+            scaffSizeList, segmentToBarcode, g);
     }
 
     time(&rawtime);

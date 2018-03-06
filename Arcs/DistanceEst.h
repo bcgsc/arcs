@@ -212,6 +212,27 @@ static inline void writeDistModel(const DistModel& model,
 	out.close();
 }
 
+/** Remove barcode mappings that do not satisfy thresholds */
+void filterBarcodeMappings(SegmentToBarcode& segmentToBarcode,
+	const BarcodeMultMap& barcodeMultMap, const ARCS::ArcsParams& params)
+{
+    for (auto& segment : segmentToBarcode) {
+		auto& barcodes = segment.second;
+		for (auto barcodeIt = barcodes.begin(); barcodeIt != barcodes.end();)
+		{
+			int mult = barcodeMultMap.at(barcodeIt->first);
+			unsigned mappings = barcodeIt->second;
+
+			if (mult < params.min_mult || mult > params.max_mult
+				|| mappings < (unsigned)params.min_reads) {
+				barcodeIt = barcodes.erase(barcodeIt);
+			} else {
+				++barcodeIt;
+			}
+		}
+	}
+}
+
 /**
  * Measure distance between contig ends vs.
  * barcode intersection size and barcode union size.

@@ -22,6 +22,9 @@ typedef typename BarcodeSet::const_iterator BarcodeSetConstIt;
 typedef std::vector<BarcodeIndex> BarcodeList;
 typedef typename BarcodeList::iterator BarcodeListIt;
 
+/** Maps barcode => number of reads */
+typedef std::vector<BarcodeIndex> BarcodeMultMap;
+
 /** Assign/query unique integer indices for Chromium barcode sequences */
 class BarcodeToIndexMap
 {
