@@ -34,6 +34,7 @@ typedef typename BarcodeToCount::const_iterator BarcodeToCountConstIt;
 typedef std::unordered_map<Segment, BarcodeToCount, HashSegment>
     SegmentToBarcode;
 typedef typename SegmentToBarcode::const_iterator SegmentToBarcodeConstIt;
+typedef typename SegmentToBarcode::iterator SegmentToBarcodeIt;
 
 /** Perform calculations related to contig segments */
 class SegmentCalc

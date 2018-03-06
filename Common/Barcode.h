@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 /** Chromium barcode sequence */
 typedef std::string BarcodeSeq;
@@ -16,6 +17,10 @@ typedef uint32_t BarcodeIndex;
 /** A set of Chromium barcode indices */
 typedef std::unordered_set<BarcodeIndex> BarcodeSet;
 typedef typename BarcodeSet::const_iterator BarcodeSetConstIt;
+
+/** A list of Chromium barcodes */
+typedef std::vector<BarcodeIndex> BarcodeList;
+typedef typename BarcodeList::iterator BarcodeListIt;
 
 /** Assign/query unique integer indices for Chromium barcode sequences */
 class BarcodeToIndexMap

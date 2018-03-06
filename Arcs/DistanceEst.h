@@ -6,6 +6,7 @@
 #include "Common/MapUtil.h"
 #include "Common/PairHash.h"
 #include "Common/Segment.h"
+#include "Common/SetUtil.h"
 #include "Common/StatUtil.h"
 #include <array>
 #include <cstdlib>
@@ -75,6 +76,18 @@ typedef std::array<BarcodeStats, NUM_ORIENTATIONS> BarcodeStatsArray;
 /** barcode stats each possible orientation of a contig pair */
 typedef std::map<ARCS::ContigPair, BarcodeStatsArray> PairToBarcodeStats;
 typedef typename PairToBarcodeStats::iterator PairToBarcodeStatsIt;
+
+/** get barcodes for the given segment and append to `out` */
+static inline void addBarcodes(const Segment& segment,
+	const SegmentToBarcode& segmentToBarcode,
+	std::vector<BarcodeIndex>& out)
+{
+	SegmentToBarcodeConstIt segmentIt = segmentToBarcode.find(segment);
+	if (segmentIt == segmentToBarcode.end())
+		return;
+	for (const auto& rec : segmentIt->second)
+		out.push_back(rec.first);
+}
 
 /**
  * Measure distance between contig ends vs.
@@ -519,52 +532,20 @@ static inline void writeDistSample(
 	const SegmentToBarcode& segmentToBarcode,
 	const ARCS::ArcsParams& params, std::ostream& out)
 {
-	/* filter barcodes by number of read mappings */
+	/* extract barcode sets for segments */
 
-	BarcodeSet barcodes1, barcodes2;
-	SegmentToBarcodeConstIt segmentIt;
+	BarcodeList barcodes1, barcodes2;
 
-	segmentIt = segmentToBarcode.find(segment1);
-	if (segmentIt == segmentToBarcode.end()) {
+	barcodes1.reserve(1000);
+	barcodes2.reserve(1000);
+
+	addBarcodes(segment1, segmentToBarcode, barcodes1);
+	addBarcodes(segment2, segmentToBarcode, barcodes2);
+
+	if (barcodes1.size() == 0 || barcodes2.size() == 0)
 		return;
-	}
 
-	for (BarcodeToCountConstIt it = segmentIt->second.begin();
-			it != segmentIt->second.end(); ++it)
-	{
-		if (it->second >= (unsigned)params.min_reads) {
-			barcodes1.insert(it->first);
-		}
-	}
-
-	segmentIt = segmentToBarcode.find(segment2);
-	if (segmentIt == segmentToBarcode.end()) {
-		return;
-	}
-
-	for (BarcodeToCountConstIt it = segmentIt->second.begin();
-		it != segmentIt->second.end(); ++it)
-	{
-		if (it->second >= (unsigned)params.min_reads) {
-			barcodes2.insert(it->first);
-		}
-	}
-
-	/* calc barcode intersection/union */
-
-	BarcodeSet _union(barcodes1.begin(), barcodes1.end());
-	_union.insert(barcodes2.begin(), barcodes2.end());
-
-	BarcodeSet intersect;
-	for (BarcodeSetConstIt it = barcodes1.begin();
-		it != barcodes1.end(); ++it)
-	{
-		if (barcodes2.find(*it) != barcodes2.end()) {
-			intersect.insert(*it);
-		}
-	}
-
-	/* write stats */
+	/* output stats */
 
 	const unsigned segmentSize = params.segment_length;
 	SegmentCalc calc(segmentSize);
@@ -587,8 +568,8 @@ static inline void writeDistSample(
 		<< dist << '\t'
 		<< barcodes1.size() << '\t'
 		<< barcodes2.size() << '\t'
-		<< intersect.size() << '\t'
-		<< _union.size() << '\n';
+		<< intersectionSize(barcodes1, barcodes2) << '\t'
+		<< unionSize(barcodes1, barcodes2) << '\n';
 }
 
 static inline void writeDistSamplesTSV(
