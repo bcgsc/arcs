@@ -28,6 +28,7 @@ libcommon_a_SOURCES = \
 	Segment.h \
 	SeqEval.h \
 	Sequence.cpp Sequence.h \
+	SetUtil.h \
 	SignalHandler.cpp SignalHandler.h \
 	StatUtil.h \
 	StringUtil.h \

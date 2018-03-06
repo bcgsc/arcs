@@ -18,4 +18,9 @@ SegmentTest_SOURCES = \
 	$(top_srcdir)/ThirdParty/Catch/catch.hpp \
 	SegmentTest.cpp
 
+check_PROGRAMS += SetUtilTest
+SetUtilTest_SOURCES = \
+	$(top_srcdir)/ThirdParty/Catch/catch.hpp \
+	SetUtilTest.cpp
+
 TESTS = $(check_PROGRAMS)
