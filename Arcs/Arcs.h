@@ -45,6 +45,8 @@ namespace ARCS {
         unsigned dist_bin_size;
         /** output path for intra-contig distance/barcode samples (TSV) */
         std::string dist_samples_tsv;
+        /** output path for distance model TSV (Jaccard score histograms) */
+        std::string dist_model_tsv;
         /** output path for inter-contig distance estimates (TSV) */
         std::string dist_tsv;
         /** chooses median or upper bound for `d` in ABySS dist.gv */

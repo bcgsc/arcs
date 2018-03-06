@@ -62,6 +62,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_median       use median distance in ABySS dist.gv [default]\n"
 "       --dist_upper        use upper bound distance in ABySS dist.gv\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
+"       --model_tsv=FILE    write distance model to FILE\n"
 "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n"
 "       --segment_length=N  contig segment size in bp [1000]\n";
 
@@ -74,6 +75,7 @@ enum {
     OPT_GAP,
     OPT_TSV,
     OPT_BARCODE_COUNTS,
+    OPT_MODEL_TSV,
     OPT_SAMPLES_TSV,
     OPT_DIST_TSV,
     OPT_NO_DIST_EST,
@@ -87,6 +89,7 @@ static const struct option longopts[] = {
     {"fofName", required_argument, NULL, 'a'},
     {"bin_size", required_argument, NULL, 'B'},
     {"bx", no_argument, NULL, OPT_BX },
+    {"model_tsv", required_argument, NULL, OPT_MODEL_TSV},
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
     {"segment_length", required_argument, NULL, OPT_SEGMENT_LENGTH},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
@@ -876,17 +879,31 @@ static inline void calcDistanceEstimates(
     ARCS::ScaffSizeMap scaffSizeMap(
         scaffSizes.begin(), scaffSizes.end());
 
-    time(&rawtime);
-    std::cout << "\n\t=>Measuring intra-contig distances / shared barcodes... "
-        << ctime(&rawtime);
-    DistSampleMap distSamples;
-    calcDistSamples(imap, scaffSizeMap, indexMultMap, params, distSamples);
-
+    if (!params.dist_samples_tsv.empty()) {
     time(&rawtime);
     std::cout << "\n\t=>Writing intra-contig distance samples to TSV... "
         << ctime(&rawtime);
     writeDistSamplesTSV(params.dist_samples_tsv, segmentToBarcode,
         scaffSizes, params);
+    }
+
+    time(&rawtime);
+    std::cout << "\n\t=>Building distance model... " << ctime(&rawtime);
+    DistModel model;
+    buildDistModel(scaffSizes, segmentToBarcode, params, model);
+
+    if (!params.dist_model_tsv.empty()) {
+        time(&rawtime);
+        std::cout << "\n\t=>Writing distance model to TSV... "
+            << ctime(&rawtime);
+        writeDistModel(model, params, params.dist_model_tsv);
+    }
+
+    time(&rawtime);
+    std::cout << "\n\t=>Measuring intra-contig distances / shared barcodes... "
+        << ctime(&rawtime);
+    DistSampleMap distSamples;
+    calcDistSamples(imap, scaffSizeMap, indexMultMap, params, distSamples);
 
     time(&rawtime);
     std::cout << "\n\t=>Building Jaccard => distance map... "
@@ -1045,6 +1062,8 @@ int main(int argc, char** argv) {
                 arg >> params.gap; break;
             case OPT_BARCODE_COUNTS:
                 arg >> params.barcode_counts_name; break;
+            case OPT_MODEL_TSV:
+                arg >> params.dist_model_tsv; break;
             case OPT_SAMPLES_TSV:
                 arg >> params.dist_samples_tsv; break;
             case OPT_SEGMENT_LENGTH:

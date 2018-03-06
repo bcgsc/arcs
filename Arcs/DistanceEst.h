@@ -9,9 +9,13 @@
 #include "Common/SetUtil.h"
 #include "Common/StatUtil.h"
 #include <array>
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <limits>
+#include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <utility>
 
 /** min/max distance estimate for a pair contigs */
@@ -55,6 +59,15 @@ typedef typename DistSampleMap::const_iterator DistSampleConstIt;
 typedef std::map<double, DistSample> JaccardToDist;
 typedef typename JaccardToDist::const_iterator JaccardToDistConstIt;
 
+/** stores a histogram of inter-segment barcode Jaccard scores */
+typedef std::vector<unsigned> Histogram;
+
+/**
+ * stores a Jaccard score histograms for integer multiples
+ * of the segment length
+ */
+typedef std::vector<Histogram> DistModel;
+
 /** Barcode stats for a candidate pair of contig ends */
 struct BarcodeStats
 {
@@ -87,6 +100,116 @@ static inline void addBarcodes(const Segment& segment,
 		return;
 	for (const auto& rec : segmentIt->second)
 		out.push_back(rec.first);
+}
+
+/**
+ * Build the distance model, which models the relationship
+ * between Jaccard scores and distances.  The distance model
+ * consists of a Jaccard score histogram for each integer multiple of
+ * the segment length (e.g. 1000 bp).
+ */
+static inline void buildDistModel(
+	const ARCS::ScaffSizeList& scaffSizes,
+	const SegmentToBarcode& segmentToBarcode,
+	const ARCS::ArcsParams& params, DistModel& model)
+{
+	float binWidth = 1.0f / params.dist_bin_size;
+
+	SegmentCalc calc(params.segment_length);
+
+	for (const auto& rec : scaffSizes) {
+
+		const std::string& id = rec.first;
+		unsigned length = rec.second;
+
+		SegmentPairIterator pairIt(id, length, params.segment_length);
+		SegmentPairIterator pairEnd;
+		for (; pairIt != pairEnd; ++pairIt) {
+
+			/* extract barcode sets for segments */
+
+			BarcodeList barcodes1, barcodes2;
+
+			barcodes1.reserve(1000);
+			barcodes2.reserve(1000);
+
+			const Segment& segment1 = pairIt->first;
+			const Segment& segment2 = pairIt->second;
+
+			addBarcodes(segment1, segmentToBarcode, barcodes1);
+			addBarcodes(segment2, segmentToBarcode, barcodes2);
+
+			if (barcodes1.size() == 0 || barcodes2.size() == 0)
+				continue;
+
+			/* calculate distance and Jaccard score */
+
+			unsigned dist = calc.start(length, segment2.second)
+				- calc.start(length, segment1.second);
+
+			float jaccard = (float)intersectionSize(barcodes1, barcodes2)
+				/ unionSize(barcodes1, barcodes2);
+
+			/* increment count in histogram bin */
+
+			assert(dist % params.segment_length == 0);
+			unsigned histIndex = dist / params.segment_length - 1;
+			if (histIndex >= model.size())
+				model.resize(histIndex + 1);
+
+			assert(jaccard >= 0.0f && jaccard <= 1.0f);
+			unsigned binIndex = std::floor(jaccard / binWidth);
+
+			/* jaccard scores of 1.0f should go in last bin */
+			binIndex = std::min(binIndex, params.dist_bin_size - 1);
+
+			Histogram& hist = model.at(histIndex);
+			if (binIndex >= hist.size())
+				hist.resize(binIndex + 1);
+
+			hist.at(binIndex)++;
+
+		}
+
+	}
+}
+
+static inline std::ostream& writeDistModel(const DistModel& model,
+	const ARCS::ArcsParams& params, std::ostream& out)
+{
+	out << "dist" << '\t'
+		<< "start" << '\t'
+		<< "end" << '\t'
+		<< "count" << '\n';
+
+	float binWidth = 1.0f / params.dist_bin_size;
+	unsigned dist = 0;
+	for (const auto& hist : model) {
+		dist += params.segment_length;
+		float start = 0.0f;
+		for (const auto& count : hist) {
+			float end = start + binWidth;
+			out << dist << '\t'
+				<< start << '\t'
+				<< end << '\t'
+				<< count << '\n';
+			start += binWidth;
+		}
+	}
+
+	return out;
+}
+
+static inline void writeDistModel(const DistModel& model,
+	const ARCS::ArcsParams& params, const std::string& path)
+{
+	ofstream out;
+	out.open(path.c_str());
+	assert(out);
+	out << std::fixed << std::setprecision(2);
+	writeDistModel(model, params, out);
+	assert(out);
+	out.close();
 }
 
 /**
