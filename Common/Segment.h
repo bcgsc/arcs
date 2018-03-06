@@ -316,4 +316,16 @@ protected:
     SegmentPair m_pair;
 };
 
+/** get barcodes for the given segment and append to `out` */
+static inline void addBarcodes(const Segment& segment,
+	const SegmentToBarcode& segmentToBarcode,
+	std::vector<BarcodeIndex>& out)
+{
+	SegmentToBarcodeConstIt segmentIt = segmentToBarcode.find(segment);
+	if (segmentIt == segmentToBarcode.end())
+		return;
+	for (const auto& rec : segmentIt->second)
+		out.push_back(rec.first);
+}
+
 #endif

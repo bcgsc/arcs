@@ -1,12 +1,13 @@
 #include "config.h"
 #include "Arcs.h"
-#include "DistanceEst/DistanceEst.h"
 #include "Common/Barcode.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
 #include "Common/ParseUtil.h"
 #include "Common/SAM.h"
 #include "Common/Segment.h"
+#include "DistanceEst/DistanceEst.h"
+#include "DistanceEst/DistanceModel.h"
 #include "Graph/ContigGraph.h"
 #include "Graph/DirectedGraph.h"
 #include "Graph/DotIO.h"
@@ -902,14 +903,19 @@ static inline void calcDistanceEstimates(
 
     time(&rawtime);
     std::cout << "\n\t=>Building distance model... " << ctime(&rawtime);
-    DistModel model;
-    buildDistModel(scaffSizes, segmentToBarcode, params, model);
+    DistanceModel model(params.segment_length, params.dist_bin_size);
+	model.loadBarcodeMappings(scaffSizes, segmentToBarcode);
 
     if (!params.dist_model_tsv.empty()) {
         time(&rawtime);
         std::cout << "\n\t=>Writing distance model to TSV... "
             << ctime(&rawtime);
-        writeDistModel(model, params, params.dist_model_tsv);
+		ofstream out;
+		out.open(params.dist_model_tsv.c_str());
+		assert(out);
+		out << model;
+		assert(out);
+		out.close();
     }
 
     time(&rawtime);
