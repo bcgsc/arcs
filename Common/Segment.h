@@ -26,16 +26,6 @@ struct HashSegment {
     }
 };
 
-/** Map from barcode index => read pair count */
-typedef std::map<BarcodeIndex, unsigned> BarcodeToCount;
-typedef typename BarcodeToCount::const_iterator BarcodeToCountConstIt;
-
-/** Map from contig segment => barcode indices / read pair counts */
-typedef std::unordered_map<Segment, BarcodeToCount, HashSegment>
-    SegmentToBarcode;
-typedef typename SegmentToBarcode::const_iterator SegmentToBarcodeConstIt;
-typedef typename SegmentToBarcode::iterator SegmentToBarcodeIt;
-
 /** Perform calculations related to contig segments */
 class SegmentCalc
 {
@@ -315,17 +305,5 @@ protected:
     /** current segment pair */
     SegmentPair m_pair;
 };
-
-/** get barcodes for the given segment and append to `out` */
-static inline void addBarcodes(const Segment& segment,
-	const SegmentToBarcode& segmentToBarcode,
-	std::vector<BarcodeIndex>& out)
-{
-	SegmentToBarcodeConstIt segmentIt = segmentToBarcode.find(segment);
-	if (segmentIt == segmentToBarcode.end())
-		return;
-	for (const auto& rec : segmentIt->second)
-		out.push_back(rec.first);
-}
 
 #endif

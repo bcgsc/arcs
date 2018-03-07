@@ -1,6 +1,7 @@
 SUBDIRS = \
 	Common \
 	DataLayer \
+	DataStructures \
 	DistanceEst \
 	Graph \
 	Arcs \

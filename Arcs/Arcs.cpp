@@ -6,6 +6,7 @@
 #include "Common/ParseUtil.h"
 #include "Common/SAM.h"
 #include "Common/Segment.h"
+#include "DataStructures/SegmentToBarcode.h"
 #include "DistanceEst/DistanceEst.h"
 #include "DistanceEst/DistanceModel.h"
 #include "Graph/ContigGraph.h"
