@@ -2,6 +2,7 @@
 #define _DISTANCE_MODEL_H_ 1
 
 #include "Barcode.h"
+#include "DataStructures/ScaffSize.h"
 #include "Segment.h"
 #include "SetUtil.h"
 
@@ -30,17 +31,17 @@ public:
 		: m_segmentSize(segmentSize), m_histBins(histBins) {}
 
 	void loadBarcodeMappings(
-		const ContigSizeList& contigSizes,
+		const ScaffSizeList& scaffSizes,
 		const SegmentToBarcode& segmentToBarcode)
 	{
 		float binWidth = 1.0f / m_histBins;
 
 		SegmentCalc calc(m_segmentSize);
 
-		for (ContigSizeIt it = contigSizes.begin();
-			 it != contigSizes.end(); ++it)
+		for (ScaffSizeConstIt it = scaffSizes.begin();
+			 it != scaffSizes.end(); ++it)
 		{
-			const ContigSizeRec& rec = *it;
+			const ScaffSizeRec& rec = *it;
 			const std::string& id = rec.first;
 			unsigned length = rec.second;
 
