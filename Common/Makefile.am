@@ -22,7 +22,6 @@ libcommon_a_SOURCES = \
 	MapUtil.h \
 	Options.cpp Options.h \
 	PairHash.h \
-	ParseUtil.h \
 	ReadsProcessor.cpp ReadsProcessor.h \
 	SAM.h \
 	Segment.h \
