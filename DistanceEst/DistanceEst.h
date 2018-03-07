@@ -2,12 +2,12 @@
 #define _DISTANCE_EST_H_ 1
 
 #include "Arcs/Arcs.h"
-#include "Common/Barcode.h"
 #include "Common/MapUtil.h"
 #include "Common/PairHash.h"
-#include "Common/Segment.h"
 #include "Common/SetUtil.h"
 #include "Common/StatUtil.h"
+#include "DataStructures/Barcode.h"
+#include "DataStructures/Segment.h"
 #include <array>
 #include <algorithm>
 #include <cmath>

@@ -1,7 +1,7 @@
 #ifndef _SEGMENT_H_
 #define _SEGMENT_H_ 1
 
-#include "Common/Barcode.h"
+#include "Barcode.h"
 
 #include <cassert>
 #include <iterator>

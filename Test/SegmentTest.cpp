@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include "ThirdParty/Catch/catch.hpp"
 
-#include "Common/Segment.h"
+#include "DataStructures/Segment.h"
 
 #include <limits>
 

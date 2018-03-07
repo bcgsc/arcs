@@ -5,6 +5,7 @@ arcs_CXXFLAGS = $(AM_CXXFLAGS) $(OPENMP_CXXFLAGS)
 arcs_CPPFLAGS = -I$(top_srcdir)/Arcs \
 	-I$(top_srcdir)/Common \
 	-I$(top_srcdir)/DataLayer \
+	-I$(top_srcdir)/DataStructures \
 	-I$(top_srcdir)
 
 arcs_LDADD = $(top_builddir)/DataLayer/libdatalayer.a \

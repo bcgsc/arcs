@@ -2,7 +2,7 @@
 #define _DISTANCE_MODEL_H_ 1
 
 #include "Barcode.h"
-#include "DataStructures/ScaffSize.h"
+#include "ScaffSize.h"
 #include "Segment.h"
 #include "SetUtil.h"
 
