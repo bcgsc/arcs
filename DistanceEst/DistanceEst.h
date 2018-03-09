@@ -543,7 +543,7 @@ static inline void writeDistSample(
 	const Segment& segment1, const Segment& segment2,
 	unsigned length, unsigned dist,
 	const SegmentToBarcode& segmentToBarcode,
-	const ARCS::ArcsParams& params, std::ostream& out)
+	unsigned segmentSize, std::ostream& out)
 {
 	/* extract barcode sets for segments */
 
@@ -560,7 +560,6 @@ static inline void writeDistSample(
 
 	/* output stats */
 
-	const unsigned segmentSize = params.segment_length;
 	SegmentCalc calc(segmentSize);
 
 	const std::string& id1 = segment1.first;
@@ -588,7 +587,7 @@ static inline void writeDistSample(
 static inline void writeDistSamplesTSV(
 	const ARCS::ScaffSizeList& scaffSizes,
 	const SegmentToBarcode& segmentToBarcode,
-	const ARCS::ArcsParams& params, std::ostream& out)
+	unsigned segmentSize, std::ostream& out)
 {
 	/* print column headers */
 
@@ -608,14 +607,14 @@ static inline void writeDistSamplesTSV(
 
 	/* calculate and print intra-contig barcode/distance stats */
 
-	SegmentCalc calc(params.segment_length);
+	SegmentCalc calc(segmentSize);
 
 	for (const auto& rec : scaffSizes) {
 
 		const std::string& id = rec.first;
 		unsigned length = rec.second;
 
-		SegmentPairIterator pairIt(id, length, params.segment_length);
+		SegmentPairIterator pairIt(id, length, segmentSize);
 		SegmentPairIterator pairEnd;
 
 		for (; pairIt != pairEnd; ++pairIt) {
@@ -624,7 +623,7 @@ static inline void writeDistSamplesTSV(
 			unsigned dist = calc.start(length, segment2.second)
 				- calc.start(length, segment1.second);
 			writeDistSample(pairIt->first, pairIt->second,
-				length, dist, segmentToBarcode, params, out);
+				length, dist, segmentToBarcode, segmentSize, out);
 			}
 
 	}
@@ -633,13 +632,13 @@ static inline void writeDistSamplesTSV(
 static inline void writeDistSamplesTSV(const std::string& path,
 	const SegmentToBarcode& segmentToBarcode,
 	const ARCS::ScaffSizeList& scaffSizes,
-	const ARCS::ArcsParams& params)
+	unsigned segmentSize)
 {
-	ofstream samplesOut;
+	std::ofstream samplesOut;
 	samplesOut.open(path.c_str());
 	assert(samplesOut);
 	writeDistSamplesTSV(scaffSizes, segmentToBarcode,
-		params, samplesOut);
+		segmentSize, samplesOut);
 	assert(samplesOut);
 	samplesOut.close();
 }

@@ -830,10 +830,10 @@ static inline void calcDistanceEstimates(
 
     if (!params.dist_samples_tsv.empty()) {
     time(&rawtime);
-    std::cout << "\n\t=>Writing intra-contig distance samples to TSV... "
-        << ctime(&rawtime);
-    writeDistSamplesTSV(params.dist_samples_tsv, segmentToBarcode,
-        scaffSizes, params);
+        std::cout << "\n\t=>Writing intra-contig distance samples to TSV... "
+            << ctime(&rawtime);
+        writeDistSamplesTSV(params.dist_samples_tsv, segmentToBarcode,
+            scaffSizes, params.segment_length);
     }
 
     time(&rawtime);
