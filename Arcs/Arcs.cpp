@@ -1,7 +1,9 @@
 #include "config.h"
-#include "Arcs.h"
+#include "Arcs/Arcs.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
+#include "Common/Uncompress.h"
+#include "DataLayer/FastaReader.h"
 #include "DataLayer/SAM.h"
 #include "DataLayer/SAMUtil.h"
 #include "DataStructures/Barcode.h"
@@ -15,6 +17,8 @@
 #include <algorithm>
 #include <cassert>
 #include <utility>
+
+using namespace std;
 
 #define PROGRAM "arcs"
 

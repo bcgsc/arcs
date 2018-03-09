@@ -466,7 +466,7 @@ static inline void writeDistTSV(const std::string& path,
 
 	/* open output TSV file */
 
-	ofstream tsvOut;
+	std::ofstream tsvOut;
 	tsvOut.open(path.c_str());
 
 	/* write TSV headers */

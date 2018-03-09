@@ -19,10 +19,6 @@
 #include <time.h>
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/graphviz.hpp>
-#include "Common/Uncompress.h"
-#include "DataLayer/FastaReader.h"
-#include "DataLayer/FastaReader.cpp"
-
 
 namespace ARCS {
 
