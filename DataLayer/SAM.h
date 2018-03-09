@@ -332,10 +332,10 @@ struct SAMRecord : SAMAlignment {
 			>> o.cigar >> o.mrnm >> o.mpos >> o.isize;
 #if SAM_SEQ_QUAL
 		in >> o.seq >> o.qual;
-		if (in.peek() != '\n')
-			in >> o.tags;
-#endif
+		getline(in, o.tags, '\n');
+#else
 		in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+#endif
 		if (!in)
 			return in;
 		o.pos--;
