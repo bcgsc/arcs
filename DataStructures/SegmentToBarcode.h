@@ -1,8 +1,9 @@
 #ifndef _BARCODE_INDEX_H_
 #define _BARCODE_INDEX_H_ 1
 
-#include "Barcode.h"
-#include "Segment.h"
+#include "Common/SetUtil.h"
+#include "DataStructures/Barcode.h"
+#include "DataStructures/Segment.h"
 
 #include <map>
 #include <unordered_map>

@@ -1,12 +1,14 @@
 #ifndef _DISTANCE_MODEL_H_
 #define _DISTANCE_MODEL_H_ 1
 
-#include "Barcode.h"
-#include "ScaffSize.h"
-#include "Segment.h"
-#include "SetUtil.h"
+#include "DataStructures/Barcode.h"
+#include "DataStructures/ScaffSize.h"
+#include "DataStructures/Segment.h"
+#include "Common/SetUtil.h"
+#include "lib/arcs/DataStructures/SegmentToBarcode.h"
 
 #include <cassert>
+#include <numeric>
 
 class DistanceModel
 {
