@@ -31,4 +31,14 @@ static inline unsigned intersectionSize(List& list1, List& list2)
 	return end - intersection.begin();
 }
 
+template <class List>
+static inline double jaccard(List& list1, List& list2)
+{
+	unsigned _union = unionSize(list1, list2);
+	if (_union == 0)
+		return 0.0;
+	unsigned intersect = intersectionSize(list1, list2);
+	return double(intersect) / _union;
+}
+
 #endif
