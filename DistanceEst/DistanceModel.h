@@ -16,6 +16,7 @@ public:
 
 	/** stores a histogram of inter-segment barcode Jaccard scores */
 	typedef std::vector<unsigned> Histogram;
+	typedef typename Histogram::const_iterator HistConstIt;
 
 	/**
 	* stores Jaccard score histograms for integer multiples
@@ -36,8 +37,6 @@ public:
 		const ScaffSizeList& scaffSizes,
 		const SegmentToBarcode& segmentToBarcode)
 	{
-		float binWidth = 1.0f / m_histBins;
-
 		SegmentCalc calc(m_segmentSize);
 
 		for (ScaffSizeConstIt it = scaffSizes.begin();
@@ -82,21 +81,55 @@ public:
 				if (histIndex >= m_model.size())
 					m_model.resize(histIndex + 1);
 
-				assert(jaccard >= 0.0f && jaccard <= 1.0f);
-				unsigned binIndex = std::floor(jaccard / binWidth);
-
-				/* special case: jaccard scores of 1.0f go in last bin */
-				binIndex = std::min(binIndex, m_histBins - 1);
-
 				Histogram& hist = m_model.at(histIndex);
-				if (binIndex >= hist.size())
-					hist.resize(binIndex + 1);
+				unsigned i = binIndex(jaccard);
+				if (i >= hist.size())
+					hist.resize(i + 1);
 
-				hist.at(binIndex)++;
-
+				hist.at(i)++;
 			}
-
 		}
+	}
+
+	unsigned binIndex(double jaccard) const
+	{
+		assert(jaccard >= 0.0 && jaccard <= 1.0);
+		double binWidth = 1.0 / m_histBins;
+		/* note: std::min() handles special case of jaccard == 1.0f */
+		return std::min((unsigned)std::floor(jaccard / binWidth), m_histBins - 1);
+	}
+
+	size_t samples(unsigned distance) const
+	{
+		assert(distance % m_segmentSize == 0);
+
+		unsigned histIndex = distance / m_segmentSize;
+		if (histIndex >= m_model.size())
+			return 0;
+		const Histogram& hist = m_model.at(histIndex);
+
+		return std::accumulate(hist.begin(), hist.end(), 0ul);
+	}
+
+	size_t samples(unsigned distance, double jaccard) const
+	{
+		assert(distance % m_segmentSize == 0);
+
+		unsigned histIndex = distance / m_segmentSize;
+		if (histIndex > m_model.size())
+			return 0;
+		const Histogram& hist = m_model.at(histIndex);
+
+		unsigned i = binIndex(jaccard);
+		if (i >= hist.size())
+			return 0;
+		return hist.at(i);
+	}
+
+	double p(unsigned distance, double jaccard) const
+	{
+		assert(distance % m_segmentSize == 0);
+		return samples(distance, jaccard) / samples(distance);
 	}
 
 	friend std::ostream& operator <<(std::ostream& out,
@@ -126,6 +159,8 @@ public:
 
 		return out;
 	}
+
+	unsigned segmentSize() const { return m_segmentSize; }
 
 protected:
 
