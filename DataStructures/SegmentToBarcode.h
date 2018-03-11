@@ -30,4 +30,18 @@ static inline void addBarcodes(const Segment& segment,
 		out.push_back(rec.first);
 }
 
+/** compute barcode Jaccard score between two segments */
+static inline double jaccard(const Segment& segment1, const Segment& segment2,
+	const SegmentToBarcode& segmentToBarcode)
+{
+	BarcodeList barcodes1, barcodes2;
+	barcodes1.reserve(1000);
+	barcodes2.reserve(1000);
+
+	addBarcodes(segment1, segmentToBarcode, barcodes1);
+	addBarcodes(segment2, segmentToBarcode, barcodes2);
+
+	return jaccard(barcodes1, barcodes2);
+}
+
 #endif
