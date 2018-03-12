@@ -103,7 +103,7 @@ public:
 	{
 		assert(distance % m_segmentSize == 0);
 
-		unsigned histIndex = distance / m_segmentSize;
+		unsigned histIndex = distance / m_segmentSize - 1;
 		if (histIndex >= m_model.size())
 			return 0;
 		const Histogram& hist = m_model.at(histIndex);
@@ -115,7 +115,7 @@ public:
 	{
 		assert(distance % m_segmentSize == 0);
 
-		unsigned histIndex = distance / m_segmentSize;
+		unsigned histIndex = distance / m_segmentSize - 1;
 		if (histIndex > m_model.size())
 			return 0;
 		const Histogram& hist = m_model.at(histIndex);
