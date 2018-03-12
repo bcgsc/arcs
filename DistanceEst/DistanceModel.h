@@ -5,7 +5,7 @@
 #include "DataStructures/ScaffSize.h"
 #include "DataStructures/Segment.h"
 #include "Common/SetUtil.h"
-#include "lib/arcs/DataStructures/SegmentToBarcode.h"
+#include "DataStructures/SegmentToBarcode.h"
 
 #include <cassert>
 #include <numeric>
