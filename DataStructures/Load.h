@@ -155,12 +155,12 @@ static inline std::istream& readSAM(std::istream& in,
 		if (!valid)
 			continue;
 
-		/* record segment => barcode mappings */
+		/* discard alignments that span multiple segments */
+		if (range.first != range.second)
+			continue;
 
-		for (unsigned i = range.first; i <= range.second; ++i) {
-			Segment segment(sam.rname, i);
-			segmentToBarcode[segment][barcodeIndex]++;
-		}
+		Segment segment(sam.rname, range.first);
+		segmentToBarcode[segment][barcodeIndex]++;
 
 	}
 	assert(in.eof());
