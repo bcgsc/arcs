@@ -130,21 +130,28 @@ public:
      * Return one-based start position of the segment
      * with the given index
      */
-    unsigned start(unsigned l, unsigned index) const
+    unsigned start(unsigned l, unsigned index, bool rc=false) const
     {
         assert(m_segmentSize <= l / 2);
+
+        unsigned _start;
         if (l % m_segmentSize == 0) {
-            return index * m_segmentSize + 1;
+            _start = index * m_segmentSize + 1;
+        } else {
+            unsigned segsPerHalf = segmentsPerHalf(l);
+            if (index < segsPerHalf) {
+                _start = index * m_segmentSize + 1;
+            } else {
+                unsigned rightIndex = index - segsPerHalf;
+                _start = segsPerHalf * m_segmentSize
+                    + remainder(l) + rightIndex * m_segmentSize + 1;
+            }
         }
 
-        unsigned segsPerHalf = segmentsPerHalf(l);
-        if (index < segsPerHalf) {
-            return index * m_segmentSize + 1;
-        } else {
-            unsigned rightIndex = index - segsPerHalf;
-            return segsPerHalf * m_segmentSize
-                + remainder(l) + rightIndex * m_segmentSize + 1;
-        }
+        if (rc)
+            _start = l - _start - m_segmentSize + 2;
+
+        return _start;
     }
 
     /**
