@@ -129,7 +129,8 @@ public:
 	double p(unsigned distance, double jaccard) const
 	{
 		assert(distance % m_segmentSize == 0);
-		return samples(distance, jaccard) / samples(distance);
+		return (double)samples(distance, jaccard)
+			/ samples(distance);
 	}
 
 	friend std::ostream& operator <<(std::ostream& out,
