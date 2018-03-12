@@ -3,7 +3,7 @@
 
 AC_PREREQ(2.59)
 AC_INIT(arcs, 1.0.1, rwarren@bcgsc.ca)
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_SRCDIR([Arcs/Arcs.cpp])
 AC_CONFIG_HEADER([config.h])
 

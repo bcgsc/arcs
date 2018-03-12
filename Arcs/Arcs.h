@@ -13,10 +13,10 @@
 #include <unordered_map>
 #include <fstream>
 #include <sstream>
-#include <utility> 
+#include <utility>
 #include <vector>
 #include <iterator>
-#include <time.h> 
+#include <time.h>
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/graphviz.hpp>
 #include "Common/Uncompress.h"
@@ -34,6 +34,7 @@ namespace ARCS {
      */
     struct ArcsParams {
 
+        bool bx;
         std::string file;
         std::string fofName;
         int seq_id;
@@ -63,6 +64,7 @@ namespace ARCS {
         int verbose;
 
         ArcsParams() :
+            bx(false),
             seq_id(98),
             min_reads(5),
             dist_est(false),
@@ -85,7 +87,7 @@ namespace ARCS {
     typedef std::map<std::pair<std::string, bool>, int> ScafMap;
     typedef typename ScafMap::const_iterator ScafMapConstIt;
     /* IndexMap: key = index sequence, value = ScafMap */
-    typedef std::unordered_map<std::string, ScafMap> IndexMap; 
+    typedef std::unordered_map<std::string, ScafMap> IndexMap;
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
     typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
 
@@ -94,6 +96,18 @@ namespace ARCS {
 
     /** a pair of contig IDs */
     typedef std::pair<std::string, std::string> ContigPair;
+
+    /**
+     * a list of the input scaffolds and their lengths, in the order
+     * that they appear in the input contigs FASTA file
+     */
+    typedef std::vector< std::pair<std::string, int> > ScaffSizeList;
+
+    /**
+     * a list of the input scaffolds and their lengths, in the order
+     * that they appear in the input contigs FASTA file
+     */
+    typedef std::unordered_map<std::string, int> ScaffSizeMap;
 
     /** maps contig FASTA ID to contig length (bp) */
     typedef std::unordered_map<std::string, int> ContigToLength;

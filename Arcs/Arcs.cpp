@@ -3,11 +3,13 @@
 #include "Arcs/DistanceEst.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
+#include "Common/ParseUtil.h"
 #include "Graph/ContigGraph.h"
 #include "Graph/DirectedGraph.h"
 #include "Graph/DotIO.h"
 #include <algorithm>
 #include <cassert>
+#include <utility>
 
 #define PROGRAM "arcs"
 
@@ -26,9 +28,11 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "\n"
 "NOTE 1: BAM_FILE must be sorted in order of name\n"
 "NOTE 2: read names in BAM_FILE must be formatted as <READ_NAME>_<BARCODE_SEQ>\n"
+"        unless --bx is used\n"
 "\n"
-" Options:"
+" Options:\n"
 "\n"
+"       --bx              extract barcode sequences from BX tag\n"
 "   -f, --file=FILE       input sequences to scaffold [required]\n"
 "   -a, --fofName=FILE    text file listing input BAM filenames\n"
 "   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
@@ -62,6 +66,7 @@ static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
 enum {
     OPT_HELP = 1,
     OPT_VERSION,
+    OPT_BX,
     OPT_GAP,
     OPT_TSV,
     OPT_BARCODE_COUNTS,
@@ -76,9 +81,10 @@ static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
     {"bin_size", required_argument, NULL, 'B'},
+    {"bx", no_argument, NULL, OPT_BX },
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
-    {"seq_id", required_argument, NULL, 's'}, 
+    {"seq_id", required_argument, NULL, 's'},
     {"min_reads", required_argument, NULL, 'c'},
     {"min_reads", required_argument, NULL, 'c'},
     {"dist_est", no_argument, NULL, 'D'},
@@ -188,7 +194,7 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
     if (found!=std::string::npos) {
         edit_dist = std::strtol(&line[found + 5], 0, 10);
     }
-        
+
     double si = 0;
     if (qalen != 0) {
         double mins = qalen - edit_dist;
@@ -201,7 +207,7 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
 
 
 /* Get all scaffold sizes from FASTA file */
-void getScaffSizes(std::string file, std::unordered_map<std::string, int>& sMap) {
+void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
 
     int counter = 0;
     FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
@@ -209,15 +215,14 @@ void getScaffSizes(std::string file, std::unordered_map<std::string, int>& sMap)
         counter++;
         std::string  scafName = rec.id;
         int size = rec.seq.length();
-        //assert(sMap.count(scafName) == 0);
-        sMap[scafName] = size;
+        scaffSizes.push_back(std::make_pair(rec.id, size));
     }
-    
+
     if (params.verbose)
         std::cout << "Saw " << counter << " sequences.\n";
 }
 
-/* 
+/*
  * Read BAM file, if sequence identity greater than threashold
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
@@ -231,7 +236,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
     std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
     int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
-    int ct = 1; 
+    int ct = 1;
 
     std::string line;
     size_t linecount = 0;
@@ -241,28 +246,32 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
     /* Read each line of the BAM file */
     while (getline(bamName_stream, line)) {
-        
+
         /* Check to make sure it is not the header */
         if (line.substr(0, 1).compare("@") != 0) {
             linecount++;
 
             std::stringstream ss(line);
-            std::string readName, scafName, cigar, rnext, seq, qual;
+            std::string readName, scafName, cigar, rnext, seq, qual, tags;
             int flag, pos, mapq, pnext, tlen;
 
             ss >> readName >> flag >> scafName >> pos >> mapq >> cigar
-                >> rnext >> pnext >> tlen >> seq >> qual;
+                >> rnext >> pnext >> tlen >> seq >> qual >> std::ws;
 
-            /* If there are no numbers in name, will return 0 - ie "*" */
-            //scafName = getIntFromScafName(scafNameString);
+            getline(ss, tags);
 
             /* Parse the index from the readName */
-            std::string index = "", readNameSpl = "";
-            std::size_t found = readName.rfind("_");
-            if (found!=std::string::npos)
-                readNameSpl = readName.substr(found+1);
-            if (checkIndex(readNameSpl))
-                index = readNameSpl;
+            std::string index;
+            if (params.bx) {
+                index = getBarcodeSeq(tags);
+            } else {
+                std::size_t found = readName.rfind("_");
+                if (found!=std::string::npos)
+                    index = readName.substr(found+1);
+            }
+
+            if (!checkIndex(index))
+                index.clear();
 
             /* Keep track of index multiplicity */
             if (!index.empty())
@@ -294,7 +303,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     prevPos = pos;
 
 
-                    /* 
+                    /*
                      * Read names are different so we can add the previous index and scafName as
                      * long as there were only two mappings (one for each read)
                      */
@@ -303,15 +312,15 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                         int size = sMap[readyToAddRefName];
                         if (size >= params.min_size) {
 
-                           /* 
+                           /*
                             * If length of sequence is less than 2 x end_length, split
-                            * the sequence in half to determing head/tail 
+                            * the sequence in half to determing head/tail
                             */
                            int cutOff = params.end_length;
                            if (cutOff == 0 || size <= cutOff * 2)
                                cutOff = size/2;
 
-                           /* 
+                           /*
                             * pair <X, true> indicates read pair aligns to head,
                             * pair <X, false> indicates read pair aligns to tail
                             */
@@ -349,7 +358,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 if (!seq.empty() && checkFlag(flag) && checkFlag(prevFlag)
                         && mapq != 0 && prevMapq != 0 && si >= params.seq_id && prevSI >= params.seq_id) {
                     if (prevRef.compare(scafName) == 0 && scafName.compare("*") != 0 && !scafName.empty() && !index.empty()) {
-                            
+
                         readyToAddIndex = index;
                         readyToAddRefName = scafName;
                         /* Take average read alignment position between read pairs */
@@ -357,7 +366,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     }
                 }
             }
-           ct++; 
+           ct++;
 
             if (params.verbose && linecount % 10000000 == 0)
                 std::cout << "On line " << linecount << std::endl;
@@ -435,8 +444,8 @@ float normalEstimation(int x, float p, int n) {
 }
 
 /*
- * Based on number of read pairs that align to the 
- * head or tail of scaffold, determine if is significantly 
+ * Based on number of read pairs that align to the
+ * head or tail of scaffold, determine if is significantly
  * different from a uniform distribution (p=0.5)
  */
 std::pair<bool, bool> headOrTail(int head, int tail) {
@@ -454,9 +463,9 @@ std::pair<bool, bool> headOrTail(int head, int tail) {
     }
 }
 
-/* 
+/*
  * Iterate through IndexMap and for every pair of scaffolds
- * that align to the same index, store in PairMap. PairMap 
+ * that align to the same index, store in PairMap. PairMap
  * is a map with a key of pairs of saffold names, and value
  * of number of links between the pair. (Each link is one index).
  */
@@ -471,7 +480,7 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
 
         if (indexMult >= params.min_mult && indexMult <= params.max_mult) {
 
-           /* Iterate through all the scafNames in ScafMap */ 
+           /* Iterate through all the scafNames in ScafMap */
             for (auto o = it->second.begin(); o != it->second.end(); ++o) {
                 for (auto p = it->second.begin(); p != it->second.end(); ++p) {
                     std::string scafA, scafB;
@@ -508,7 +517,7 @@ void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<s
             }
         }
     }
-}  
+}
 
 /*
  * Return the max value and its index position
@@ -526,7 +535,7 @@ std::pair<unsigned, unsigned> getMaxValueAndIndex(const ARCS::PairMap::value_typ
     return std::make_pair(max, index);
 }
 
-/* 
+/*
  * Return true if the link orientation with the max support
  * is dominant
  */
@@ -591,7 +600,7 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
             }
         }
     }
-} 
+}
 
 /*
  * Write out the boost graph in a .dot file.
@@ -609,7 +618,7 @@ void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g)
 	out.close();
 }
 
-/* 
+/*
  * Remove all nodes from graph wich have a degree
  * greater than max_degree
  */
@@ -633,7 +642,7 @@ void removeDegreeNodes(ARCS::Graph& g, int max_degree) {
     boost::renumber_indices(g);
 }
 
-/* 
+/*
  * Remove nodes that have a degree greater than max_degree
  * Write graph
  */
@@ -652,9 +661,9 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
 /*
  * Construct an ABySS distance estimate graph from a boost graph.
  */
-void createAbyssGraph(const std::unordered_map<std::string, int>& scaffSizeMap, const ARCS::Graph& gin, DistGraph& gout) {
+void createAbyssGraph(const ARCS::ScaffSizeList& scaffSizes, const ARCS::Graph& gin, DistGraph& gout) {
     // Add the vertices.
-    for (const auto& it : scaffSizeMap) {
+    for (const auto& it : scaffSizes) {
         vertex_property<DistGraph>::type vp;
         vp.length = it.second;
         const auto u = add_vertex(vp, gout);
@@ -886,10 +895,12 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     std::time_t rawtime;
 
-    std::unordered_map<std::string, int> scaffSizeMap;
+    ARCS::ScaffSizeList scaffSizeList;
     time(&rawtime);
     std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
-    getScaffSizes(params.file, scaffSizeMap);
+    getScaffSizes(params.file, scaffSizeList);
+    ARCS::ScaffSizeMap scaffSizeMap(
+        scaffSizeList.begin(), scaffSizeList.end());
 
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
@@ -924,7 +935,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     time(&rawtime);
     std::cout << "\n=>Starting to create ABySS graph... " << ctime(&rawtime);
     DistGraph gdist;
-    createAbyssGraph(scaffSizeMap, g, gdist);
+    createAbyssGraph(scaffSizeList, g, gdist);
 
     time(&rawtime);
     std::cout << "\n=>Starting to write ABySS graph file... " << ctime(&rawtime) << "\n";
@@ -966,6 +977,8 @@ int main(int argc, char** argv) {
                 arg >> params.base_name; break;
             case 'g':
                 arg >> params.dist_graph_name; break;
+            case OPT_BX:
+                params.bx = true; break;
             case OPT_TSV:
                 arg >> params.tsv_name; break;
             case OPT_GAP:
@@ -1038,11 +1051,11 @@ int main(int argc, char** argv) {
     /* Setting base name if not previously set */
     if (params.base_name.empty()) {
         std::ostringstream filename;
-        filename << params.file << ".scaff" 
-            << "_s" << params.seq_id 
+        filename << params.file << ".scaff"
+            << "_s" << params.seq_id
             << "_c" << params.min_reads
-            << "_l" << params.min_links 
-            << "_d" << params.max_degree 
+            << "_l" << params.min_links
+            << "_d" << params.max_degree
             << "_e" << params.end_length
             << "_r" << params.error_percent;
         params.base_name = filename.str();
