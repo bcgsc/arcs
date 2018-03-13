@@ -79,21 +79,24 @@ def writeTSVFile(infile, outfile):
                     match = re.search(r"d=(\d+)", line.rstrip())
                     if match:
                         dist = int(match.group(1))
+			estDist = True
                     else:
-                        dist = 10
+                        dist = 10 
+			estDist = False
 
-                   # if dist < 0:
-                   #     dist_category = -1
-                   # elif dist < 500:
-                   #     dist_category = 500
-                   # elif dist < 1000:
-                   #     dist_category = 1000
-                   # elif dist < 5000:
-                   #     dist_category = 5000
-                   # else:
-                   #     dist_category = 10000
+                    if dist < 0:
+                        dist_category = -1
+		    elif dist == 10 and estDist is False:
+			dist_category = 10
+                    elif dist < 500:
+                        dist_category = 500
+                    elif dist < 1000:
+                        dist_category = 1000
+                    elif dist < 5000:
+                        dist_category = 5000
+                    else:
+                        dist_category = 10000
 
-                    dist_category = 500
 
                     gap = links * dist
 
