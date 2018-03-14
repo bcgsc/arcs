@@ -4,11 +4,13 @@
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
 #include "Common/ParseUtil.h"
+#include "Common/StringUtil.h"
 #include "Graph/ContigGraph.h"
 #include "Graph/DirectedGraph.h"
 #include "Graph/DotIO.h"
 #include <algorithm>
 #include <cassert>
+#include <string>
 #include <utility>
 
 #define PROGRAM "arcs"
@@ -26,13 +28,17 @@ static const char USAGE_MESSAGE[] =
 PROGRAM " " PACKAGE_VERSION "\n"
 "Usage: arcs [OPTION]... -f FASTA_FILE BAM_FILE...\n"
 "\n"
-"NOTE 1: BAM_FILE must be sorted in order of name\n"
-"NOTE 2: read names in BAM_FILE must be formatted as <READ_NAME>_<BARCODE_SEQ>\n"
-"        unless --bx is used\n"
+"Paired reads must occur consecutively (interleaved) in the BAM file.\n"
+"The output of the aligner may either not be sorted,\n"
+"or may be sorted by read name using samtools sort -n.\n"
+"The BAM file must not be sorted by coordinate position.\n"
+"\n"
+"The barcode may be found in either the BX:Z:BARCODE SAM tag,\n"
+"or in the read (query) name following an underscore, READNAME_BARCODE.\n"
+"In the latter case the barcode must be compsed entirely of nucleotides.\n"
 "\n"
 " Options:\n"
 "\n"
-"       --bx              extract barcode sequences from BX tag\n"
 "   -f, --file=FILE       input sequences to scaffold [required]\n"
 "   -a, --fofName=FILE    text file listing input BAM filenames\n"
 "   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
@@ -81,7 +87,7 @@ static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
     {"bin_size", required_argument, NULL, 'B'},
-    {"bx", no_argument, NULL, OPT_BX },
+    {"bx", no_argument, NULL, OPT_BX }, // ignored
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'},
@@ -139,17 +145,6 @@ struct HashScaffoldEnd {
         return std::hash<std::string>()(key.first) ^ key.second;
     }
 };
-
-/* Returns true if seqence only contains ATGC and is of length indexLen */
-bool checkIndex(std::string seq) {
-    for (int i = 0; i < static_cast<int>(seq.length()); i++) {
-        char c = toupper(seq[i]);
-        if (c != 'A' && c != 'T' && c != 'G' && c != 'C')
-            return false;
-    }
-    //return (static_cast<int>(seq.length()) == params.indexLen);
-    return true;
-}
 
 /*
  * Check if SAM flag is one of the accepted ones.
@@ -261,17 +256,16 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             getline(ss, tags);
 
             /* Parse the index from the readName */
-            std::string index;
-            if (params.bx) {
-                index = getBarcodeSeq(tags);
-            } else {
+            std::string index = parseBarcode(tags);
+            if (index.empty()) {
                 std::size_t found = readName.rfind("_");
-                if (found!=std::string::npos)
-                    index = readName.substr(found+1);
+                if (found != std::string::npos) {
+                    index = readName.substr(found + 1);
+                    // Check that the barcode is composed of only ACGT.
+                    if (index.find_first_not_of("ACGTacgt") != std::string::npos)
+                      index.clear();
+                }
             }
-
-            if (!checkIndex(index))
-                index.clear();
 
             /* Keep track of index multiplicity */
             if (!index.empty())
@@ -977,8 +971,6 @@ int main(int argc, char** argv) {
                 arg >> params.base_name; break;
             case 'g':
                 arg >> params.dist_graph_name; break;
-            case OPT_BX:
-                params.bx = true; break;
             case OPT_TSV:
                 arg >> params.tsv_name; break;
             case OPT_GAP:
