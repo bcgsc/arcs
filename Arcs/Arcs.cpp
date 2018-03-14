@@ -26,21 +26,28 @@ PROGRAM " " PACKAGE_VERSION "\n"
 
 static const char USAGE_MESSAGE[] =
 PROGRAM " " PACKAGE_VERSION "\n"
-"Usage: arcs [OPTION]... -f FASTA_FILE BAM_FILE...\n"
+"Usage: arcs [OPTION]... ALIGNMENTS...\n"
 "\n"
-"Paired reads must occur consecutively (interleaved) in the BAM file.\n"
+"ALIGNMENTS may be a SAM or BAM file.\n"
+"The output of the aligner may be piped directly into ARCS by setting\n"
+"ALIGNMENTS to /dev/stdin, in which case it must be in SAM format.\n"
+"\n"
+"Paired reads must occur consecutively (interleaved) in the SAM/BAM file.\n"
 "The output of the aligner may either not be sorted,\n"
 "or may be sorted by read name using samtools sort -n.\n"
-"The BAM file must not be sorted by coordinate position.\n"
+"The SAM/BAM file must not be sorted by coordinate position.\n"
 "\n"
 "The barcode may be found in either the BX:Z:BARCODE SAM tag,\n"
 "or in the read (query) name following an underscore, READNAME_BARCODE.\n"
 "In the latter case the barcode must be compsed entirely of nucleotides.\n"
 "\n"
+"The contig sequence lengths must either be present in the SAM header\n"
+"or provided by the -f option.\n"
+"\n"
 " Options:\n"
 "\n"
-"   -f, --file=FILE       input sequences to scaffold [required]\n"
-"   -a, --fofName=FILE    text file listing input BAM filenames\n"
+"   -f, --file=FILE       FASTA file of contig sequences to scaffold [optional]\n"
+"   -a, --fofName=FILE    text file listing input SAM/BAM filenames\n"
 "   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
 "   -c, --min_reads=N     min aligned read pairs per barcode mapping [5]\n"
 "   -l, --min_links=N     min shared barcodes between contigs [0]\n"
@@ -222,7 +229,9 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
  */
-void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
+        ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& sMap)
+{
 
     /* Open BAM file */
     std::ifstream bamName_stream;
@@ -239,11 +248,41 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     // Number of unpaired reads.
     size_t countUnpaired = 0;
 
+    // Whether to add SAM SQ headers to sMap.
+    const bool addSAMSequenceLengths = sMap.empty();
+
     /* Read each line of the BAM file */
     while (getline(bamName_stream, line)) {
-
-        /* Check to make sure it is not the header */
-        if (line.substr(0, 1).compare("@") != 0) {
+        if (line.empty())
+            continue;
+        if (line[0] == '@') {
+            // Parse the SAM header.
+            if (startsWith(line, "@SQ\t")) {
+                std::stringstream ss(line);
+                std::string name;
+                size_t size = 0;
+                ss >> expect("@SQ\tSN:") >> name >> expect("\tLN:") >> size;
+                if (!ss) {
+                    std::cerr << "error: parsing SAM header: " << line << '\n';
+                    exit(EXIT_FAILURE);
+                }
+                if (addSAMSequenceLengths) {
+                    ARCS::ScaffSizeMap::value_type sq_ln(name, size);
+                    scaffSizeList.push_back(sq_ln);
+                    sMap.insert(sq_ln);
+                } else {
+                    auto it = sMap.find(name);
+                    if (it == sMap.end()) {
+                        std::cerr << "error: unexpected sequence: " << name << " of size " << size;
+                        exit(EXIT_FAILURE);
+                    } else if (it->second != (int)size) {
+                        std::cerr << "error: mismatched sequence lengths: sequence "
+                            << name << ": " << it->second << " != " << size;
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+        } else {
             linecount++;
 
             std::stringstream ss(line);
@@ -402,12 +441,14 @@ static std::vector<std::string> readFof(const std::string& fofName)
 /**
  * Read the BAM files.
  */
-void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap, std::unordered_map<std::string, int> sMap) {
+void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
+        ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& scaffSizeMap)
+{
     assert(!bamNames.empty());
     for (const auto& bamName : bamNames) {
         if (params.verbose)
             std::cout << "Reading bam " << bamName << std::endl;
-        readBAM(bamName, imap, indexMultMap, sMap);
+        readBAM(bamName, imap, indexMultMap, scaffSizeList, scaffSizeMap);
     }
 }
 
@@ -890,18 +931,20 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::time_t rawtime;
 
     ARCS::ScaffSizeList scaffSizeList;
-    time(&rawtime);
-    std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
-    getScaffSizes(params.file, scaffSizeList);
-    ARCS::ScaffSizeMap scaffSizeMap(
-        scaffSizeList.begin(), scaffSizeList.end());
+    ARCS::ScaffSizeMap scaffSizeMap;
+    if (!params.file.empty()) {
+        time(&rawtime);
+        std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
+        getScaffSizes(params.file, scaffSizeList);
+        scaffSizeMap.insert(scaffSizeList.begin(), scaffSizeList.end());
+    }
 
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
     std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
     std::vector<std::string> bamFiles = readFof(params.fofName);
     std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
-    readBAMS(bamFiles, imap, indexMultMap, scaffSizeMap);
+    readBAMS(bamFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap);
 
     size_t barcodeCount = countBarcodes(imap, indexMultMap);
 
@@ -1018,8 +1061,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (params.file.empty()) {
-        cerr << PROGRAM ": missing -f option\n";
+    if (params.base_name.empty() && params.file.empty()) {
+        cerr << PROGRAM ": one of either the -b or -f options is required\n";
         die = true;
     }
 
@@ -1034,7 +1077,8 @@ int main(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    assert_readable(params.file);
+    if (!params.file.empty())
+        assert_readable(params.file);
     if (!params.fofName.empty())
       assert_readable(params.fofName);
     for (const auto& filename : filenames)
