@@ -1,3 +1,15 @@
+2017-03-12  Ben Vandervalk <benv@bcgsc.ca>
+
+	* Release version v1.0.2
+	* added `--bx` option to parse Chromium barcodes from BX tag
+	* fixed `makeTSVfile.py` for improved handling of distance
+	estimates in LINKS v1.8.6 or later. The ARCS `--dist_est`
+	option must be turned for distance estimates to be generated
+	and used downstream by LINKS.
+	* fixed incorrect default value of `--end_length` (0 => 30000)
+	* fixed `--graph` option to output vertex declarations in
+	same order as input FASTA (ABySS compatibility fix)
+
 2017-12-04  Ben Vandervalk <benv@bcgsc.ca>
 
 	* Release version v1.0.1
