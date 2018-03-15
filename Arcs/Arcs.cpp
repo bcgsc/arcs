@@ -153,11 +153,12 @@ struct HashScaffoldEnd {
     }
 };
 
-/*
- * Check if SAM flag is one of the accepted ones.
- */
-bool checkFlag(int flag) {
-    return (flag == 99 || flag == 163 || flag == 83 || flag == 147);
+/** Check if SAM flag is one of the accepted ones. */
+static inline bool checkFlag(int flag)
+{
+    flag &= ~0xc0; // clear READ1,READ2
+    return flag == 19 // PAIRED,PROPER_PAIR,REVERSE
+        || flag == 35; // PAIRED,PROPER_PAIR,MREVERSE
 }
 
 /*
