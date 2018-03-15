@@ -8,9 +8,9 @@ MapUtilTest_SOURCES = \
 	$(top_srcdir)/ThirdParty/Catch/catch.hpp \
 	MapUtilTest.cpp
 
-check_PROGRAMS += ParseUtilTest
-ParseUtilTest_SOURCES = \
+check_PROGRAMS += SAMTest
+SAMTest_SOURCES = \
 	$(top_srcdir)/ThirdParty/Catch/catch.hpp \
-	ParseUtilTest.cpp
+	SAMTest.cpp
 
 TESTS = $(check_PROGRAMS)

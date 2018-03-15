@@ -20,8 +20,8 @@ libcommon_a_SOURCES = \
 	MapUtil.h \
 	Options.cpp Options.h \
 	PairHash.h \
-	ParseUtil.h \
 	ReadsProcessor.cpp ReadsProcessor.h \
+	SAM.h \
 	SeqEval.h \
 	Sequence.cpp Sequence.h \
 	SignalHandler.cpp SignalHandler.h \

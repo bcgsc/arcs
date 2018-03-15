@@ -3,7 +3,7 @@
 #include "Arcs/DistanceEst.h"
 #include "Common/ContigProperties.h"
 #include "Common/Estimate.h"
-#include "Common/ParseUtil.h"
+#include "Common/SAM.h"
 #include "Common/StringUtil.h"
 #include "Graph/ContigGraph.h"
 #include "Graph/DirectedGraph.h"
@@ -295,7 +295,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             getline(ss, tags);
 
             /* Parse the index from the readName */
-            std::string index = parseBarcode(tags);
+            std::string index = parseBXTag(tags);
             if (index.empty()) {
                 std::size_t found = readName.rfind("_");
                 if (found != std::string::npos) {
