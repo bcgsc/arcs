@@ -6,6 +6,7 @@
 #include "Common/PairHash.h"
 #include "Common/StatUtil.h"
 #include <array>
+#include <cassert>
 #include <cstdlib>
 #include <limits>
 #include <iostream>
@@ -433,8 +434,7 @@ static inline void addEdgeDistances(
 static inline void writeDistTSV(const std::string& path,
 	const PairToBarcodeStats& pairToStats, const ARCS::Graph& g)
 {
-	if (path.empty())
-		return;
+	assert(!path.empty());
 
 	/* open output TSV file */
 

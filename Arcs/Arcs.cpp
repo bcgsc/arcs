@@ -642,6 +642,8 @@ void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
  */
 void writeGraph(const std::string& graphFile_dot, ARCS::Graph& g)
 {
+    assert(!graphFile_dot.empty());
+
 	std::ofstream out(graphFile_dot.c_str());
 	assert(out);
 
@@ -682,6 +684,8 @@ void removeDegreeNodes(ARCS::Graph& g, int max_degree) {
  * Write graph
  */
 void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
+    assert(!graphFile.empty());
+
     if (params.max_degree != 0) {
         std::cout << "      Deleting nodes with degree > " << params.max_degree <<"... \n";
         removeDegreeNodes(g, params.max_degree);
@@ -742,8 +746,7 @@ void createAbyssGraph(const ARCS::ScaffSizeList& scaffSizes, const ARCS::Graph& 
  * Write out an ABySS distance estimate graph to a .dist.gv file.
  */
 void writeAbyssGraph(const std::string& path, const DistGraph& g) {
-    if (path.empty())
-        return;
+    assert(!path.empty());
     ofstream out(path.c_str());
     assert_good(out, path);
     write_dot(out, g, "arcs");
@@ -758,8 +761,7 @@ void writeBarcodeCountsTSV(
         const std::string& tsvFile,
         const std::unordered_map<std::string, int>& indexMultMap)
 {
-    if (tsvFile.empty())
-        return;
+    assert(!tsvFile.empty());
 
     // Sort the barcodes by their counts and then their sequence.
     typedef std::vector<std::pair<std::string, unsigned>> Sorted;
@@ -791,8 +793,7 @@ void writeTSV(
         const ARCS::PairMap& pmap,
         size_t barcodeCount)
 {
-    if (tsvFile.empty())
-        return;
+    assert(!tsvFile.empty());
 
     // Count the number of barcodes seen per scaffold end.
     std::unordered_map<ScaffoldEnd, unsigned, HashScaffoldEnd> barcodes_per_scaffold_end;
@@ -860,36 +861,38 @@ static inline void calcDistanceEstimates(
     std::time_t rawtime;
 
     time(&rawtime);
-    std::cout << "\n\t=>Measuring intra-contig distances / shared barcodes... "
+    std::cout << "\n\t=> Measuring intra-contig distances / shared barcodes... "
         << ctime(&rawtime);
     DistSampleMap distSamples;
     calcDistSamples(imap, contigToLength, indexMultMap, params, distSamples);
 
     time(&rawtime);
-    std::cout << "\n\t=>Writing intra-contig distance samples to TSV... "
+    std::cout << "\n\t=> Writing intra-contig distance samples to TSV... "
         << ctime(&rawtime);
     writeDistSamplesTSV(params.dist_samples_tsv, distSamples);
 
     time(&rawtime);
-    std::cout << "\n\t=>Building Jaccard => distance map... "
+    std::cout << "\n\t=> Building Jaccard to distance map... "
         << ctime(&rawtime);
     JaccardToDist jaccardToDist;
     buildJaccardToDist(distSamples, jaccardToDist);
 
     time(&rawtime);
-    std::cout << "\n\t=>Calculating barcode stats for scaffold pairs... "
+    std::cout << "\n\t=> Calculating barcode stats for scaffold pairs... "
         << ctime(&rawtime);
     PairToBarcodeStats pairToStats;
     buildPairToBarcodeStats(imap, indexMultMap, contigToLength, params, pairToStats);
 
     time(&rawtime);
-    std::cout << "\n\t=>Adding edge distances... " << ctime(&rawtime);
+    std::cout << "\n\t=> Adding edge distances... " << ctime(&rawtime);
     addEdgeDistances(pairToStats, jaccardToDist, params, g);
 
-    time(&rawtime);
-    std::cout << "\n\t=>Writing distance estimates to TSV... "
-        << ctime(&rawtime);
-    writeDistTSV(params.dist_tsv, pairToStats, g);
+    if (!params.dist_tsv.empty()) {
+        time(&rawtime);
+        std::cout << "\n\t=> Writing distance estimates to TSV... "
+            << ctime(&rawtime);
+        writeDistTSV(params.dist_tsv, pairToStats, g);
+    }
 }
 
 /** Run ARCS. */
@@ -921,9 +924,6 @@ void runArcs(const std::vector<std::string>& filenames) {
         std::cout << ' ' << filename << '\n';
     std::cout.flush();
 
-    std::string graphFile = params.base_name + "_original.gv";
-    std::string distGraphFile = !params.dist_graph_name.empty() ? params.dist_graph_name : params.base_name + ".dist.gv";
-
     ARCS::IndexMap imap;
     ARCS::PairMap pmap;
     ARCS::Graph g;
@@ -934,56 +934,65 @@ void runArcs(const std::vector<std::string>& filenames) {
     ARCS::ScaffSizeMap scaffSizeMap;
     if (!params.file.empty()) {
         time(&rawtime);
-        std::cout << "\n=>Getting scaffold sizes... " << ctime(&rawtime);
+        std::cout << "\n=> Getting scaffold sizes... " << ctime(&rawtime);
         getScaffSizes(params.file, scaffSizeList);
         scaffSizeMap.insert(scaffSizeList.begin(), scaffSizeList.end());
     }
 
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
-    std::cout << "\n=>Starting to read BAM files... " << ctime(&rawtime);
+    std::cout << "\n=> Reading BAM files... " << ctime(&rawtime);
     std::vector<std::string> bamFiles = readFof(params.fofName);
     std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
     readBAMS(bamFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap);
 
     size_t barcodeCount = countBarcodes(imap, indexMultMap);
 
-    time(&rawtime);
-    std::cout << "\n=>Starting to write reads per barcode TSV file... " << ctime(&rawtime) << "\n";
-    writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
-
-    time(&rawtime);
-    std::cout << "\n=>Starting pairing of scaffolds... " << ctime(&rawtime);
-    pairContigs(imap, pmap, indexMultMap);
-
-    time(&rawtime);
-    std::cout << "\n=>Starting to create graph... " << ctime(&rawtime);
-    createGraph(pmap, g);
-
-    if (params.dist_est) {
-        std::cout << "\n=>Calculating distance estimates... " << ctime(&rawtime);
-        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+    if (!params.barcode_counts_name.empty()) {
+        time(&rawtime);
+        std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime) << "\n";
+        writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
     }
 
     time(&rawtime);
-    std::cout << "\n=>Starting to write graph file... " << ctime(&rawtime) << "\n";
-    writePostRemovalGraph(g, graphFile);
+    std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
+    pairContigs(imap, pmap, indexMultMap);
 
     time(&rawtime);
-    std::cout << "\n=>Starting to create ABySS graph... " << ctime(&rawtime);
-    DistGraph gdist;
-    createAbyssGraph(scaffSizeList, g, gdist);
+    std::cout << "\n=> Creaeting the graph... " << ctime(&rawtime);
+    createGraph(pmap, g);
+
+    if (params.dist_est) {
+        std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
+        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+    }
+
+    if (!params.base_name.empty()) {
+        time(&rawtime);
+        std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
+        std::string graphFile = params.base_name + "_original.gv";
+        writePostRemovalGraph(g, graphFile);
+    }
+
+    if (!params.dist_graph_name.empty()) {
+        time(&rawtime);
+        std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
+        DistGraph gdist;
+        createAbyssGraph(scaffSizeList, g, gdist);
+
+        time(&rawtime);
+        std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
+        writeAbyssGraph(params.dist_graph_name, gdist);
+    }
+
+    if (!params.tsv_name.empty()) {
+        time(&rawtime);
+        std::cout << "\n=> Writing TSV file... " << ctime(&rawtime) << "\n";
+        writeTSV(params.tsv_name, imap, pmap, barcodeCount);
+    }
 
     time(&rawtime);
-    std::cout << "\n=>Starting to write ABySS graph file... " << ctime(&rawtime) << "\n";
-    writeAbyssGraph(distGraphFile, gdist);
-
-    time(&rawtime);
-    std::cout << "\n=>Starting to write TSV file... " << ctime(&rawtime) << "\n";
-    writeTSV(params.tsv_name, imap, pmap, barcodeCount);
-
-    time(&rawtime);
-    std::cout << "\n=>Done. " << ctime(&rawtime);
+    std::cout << "\n=> Done. " << ctime(&rawtime);
 }
 
 int main(int argc, char** argv) {
@@ -1061,14 +1070,33 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (params.base_name.empty() && params.file.empty()) {
-        cerr << PROGRAM ": one of either the -b or -f options is required\n";
+    // Set base name if not previously set.
+    if (params.base_name.empty() && !params.file.empty()) {
+        std::ostringstream filename;
+        filename << params.file << ".scaff"
+            << "_s" << params.seq_id
+            << "_c" << params.min_reads
+            << "_l" << params.min_links
+            << "_d" << params.max_degree
+            << "_e" << params.end_length
+            << "_r" << params.error_percent;
+        params.base_name = filename.str();
+    }
+
+    // Set dist graph name unless specified.
+    if (params.dist_graph_name.empty() && !params.base_name.empty())
+        params.dist_graph_name = params.base_name + ".dist.gv";
+
+    if (params.base_name.empty()
+            && params.dist_graph_name.empty()
+            && params.tsv_name.empty()) {
+        cerr << PROGRAM ": error: specify an output file using one or more of -b, -g, or --tsv\n";
         die = true;
     }
 
     std::vector<std::string> filenames(argv + optind, argv + argc);
     if (params.fofName.empty() && filenames.empty()) {
-        cerr << PROGRAM ": missing either BAM files or -a option\n";
+        cerr << PROGRAM ": error: specify input SAM/BAM file(s) or a list of files with -a option\n";
         die = true;
     }
 
@@ -1083,19 +1111,6 @@ int main(int argc, char** argv) {
       assert_readable(params.fofName);
     for (const auto& filename : filenames)
       assert_readable(filename);
-
-    /* Setting base name if not previously set */
-    if (params.base_name.empty()) {
-        std::ostringstream filename;
-        filename << params.file << ".scaff"
-            << "_s" << params.seq_id
-            << "_c" << params.min_reads
-            << "_l" << params.min_links
-            << "_d" << params.max_degree
-            << "_e" << params.end_length
-            << "_r" << params.error_percent;
-        params.base_name = filename.str();
-    }
 
     runArcs(filenames);
 
