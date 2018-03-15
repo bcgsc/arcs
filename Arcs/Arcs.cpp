@@ -315,7 +315,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
             if (ct == 2 && readName != prevRN) {
                 if (countUnpaired == 0)
-                    std::cerr << "Warning: Skipping an unpaired read. BAM file should be sorted in order of read name.\n"
+                    std::cerr << "Warning: Skipping an unpaired read. Read pairs should be consecutive in the SAM/BAM file.\n"
                         "  Prev read: " << prevRN << "\n"
                         "  Curr read: " << readName << std::endl;
                 ++countUnpaired;
@@ -413,7 +413,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     bamName_stream.close();
 
     if (countUnpaired > 0)
-        std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. BAM file should be sorted in order of read name.\n";
+        std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. Read pairs should be consecutive in the SAM/BAM file.\n";
 }
 
 /**
@@ -447,7 +447,7 @@ void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std
     assert(!bamNames.empty());
     for (const auto& bamName : bamNames) {
         if (params.verbose)
-            std::cout << "Reading bam " << bamName << std::endl;
+            std::cout << "Reading alignments: " << bamName << std::endl;
         readBAM(bamName, imap, indexMultMap, scaffSizeList, scaffSizeMap);
     }
 }
@@ -941,7 +941,7 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     std::unordered_map<std::string, int> indexMultMap;
     time(&rawtime);
-    std::cout << "\n=> Reading BAM files... " << ctime(&rawtime);
+    std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
     std::vector<std::string> bamFiles = readFof(params.fofName);
     std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
     readBAMS(bamFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap);
