@@ -232,11 +232,14 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
 void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
         ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& sMap)
 {
-
     /* Open BAM file */
     std::ifstream bamName_stream;
     bamName_stream.open(bamName.c_str());
     assert_good(bamName_stream, bamName);
+    if (bamName_stream.peek() == EOF) {
+        std::cerr << "error: alignments file is empty: " << bamName << '\n';
+        exit(EXIT_FAILURE);
+    }
 
     std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
     int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
