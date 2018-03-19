@@ -14,6 +14,9 @@ typedef std::string BarcodeSeq;
 /** Unique index assigned to each Chromium barcode sequence */
 typedef uint32_t BarcodeIndex;
 
+/** Number of barcode mappings per segment */
+typedef uint16_t BarcodeCount;
+
 /** A set of Chromium barcode indices */
 typedef std::unordered_set<BarcodeIndex> BarcodeSet;
 typedef typename BarcodeSet::const_iterator BarcodeSetConstIt;
