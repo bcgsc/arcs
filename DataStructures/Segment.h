@@ -3,6 +3,7 @@
 
 #include "Common/SetUtil.h"
 #include "DataStructures/Barcode.h"
+#include "DataStructures/Contig.h"
 
 #include <cassert>
 #include <iterator>
@@ -16,7 +17,6 @@ typedef unsigned SegmentIndex;
 typedef unsigned Position;
 
 /** One segment of a contig. */
-typedef std::string ContigName;
 typedef std::pair<ContigName, SegmentIndex> Segment;
 
 /** Hash a Segment. */
