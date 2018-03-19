@@ -19,6 +19,10 @@ typedef unsigned Position;
 /** One segment of a contig. */
 typedef std::pair<ContigName, SegmentIndex> Segment;
 
+/** A list of segments */
+typedef std::vector<Segment> SegmentList;
+typedef typename SegmentList::const_iterator SegmentListConstIt;
+
 /** Hash a Segment. */
 struct HashSegment {
     size_t operator()(const Segment& key) const {
