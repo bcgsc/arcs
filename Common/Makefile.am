@@ -14,6 +14,7 @@ libcommon_a_SOURCES = \
 	Dynamicofstream.cpp Dynamicofstream.h \
 	Estimate.h \
 	Fcontrol.cpp Fcontrol.h \
+	Fisher.h \
 	gzstream.C gzstream.h \
 	HashFunction.h \
 	IOUtil.h \
