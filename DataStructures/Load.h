@@ -183,7 +183,7 @@ static inline void readSAM(const std::string& path,
 			barcodeMult, segmentToBarcode);
 	} else {
 		std::ifstream in(path);
-		assert(in);
+		assert_good(in, path);
 		readSAM(in, scaffSizes, params, barcodeToIndex,
 			barcodeMult, segmentToBarcode);
 		in.close();
