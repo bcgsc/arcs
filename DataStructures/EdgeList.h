@@ -195,13 +195,13 @@ static inline void buildEdgeList(
 	BuildEdgeCounters edgeCounts;
 	const size_t edgeProgressStep = 100;
 	BuildEdgeCounters vertexCounts;
-	const size_t vertexProgressStep = 100;
+	const size_t vertexProgressStep = 10;
 
 	for (SharedBarcodeMapConstIt it1 = sharedBarcodeMap.begin();
-		it1 != sharedBarcodeMap.end(); ++it1, vertexCounts.processed++)
+		it1 != sharedBarcodeMap.end(); ++it1, vertexCounts.processed += 2)
 	{
 		if (vertexCounts.processed % vertexProgressStep == 0)
-			std::cerr << "vertex stats: " << edgeCounts;
+			std::cerr << "vertex stats: " << vertexCounts;
 
 		const ContigName& name1 = it1->first;
 		unsigned length1 = scaffSizeMap.at(name1);
