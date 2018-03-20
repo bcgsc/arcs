@@ -272,6 +272,10 @@ static inline void buildEdgeList(
 
 			if (ambiguous[sense1]) {
 				vertexCounts.ambiguous++;
+				streams.pairStatsOut
+					<< ContigSenseToString(ContigSense(name1, sense1)) << '\t'
+					<< "NA" << '\t'
+					<< BuildEdgeResultToString(ER_AMBIGUOUS) << '\n';
 				continue;
 			}
 
