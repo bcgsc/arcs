@@ -963,7 +963,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     pairContigs(imap, pmap, indexMultMap);
 
     time(&rawtime);
-    std::cout << "\n=> Creaeting the graph... " << ctime(&rawtime);
+    std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
     createGraph(pmap, g);
 
     if (params.dist_est) {
