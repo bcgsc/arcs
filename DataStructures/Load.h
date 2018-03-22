@@ -127,31 +127,23 @@ static inline std::istream& readSAM(std::istream& in,
 		if ((unsigned)si < params.identity)
 			continue;
 
-		/* calculate alignment span on reference */
-
-		unsigned tspan = 0;
-		if (sam.cigar == "*") {
-			tspan = sam.seq.empty() ? 1 : sam.seq.size();
-		} else {
-			SAMAlignment::CigarCoord cigar(sam.cigar);
-			tspan = cigar.tspan;
-		}
-
 		/* calculate contig segments overlapping alignment */
 
+		assert(sam.cigar != "*");
+		SAMAlignment::CigarCoord cigar(sam.cigar);
 		SegmentCalc calc(params.segmentSize);
 		unsigned length = scaffSizes.at(sam.rname);
 		std::pair<SegmentIndex, SegmentIndex> range;
 		bool valid;
 
 		/*
-		 * `SAMRecord` gives the zero-based position,
-		 * but `SegmentCalc` wants the original one-based position.
+		 * `SAMRecord` provides 0-based pos but `SegmentCalc`
+		 * requires 1-based pos
 		 */
 		sam.pos++;
 
 		boost::tie(range, valid) = calc.indexRange(
-			sam.pos, sam.pos + tspan - 1, length);
+			sam.pos, sam.pos + cigar.tspan - 1, length);
 		if (!valid)
 			continue;
 
