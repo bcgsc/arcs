@@ -40,8 +40,8 @@ static inline double fisher(
 	double logsum = 0.0;
 	unsigned segmentPairs = 0;
 	bool overflow = false;
-	for (unsigned i = 0; i < segments1; ++i) {
-		for (unsigned j = 0; j < segments2; ++j) {
+	for (unsigned i = 0; i < segments1 && !overflow; ++i) {
+		for (unsigned j = 0; j < segments2 && !overflow; ++j) {
 
 			/* compute distance between segments */
 
