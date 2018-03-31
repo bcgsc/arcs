@@ -19,6 +19,19 @@ AC_CHECK_LIB([dl], [dlopen])
 AC_TYPE_SIZE_T
 
 # Options to configure.
+
+# htslib (samtools parsing library)
+AC_ARG_WITH(htslib, AS_HELP_STRING([--with-htslib=PATH],
+[specify prefix directory for htslib (samtools parsing library)]))
+if test "$with_htslib" -a -d "$with_htslib"; then
+	htslib_cppflags="-isystem$with_htslib/include"
+	if test -d "$with_htslib/lib64"; then
+		htslib_ldflags="-L$with_htslib/lib64"
+	else
+		htslib_ldflags="-L$with_htslib/lib"
+	fi
+fi
+
 # Boost
 AC_ARG_WITH(boost, AS_HELP_STRING([--with-boost=PATH],
 			[specify directory for the boost header files]))
@@ -32,7 +45,8 @@ srcdir=$(cd $srcdir; pwd)
 # Set compiler flags.
 boost_ver=1.58.0
 boost_ver_dir=1_58_0
-AC_SUBST(CPPFLAGS,"-I$srcdir $boost_cppflags $CPPFLAGS -isystem$srcdir/$boost_ver_dir")
+AC_SUBST(CPPFLAGS,"-I$srcdir $htslib_cppflags $boost_cppflags $CPPFLAGS -isystem$srcdir/$boost_ver_dir")
+AC_SUBST(LDFLAGS, "$htslib_ldflags $LDFLAGS")
 
 # Checks for header files.
 AC_LANG([C++])	#sets the auto conf to look for c++ headers
@@ -41,6 +55,12 @@ AC_CHECK_HEADERS([boost/graph/adjacency_list.hpp])
 AC_CHECK_HEADERS([boost/graph/undirected_graph.hpp])
 AC_CHECK_HEADERS([boost/graph/graphviz.hpp])
 #AC_CHECK_HEADERS([zlib.h])
+
+# Check for htslib
+AC_CHECK_HEADERS([htslib/sam.h])
+if test x"$ac_cv_header_htslib_sam_h" != x"yes"; then
+	AC_MSG_ERROR([could not find dependency htslib (try --with-htslib=<path>)])
+fi
 
 # Check for Boost.
 if test $ac_cv_header_boost_graph_graphviz_hpp != yes; then
@@ -75,4 +95,3 @@ AC_CONFIG_FILES([
 		Test/Makefile
 ])
 AC_OUTPUT
-
