@@ -6,7 +6,6 @@ lib_data_structures_a_SOURCES = \
 	Barcode.h \
 	BarcodeToSegment.h \
 	Contig.h \
-	EdgeList.h \
 	Load.h \
 	ScaffSize.h \
 	Segment.h \
