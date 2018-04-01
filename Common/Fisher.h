@@ -1,6 +1,7 @@
 #ifndef _ARCS_FISHER_H_
 #define _ARCS_FISHER_H_ 1
 
+#include "Common/ContigNode.h"
 #include "DataStructures/Contig.h"
 #include "DataStructures/Segment.h"
 #include "DataStructures/SegmentToBarcode.h"
@@ -19,8 +20,8 @@
  * contig1 and contig2.
  */
 static inline double fisher(
-	const ContigSense& contig1, unsigned length1,
-	const ContigSense& contig2, unsigned length2,
+	const ContigNode& contig1, const std::string& name1, unsigned length1,
+	const ContigNode& contig2, const std::string& name2, unsigned length2,
 	const SegmentToBarcode& segmentToBarcode,
 	const DistanceModel& distModel, int dist,
 	std::ostream& segmentStatsOut)
@@ -45,10 +46,8 @@ static inline double fisher(
 
 			/* compute distance between segments */
 
-			unsigned start1 = calc.start(length1, i,
-				contig1.second == SENSE_REVERSE);
-			unsigned start2 = calc.start(length2, j,
-				contig2.second == SENSE_REVERSE);
+			unsigned start1 = calc.start(length1, i, contig1.sense());
+			unsigned start2 = calc.start(length2, j, contig2.sense());
 			unsigned end1 = start1 + segmentSize - 1;
 			unsigned end2 = start2 + segmentSize - 1;
 
@@ -74,15 +73,15 @@ static inline double fisher(
 
 			/* calculate p-value for segment pair at given distance */
 
-			Segment segment1(contig1.first, i);
-			Segment segment2(contig2.first, j);
+			Segment segment1(contig1.id(), i);
+			Segment segment2(contig2.id(), j);
 			double jacc = jaccard(segment1, segment2, segmentToBarcode);
 			double p = distModel.p(roundedSegmentDist, jacc);
 
 			segmentStatsOut
-				<< contig1.first << '\t'  /* id1 */
+				<< name1 << '\t'  /* id1 */
 				<< length1 << '\t'        /* length1 */
-				<< contig2.first << '\t'  /* id2 */
+				<< name2 << '\t'  /* id2 */
 				<< length2 << '\t'     /* l2 */
 				<< dist << '\t'        /* path_length */
 				<< i << '\t'           /* segment1 */

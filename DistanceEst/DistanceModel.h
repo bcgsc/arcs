@@ -43,7 +43,7 @@ public:
 			 it != scaffSizes.end(); ++it)
 		{
 			const ScaffSizeRec& rec = *it;
-			const std::string& id = rec.first;
+			ContigIndex id = it - scaffSizes.begin();
 			unsigned length = rec.second;
 
 			SegmentPairIterator pairIt(id, length, m_segmentSize);

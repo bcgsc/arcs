@@ -17,7 +17,7 @@ typedef unsigned SegmentIndex;
 typedef unsigned Position;
 
 /** One segment of a contig. */
-typedef std::pair<ContigName, SegmentIndex> Segment;
+typedef std::pair<ContigIndex, SegmentIndex> Segment;
 
 /** A list of segments */
 typedef std::vector<Segment> SegmentList;
@@ -26,7 +26,7 @@ typedef typename SegmentList::const_iterator SegmentListConstIt;
 /** Hash a Segment. */
 struct HashSegment {
     size_t operator()(const Segment& key) const {
-        return std::hash<ContigName>()(key.first)
+        return std::hash<ContigIndex>()(key.first)
             ^ std::hash<SegmentIndex>()(key.second);
     }
 };
@@ -192,12 +192,11 @@ public:
 
     SegmentPairIterator()
         : m_length(0), m_segmentSize(0), m_divisible(false),
-        m_pair(std::make_pair("", std::numeric_limits<unsigned>::max()),
-            std::make_pair("", std::numeric_limits<unsigned>::max()))
+        m_pair(std::make_pair((ContigIndex)-1, std::numeric_limits<unsigned>::max()),
+            std::make_pair((ContigIndex)-1, std::numeric_limits<unsigned>::max()))
     {}
 
-    SegmentPairIterator(const std::string& id,
-        unsigned length, unsigned segmentSize)
+    SegmentPairIterator(ContigIndex id, unsigned length, unsigned segmentSize)
     	: m_length(length), m_segmentSize(segmentSize),
         m_divisible(false), m_calc(segmentSize),
         m_pair(std::make_pair(id, std::numeric_limits<unsigned>::max()),

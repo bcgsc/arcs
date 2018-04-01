@@ -8,12 +8,12 @@
 #include <unordered_map>
 
 /** a contig ID and shared barcode count */
-typedef std::map<ContigName, BarcodeCount> ContigToCount;
+typedef std::map<ContigIndex, BarcodeCount> ContigToCount;
 typedef typename ContigToCount::const_iterator ContigToCountConstIt;
 typedef typename ContigToCount::iterator ContigToCountIt;
 
 /** maps contig => contigs with shared barcodes */
-typedef std::unordered_map<ContigName, ContigToCount> SharedBarcodeMap;
+typedef std::unordered_map<ContigIndex, ContigToCount> SharedBarcodeMap;
 typedef typename SharedBarcodeMap::const_iterator SharedBarcodeMapConstIt;
 typedef typename SharedBarcodeMap::iterator SharedBarcodeMapIt;
 

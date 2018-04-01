@@ -149,9 +149,9 @@ static inline void readSAM(const std::string& path,
 		/* identify contig segments overlapping alignment */
 
 		SegmentCalc calc(params.segmentSize);
+		ContigIndex contigIndex = rec->core.tid;
 
-		char* rname = header->target_name[rec->core.tid];
-		uint32_t rlen = header->target_len[rec->core.tid];
+		uint32_t rlen = header->target_len[contigIndex];
 		assert(rlen > 0);
 		int32_t pos = rec->core.pos + 1;
 		assert(pos > 0);
@@ -171,7 +171,7 @@ static inline void readSAM(const std::string& path,
 			continue;
 
 		/* record segment-to-barcode mappings */
-		Segment segment(rname, range.first);
+		Segment segment(contigIndex, range.first);
 		segmentToBarcode[segment][barcodeIndex]++;
 
 	}

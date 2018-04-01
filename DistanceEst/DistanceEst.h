@@ -541,7 +541,7 @@ static inline void writeDistTSV(const std::string& path,
 
 static inline void writeDistSample(
 	const Segment& segment1, const Segment& segment2,
-	unsigned length, unsigned dist,
+	const std::string& id, unsigned length, unsigned dist,
 	const SegmentToBarcode& segmentToBarcode,
 	unsigned segmentSize, std::ostream& out)
 {
@@ -562,14 +562,13 @@ static inline void writeDistSample(
 
 	SegmentCalc calc(segmentSize);
 
-	const std::string& id1 = segment1.first;
 	unsigned index1 = segment1.second;
 	unsigned start1 = calc.start(length, index1);
 
 	unsigned index2 = segment2.second;
 	unsigned start2 = calc.start(length, index2);
 
-	out << id1 << '\t'
+	out << id << '\t'
 		<< length << '\t'
 		<< index1 << '\t'
 		<< start1 << '\t'
@@ -609,12 +608,14 @@ static inline void writeDistSamplesTSV(
 
 	SegmentCalc calc(segmentSize);
 
-	for (const auto& rec : scaffSizes) {
+	typedef typename ARCS::ScaffSizeList::const_iterator ScaffSizeIt;
+	for (ScaffSizeIt it = scaffSizes.begin(); it != scaffSizes.end(); ++it) {
 
-		const std::string& id = rec.first;
-		unsigned length = rec.second;
+		ContigIndex contigIndex = it - scaffSizes.begin();
+		const std::string& id = it->first;
+		unsigned length = it->second;
 
-		SegmentPairIterator pairIt(id, length, segmentSize);
+		SegmentPairIterator pairIt(contigIndex, length, segmentSize);
 		SegmentPairIterator pairEnd;
 
 		for (; pairIt != pairEnd; ++pairIt) {
@@ -623,7 +624,7 @@ static inline void writeDistSamplesTSV(
 			unsigned dist = calc.start(length, segment2.second)
 				- calc.start(length, segment1.second);
 			writeDistSample(pairIt->first, pairIt->second,
-				length, dist, segmentToBarcode, segmentSize, out);
+				id, length, dist, segmentToBarcode, segmentSize, out);
 			}
 
 	}
