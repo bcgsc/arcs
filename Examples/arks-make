@@ -1,0 +1,162 @@
+#!/usr/bin/make -f
+# Pipeline for the ARKS program
+# Written by Jeffrey Tse
+#Default Parameters
+
+
+# Input Names 
+draft=draft
+reads=reads
+# tigmint Parameters
+minsize=2000
+as=0.65
+nm=5
+dist=50000
+mapq=0
+trim=0
+span=20
+window=1000
+
+# bwa Parameters
+t=8
+# ARKS Parameters
+c=5
+m=50-10000
+z=500
+j=0.55
+k=30
+r=0.05
+e=30000
+D=false
+o=0
+d=0
+B=20
+threads=1
+# LINKS Parameters
+l=5
+a=0.3
+bin=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+
+.PHONY: all version help tigmint arks arks-tigmint
+.DELETE_ON_ERROR:
+.PRECIOUS: %_c$c_m$m_k$k_r$r_e$e.tigpair_checkpoint.tsv %_c$c_m$m_k$k_r$r_e$e_original.gv 
+
+all: help 
+# Help
+help:
+	@echo "Usage: ./arks-make [COMMAND] [OPTION=VALUE]..."
+	@echo "    Commands:"
+	@echo ""
+	@echo "	arks            run arks only, skipping tigmint"
+	@echo "	arks-tigmint    run tigmint, and run arks with output of tigmint"
+	@echo "	help            display this help page"
+	@echo "	version         display the software version"
+	@echo ""
+	@echo "    General Options:"
+	@echo ""
+	@echo "	draft           draft name [draft]. File must have .fasta or .fa extension"
+	@echo "	reads           read name [reads]. File must have .fastq.gz or .fq.gz extension"
+	@echo ""
+	@echo "    Tigmint Options:"
+	@echo ""
+	@echo "	minsize         minimum molecule size [2000]"
+	@echo "	as              minimum AS/read length ratio [0.65]"
+	@echo "	nm              maximum number of mismatches [5]"
+	@echo "	dist            max dist between reads to be considered the same molecule [50000]"
+	@echo "	mapq            mapping quality threshold [0]"
+	@echo "	trim            bp of contigs to trim after cutting at error [0]"
+	@echo "	span            min number of spanning molecules to be considered assembled [20]"
+	@echo "	window          window size for checking spanning molecules [1000]"
+	@echo "	t               number of threads used [8]"
+	@echo ""                    
+	@echo "    ARKS Options:"
+	@echo ""
+	@echo "	c               minimum aligned read pairs per barcode mapping [5]"
+	@echo "	m               barcode multiplicty range [50-10000]"
+	@echo "	z               minimum contig length [500]"
+	@echo "	k               k-mer size [30]"
+	@echo "	j               min jaccard index for a read to be associated with a contigID [0.55]"
+	@echo "	r               p-value for head/tail assigment and link orientation [0.05]"
+	@echo "	e               contig head/tail length for masking aligments [30000]"
+	@echo "	D               enable distance estimation [false]"
+	@echo "	o               0 = no checkpoint files (default)"
+	@echo "	                1 = produces output of kmerized draft"
+	@echo "	                2 = produces output of aligning chromium to draft"
+	@echo "	                3 = produces both 1 and 2"
+	@echo "	B               estimate distance using N closest Jaccard scores [20]"
+	@echo "	d               max node degree in scaffold graph [0]"
+	@echo "	threads         numer of threads used for ARKS [1]"
+	@echo ""
+	@echo "    LINKS Options:"
+	@echo ""
+	@echo "	l               minimum number of links to compute scaffold [5]"
+	@echo "	a               maximum link ratio between two best contig pairs [0.3]"
+	@echo ""
+	@echo "Example: To run tigmint and arks with myDraft.fa, myReads.fq.gz, and a custom multiplicty range, run:"
+	@echo "	./arks-make arks-tigmint draft=myDraft reads=myReads m=[User defined multiplicty range]"
+	@echo "To ensure that the pipeline runs correctly, make sure that the following tools are in your PATH: bwa, tigmint, samtools, arks (>= v1.0.2), LINKS (>= v1.8.6)"
+# Version
+version:
+	@echo "ARKS 0.0"
+
+#Preprocessing
+
+# Create a .fa file that is soft linked to .fasta 
+%.fa: %.fasta
+	ln -s $^ $@
+
+# Create a .fq.gz file that is soft linked to .fastq.gz 
+%.fq.gz: %.fastq.gz
+	ln -s $^ $@
+
+
+#Run Tigmint
+arks-tigmint: tigmint arks-with-tigmint
+
+# Main
+tigmint: $(draft).tigmint.fa
+
+
+# Run tigmint
+$(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
+	tigmint tigmint draft=$(draft) reads=$(reads) minsize=$(minsize) as=$(as) nm=$(nm) dist=$(dist) mapq=$(mapq) trim=$(trim) span=$(span) window=$(window) t=$t	
+
+#Run ARKS
+arks: $(draft)_c$c_m$m_z$z_k$k_r$r_e$e_l$l_a$a.scaffolds.fa
+arks-with-tigmint: $(draft).tigmint_c$c_m$m_z$z_k$k_r$r_e$e_l$l_a$a.scaffolds.fa
+
+# Rename the draft headers
+%.renamed.fa: %.fa
+	perl -ne 'chomp; if(/>/){$$ct+=1; print ">$$ct\n";}else{print "$$_\n";} ' < $^ > $@ 
+
+# Make fof file containing the reads filename
+$(reads).fof: $(reads).fq.gz
+	echo $^ > $@
+
+# Create the barcode multiplicities file
+$(reads)_multiplicities.csv: $(reads).fof
+	$(bin)../bin/calcBarcodeMultiplicities.pl $^ > $@
+
+# Run ARKS Program
+%_c$c_m$m_k$k_r$r_e$e_original.gv: %.renamed.fa $(reads)_multiplicities.csv $(reads).fq.gz
+ifneq ($D, true)
+	arks -p full -v -f $< -a $(word 2,$^) -c $c -t $(threads) -j $j -o $o -m $m -k $k -r $r -e $e -d $d -b $(patsubst %_original.gv,%,$@) $(word 3,$^)
+else
+	arks -p full -D -B $B -v -f $< -a $(word 2,$^) -c $c -t $(threads) -j $j -o $o -m $m -k $k -r $r -e $e -d $d -b $(patsubst %_original.gv,%,$@) $(word 3,$^)
+endif
+
+# Generate TSV from ARKS
+%_c$c_m$m_k$k_r$r_e$e.tigpair_checkpoint.tsv: %_c$c_m$m_k$k_r$r_e$e_original.gv %.renamed.fa
+	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^) 
+
+# Adds a and l paramters to the filename
+%_c$c_m$m_z$z_k$k_r$r_e$e_l$l_a$a.tigpair_checkpoint.tsv: %_c$c_m$m_k$k_r$r_e$e.tigpair_checkpoint.tsv
+	ln -s $^ $@
+
+# Make an Empty fof File
+empty.fof:
+	touch $@
+
+# Run LINKS
+%_c$c_m$m_z$z_k$k_r$r_e$e_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_z$z_k$k_r$r_e$e_l$l_a$a.tigpair_checkpoint.tsv
+	LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z 
