@@ -1,4 +1,10 @@
-2017-03-12  Ben Vandervalk <benv@bcgsc.ca>
+2018-04-13  Shaun Jackman <sjackman@bcgsc.ca>
+
+	* Release version 1.0.3.
+	* Use BX tag by default if present. The option `--bx` now has no effect.
+	* Read the FASTA sequence lengths from the SAM header.
+
+2018-03-12  Ben Vandervalk <benv@bcgsc.ca>
 
 	* Release version v1.0.2
 	* added `--bx` option to parse Chromium barcodes from BX tag
