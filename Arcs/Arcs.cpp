@@ -74,7 +74,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
 "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:x:r:v";
 
 enum {
     OPT_HELP = 1,
@@ -114,6 +114,7 @@ static const struct option longopts[] = {
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
+    {"dist_length", required_argument, NULL, 'x'},
     {"error_percent", required_argument, NULL, 'r'},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
@@ -230,7 +231,10 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
  */
-void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
+void readBAM(const std::string bamName, 
+        ARCS::IndexMap& imap, 
+        ARCS::IndexMap& dmap, 
+        std::unordered_map<std::string, int>& indexMultMap,
         ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& sMap)
 {
     /* Open BAM file */
@@ -356,6 +360,12 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                            int cutOff = params.end_length;
                            if (cutOff == 0 || size <= cutOff * 2)
                                cutOff = size/2;
+                           /*
+                            * If length of sequence is less than 2 x end_length,
+                            * the end_length is cut in half. If the length is 
+                            * still less than 2 x end_length, the sequence is 
+                            * ignored.
+                            */
 
                            /*
                             * pair <X, true> indicates read pair aligns to head,
@@ -377,6 +387,24 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
                                if (imap[readyToAddIndex].count(key) == 0)
                                    imap[readyToAddIndex][key] = 0;
+                           }
+                           int distEstCutOff = params.dist_length;
+                           if (distEstCutOff != 0 && size > distEstCutOff * 2){
+
+                               /* Aligns to head */
+                               if (readyToAddPos <= distEstCutOff) {
+                                   dmap[readyToAddIndex][key]++;
+
+                                   if (dmap[readyToAddIndex].count(keyR) == 0)
+                                       dmap[readyToAddIndex][keyR] = 0;
+
+                                   /* Aligns to tail */
+                               } else if (readyToAddPos > size - distEstCutOff) {
+                                   dmap[readyToAddIndex][keyR]++;
+
+                                   if (dmap[readyToAddIndex].count(key) == 0)
+                                       dmap[readyToAddIndex][key] = 0;
+                               }
                            }
 
                         }
@@ -445,14 +473,16 @@ static std::vector<std::string> readFof(const std::string& fofName)
 /**
  * Read the BAM files.
  */
-void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
+void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, 
+        ARCS::IndexMap& dmap, 
+        std::unordered_map<std::string, int>& indexMultMap,
         ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& scaffSizeMap)
 {
     assert(!bamNames.empty());
     for (const auto& bamName : bamNames) {
         if (params.verbose)
             std::cout << "Reading alignments: " << bamName << std::endl;
-        readBAM(bamName, imap, indexMultMap, scaffSizeList, scaffSizeMap);
+        readBAM(bamName, imap, dmap, indexMultMap, scaffSizeList, scaffSizeMap);
     }
 }
 
@@ -857,6 +887,7 @@ static const char* maybeNA(const std::string& s)
  * barcodes between contig ends
  */
 static inline void calcDistanceEstimates(
+    const ARCS::IndexMap& dmap, 
     const ARCS::IndexMap& imap,
     const std::unordered_map<std::string, int> &indexMultMap,
     const ARCS::ContigToLength& contigToLength,
@@ -868,7 +899,7 @@ static inline void calcDistanceEstimates(
     std::cout << "\n\t=> Measuring intra-contig distances / shared barcodes... "
         << ctime(&rawtime);
     DistSampleMap distSamples;
-    calcDistSamples(imap, contigToLength, indexMultMap, params, distSamples);
+    calcDistSamples(dmap, contigToLength, indexMultMap, params, distSamples);
 
     time(&rawtime);
     std::cout << "\n\t=> Writing intra-contig distance samples to TSV... "
@@ -908,6 +939,7 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -c " << params.min_reads
         << "\n -d " << params.max_degree
         << "\n -e " << params.end_length
+        << "\n -x " << params.dist_length
         << "\n -l " << params.min_links
         << "\n -m " << params.min_mult << '-' << params.max_mult
         << "\n -r " << params.error_percent
@@ -929,6 +961,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::cout.flush();
 
     ARCS::IndexMap imap;
+    ARCS::IndexMap dmap;
     ARCS::PairMap pmap;
     ARCS::Graph g;
 
@@ -948,7 +981,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
     std::vector<std::string> bamFiles = readFof(params.fofName);
     std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
-    readBAMS(bamFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap);
+    readBAMS(bamFiles, imap, dmap, indexMultMap, scaffSizeList, scaffSizeMap);
 
     size_t barcodeCount = countBarcodes(imap, indexMultMap);
 
@@ -968,7 +1001,7 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     if (params.dist_est) {
         std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
-        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+        calcDistanceEstimates(dmap, imap, indexMultMap, scaffSizeMap, g);
     }
 
     if (!params.base_name.empty()) {
@@ -1056,6 +1089,8 @@ int main(int argc, char** argv) {
                 arg >> params.max_degree; break;
             case 'e':
                 arg >> params.end_length; break;
+            case 'x':
+                arg >> params.dist_length; break;
             case 'r':
                 arg >> params.error_percent; break;
             case 'v':
