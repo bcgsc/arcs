@@ -11,6 +11,7 @@
 #include <cmath>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <fstream>
 #include <sstream>
 #include <utility>
@@ -19,6 +20,7 @@
 #include <time.h>
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/graphviz.hpp>
+#include <boost/functional/hash.hpp>
 #include "Common/Uncompress.h"
 #include "DataLayer/FastaReader.h"
 #include "DataLayer/FastaReader.cpp"
@@ -90,6 +92,7 @@ namespace ARCS {
     typedef typename ScafMap::const_iterator ScafMapConstIt;
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap;
+    typedef std::unordered_map<int, IndexMap> DistanceMap;
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
     typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
 

@@ -39,6 +39,7 @@ AC_LANG([C++])	#sets the auto conf to look for c++ headers
 AC_CHECK_HEADERS([boost/graph/graph_traits.hpp])
 AC_CHECK_HEADERS([boost/graph/adjacency_list.hpp])
 AC_CHECK_HEADERS([boost/graph/undirected_graph.hpp])
+AC_CHECK_HEADERS([boost/functional/hash.hpp])
 AC_CHECK_HEADERS([boost/graph/graphviz.hpp])
 #AC_CHECK_HEADERS([zlib.h])
 

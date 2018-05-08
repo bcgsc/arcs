@@ -233,7 +233,7 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
  */
 void readBAM(const std::string bamName, 
         ARCS::IndexMap& imap, 
-        ARCS::IndexMap& dmap, 
+        ARCS::DistanceMap& dmap, 
         std::unordered_map<std::string, int>& indexMultMap,
         ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& sMap)
 {
@@ -388,22 +388,23 @@ void readBAM(const std::string bamName,
                                if (imap[readyToAddIndex].count(key) == 0)
                                    imap[readyToAddIndex][key] = 0;
                            }
-                           int distEstCutOff = params.dist_length;
-                           if (distEstCutOff != 0 && size > distEstCutOff * 2){
+                           for (int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000) {
+                               if (size < distEstCutOff * 2){
 
-                               /* Aligns to head */
-                               if (readyToAddPos <= distEstCutOff) {
-                                   dmap[readyToAddIndex][key]++;
+                                   /* Aligns to head */
+                                   if (readyToAddPos <= distEstCutOff) {
+                                       dmap[distEstCutOff][readyToAddIndex][key]++;
 
-                                   if (dmap[readyToAddIndex].count(keyR) == 0)
-                                       dmap[readyToAddIndex][keyR] = 0;
+                                       if (dmap[distEstCutOff][readyToAddIndex].count(keyR) == 0)
+                                           dmap[distEstCutOff][readyToAddIndex][keyR] = 0;
 
-                                   /* Aligns to tail */
-                               } else if (readyToAddPos > size - distEstCutOff) {
-                                   dmap[readyToAddIndex][keyR]++;
+                                       /* Aligns to tail */
+                                   } else if (readyToAddPos > size - distEstCutOff) {
+                                       dmap[distEstCutOff][readyToAddIndex][keyR]++;
 
-                                   if (dmap[readyToAddIndex].count(key) == 0)
-                                       dmap[readyToAddIndex][key] = 0;
+                                       if (dmap[distEstCutOff][readyToAddIndex].count(key) == 0)
+                                           dmap[distEstCutOff][readyToAddIndex][key] = 0;
+                                   }
                                }
                            }
 
@@ -474,7 +475,7 @@ static std::vector<std::string> readFof(const std::string& fofName)
  * Read the BAM files.
  */
 void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, 
-        ARCS::IndexMap& dmap, 
+        ARCS::DistanceMap& dmap, 
         std::unordered_map<std::string, int>& indexMultMap,
         ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& scaffSizeMap)
 {
@@ -538,53 +539,57 @@ std::pair<bool, bool> headOrTail(int head, int tail) {
  * is a map with a key of pairs of saffold names, and value
  * of number of links between the pair. (Each link is one index).
  */
-void pairContigs(ARCS::IndexMap& imap, ARCS::PairMap& pmap, std::unordered_map<std::string, int>& indexMultMap) {
+void pairContigs(ARCS::DistanceMap& dmap, std::vector<ARCS::PairMap>& pmapVec, std::unordered_map<std::string, int>& indexMultMap) {
 
     /* Iterate through each index in IndexMap */
-    for(auto it = imap.begin(); it != imap.end(); ++it) {
+    for(int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000){
+        ARCS::PairMap pmap;
+        for(auto it = dmap[distEstCutOff].begin(); it != dmap[distEstCutOff].end(); ++it) {
 
-        /* Get index multiplicity from indexMultMap */
-        std::string index = it->first;
-        int indexMult = indexMultMap[index];
+            /* Get index multiplicity from indexMultMap */
+            std::string index = it->first;
+            int indexMult = indexMultMap[index];
 
-        if (indexMult >= params.min_mult && indexMult <= params.max_mult) {
+            if (indexMult >= params.min_mult && indexMult <= params.max_mult) {
 
-           /* Iterate through all the scafNames in ScafMap */
-            for (auto o = it->second.begin(); o != it->second.end(); ++o) {
-                for (auto p = it->second.begin(); p != it->second.end(); ++p) {
-                    std::string scafA, scafB;
-                    bool scafAflag, scafBflag;
-                    std::tie (scafA, scafAflag) = o->first;
-                    std::tie (scafB, scafBflag) = p->first;
+                /* Iterate through all the scafNames in ScafMap */
+                for (auto o = it->second.begin(); o != it->second.end(); ++o) {
+                    for (auto p = it->second.begin(); p != it->second.end(); ++p) {
+                        std::string scafA, scafB;
+                        bool scafAflag, scafBflag;
+                        std::tie (scafA, scafAflag) = o->first;
+                        std::tie (scafB, scafBflag) = p->first;
 
-                    /* Only insert into pmap if scafA < scafB to avoid duplicates */
-                    if (scafA < scafB && scafAflag && scafBflag) {
-                        bool validA, validB, scafAhead, scafBhead;
+                        /* Only insert into pmap if scafA < scafB to avoid duplicates */
+                        if (scafA < scafB && scafAflag && scafBflag) {
+                            bool validA, validB, scafAhead, scafBhead;
 
-                        std::tie(validA, scafAhead) = headOrTail(it->second[ScaffoldEnd(scafA, true)], it->second[ScaffoldEnd(scafA, false)]);
-                        std::tie(validB, scafBhead) = headOrTail(it->second[ScaffoldEnd(scafB, true)], it->second[ScaffoldEnd(scafB, false)]);
+                            std::tie(validA, scafAhead) = headOrTail(it->second[ScaffoldEnd(scafA, true)], it->second[ScaffoldEnd(scafA, false)]);
+                            std::tie(validB, scafBhead) = headOrTail(it->second[ScaffoldEnd(scafB, true)], it->second[ScaffoldEnd(scafB, false)]);
 
-                        if (validA && validB) {
-                            std::pair<std::string, std::string> pair (scafA, scafB);
-                            if (pmap.count(pair) == 0)
-                                pmap[pair].resize(4);
-                            // Head - Head
-                            if (scafAhead && scafBhead)
-                                pmap[pair][0]++;
-                            // Head - Tail
-                            else if (scafAhead && !scafBhead)
-                                pmap[pair][1]++;
-                            // Tail - Head
-                            else if (!scafAhead && scafBhead)
-                                pmap[pair][2]++;
-                            // Tail - Tail
-                            else if (!scafAhead && !scafBhead)
-                                pmap[pair][3]++;
+                            if (validA && validB) {
+                                std::pair<std::string, std::string> pair (scafA, scafB);
+                                if (pmap.count(pair) == 0)
+                                    pmap[pair].resize(4);
+                                // Head - Head
+                                if (scafAhead && scafBhead)
+                                    pmap[pair][0]++;
+                                // Head - Tail
+                                else if (scafAhead && !scafBhead)
+                                    pmap[pair][1]++;
+                                // Tail - Head
+                                else if (!scafAhead && scafBhead)
+                                    pmap[pair][2]++;
+                                // Tail - Tail
+                                else if (!scafAhead && !scafBhead)
+                                    pmap[pair][3]++;
+                            }
                         }
                     }
                 }
             }
         }
+        pmapVec.push_back(pmap);
     }
 }
 
@@ -622,50 +627,54 @@ bool checkSignificance(int max, int second) {
  * between the scafNames.
  * VidVdes is a mapping of vertex descriptors to scafNames (vertex id).
  */
-void createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g) {
+void createGraph(const std::vector<ARCS::PairMap>& pmapVec, ARCS::Graph& g) {
+    std::unordered_set<std::pair<std::string, std::string>, boost::hash<std::pair<std::string, std::string>>> pairSet;
 
-    ARCS::VidVdesMap vmap;
+    for(auto pmap : pmapVec){
+        ARCS::VidVdesMap vmap;
 
-    ARCS::PairMap::const_iterator it;
-    for(it = pmap.begin(); it != pmap.end(); ++it) {
-        std::string scaf1, scaf2;
-        std::tie (scaf1, scaf2) = it->first;
+        ARCS::PairMap::const_iterator it;
+        for(it = pmap.begin(); it != pmap.end(); ++it) {
+            std::string scaf1, scaf2;
+            std::tie (scaf1, scaf2) = it->first;
 
-        unsigned max, index;
-        const auto& count = it->second;
-        std::tie(max, index) = getMaxValueAndIndex(count);
+            unsigned max, index;
+            const auto& count = it->second;
+            std::tie(max, index) = getMaxValueAndIndex(count);
 
-        unsigned second = 0;
-        for (unsigned i = 0; i < count.size(); ++i) {
-            if (count[i] != max && count[i] > second)
-                second = count[i];
-        }
-
-        /* Only insert edge if orientation with max links is dominant */
-        if (checkSignificance(max, second)) {
-
-            /* If scaf1 is not a node in the graph, add it */
-            if (vmap.count(scaf1) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf1;
-                vmap[scaf1] = v;
+            unsigned second = 0;
+            for (unsigned i = 0; i < count.size(); ++i) {
+                if (count[i] != max && count[i] > second)
+                    second = count[i];
             }
 
-            /* If scaf2 is not a node in the graph, add it */
-            if (vmap.count(scaf2) == 0) {
-                ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                g[v].id = scaf2;
-                vmap[scaf2] = v;
-            }
+            /* Only insert edge if orientation with max links is dominant */
+            if (checkSignificance(max, second)) {
+                if(pairSet.insert(it->first).second){}
 
-            ARCS::Graph::edge_descriptor e;
-            bool inserted;
+                /* If scaf1 is not a node in the graph, add it */
+                if (vmap.count(scaf1) == 0) {
+                    ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                    g[v].id = scaf1;
+                    vmap[scaf1] = v;
+                }
 
-            /* Add the edge representing the pair */
-            std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-            if (inserted) {
-                g[e].weight = max;
-                g[e].orientation = index;
+                /* If scaf2 is not a node in the graph, add it */
+                if (vmap.count(scaf2) == 0) {
+                    ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                    g[v].id = scaf2;
+                    vmap[scaf2] = v;
+                }
+
+                ARCS::Graph::edge_descriptor e;
+                bool inserted;
+
+                /* Add the edge representing the pair */
+                std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
+                if (inserted) {
+                    g[e].weight = max;
+                    g[e].orientation = index;
+                }
             }
         }
     }
@@ -824,7 +833,7 @@ void writeBarcodeCountsTSV(
 void writeTSV(
         const std::string& tsvFile,
         const ARCS::IndexMap& imap,
-        const ARCS::PairMap& pmap,
+        const std::vector<ARCS::PairMap>& pmapVec,
         size_t barcodeCount)
 {
     assert(!tsvFile.empty());
@@ -844,33 +853,35 @@ void writeTSV(
     assert_good(f, tsvFile);
     f << "U\tV\tBest_orientation\tShared_barcodes\tU_barcodes\tV_barcodes\tAll_barcodes\n";
     assert_good(f, tsvFile);
-    for (const auto& it : pmap) {
-        const auto& u = it.first.first;
-        const auto& v = it.first.second;
-        const auto& counts = it.second;
-        assert(!counts.empty());
-        unsigned max_counts = *std::max_element(counts.begin(), counts.end());
-        for (unsigned i = 0; i < counts.size(); ++i) {
-            if (counts[i] == 0)
-                continue;
-            bool usense = i < 2;
-            bool vsense = i % 2;
-            f << u << (usense ? '-' : '+')
-                << '\t' << v << (vsense ? '-' : '+')
-                << '\t' << (counts[i] == max_counts ? "T" : "F")
-                << '\t' << counts[i]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
-                << '\t' << barcodeCount
-                << '\n';
-            f << v << (vsense ? '+' : '-')
-                << '\t' << u << (usense ? '+' : '-')
-                << '\t' << (counts[i] == max_counts ? "T" : "F")
-                << '\t' << counts[i]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
-                << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
-                << '\t' << barcodeCount
-                << '\n';
+    for (auto pmap : pmapVec){
+        for (const auto& it : pmap) {
+            const auto& u = it.first.first;
+            const auto& v = it.first.second;
+            const auto& counts = it.second;
+            assert(!counts.empty());
+            unsigned max_counts = *std::max_element(counts.begin(), counts.end());
+            for (unsigned i = 0; i < counts.size(); ++i) {
+                if (counts[i] == 0)
+                    continue;
+                bool usense = i < 2;
+                bool vsense = i % 2;
+                f << u << (usense ? '-' : '+')
+                    << '\t' << v << (vsense ? '-' : '+')
+                    << '\t' << (counts[i] == max_counts ? "T" : "F")
+                    << '\t' << counts[i]
+                    << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
+                    << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
+                    << '\t' << barcodeCount
+                    << '\n';
+                f << v << (vsense ? '+' : '-')
+                    << '\t' << u << (usense ? '+' : '-')
+                    << '\t' << (counts[i] == max_counts ? "T" : "F")
+                    << '\t' << counts[i]
+                    << '\t' << barcodes_per_scaffold_end[std::make_pair(v, !vsense)]
+                    << '\t' << barcodes_per_scaffold_end[std::make_pair(u, usense)]
+                    << '\t' << barcodeCount
+                    << '\n';
+            }
         }
     }
     assert_good(f, tsvFile);
@@ -887,7 +898,7 @@ static const char* maybeNA(const std::string& s)
  * barcodes between contig ends
  */
 static inline void calcDistanceEstimates(
-    const ARCS::IndexMap& dmap, 
+    const ARCS::DistanceMap& dmap, 
     const ARCS::IndexMap& imap,
     const std::unordered_map<std::string, int> &indexMultMap,
     const ARCS::ContigToLength& contigToLength,
@@ -961,8 +972,8 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::cout.flush();
 
     ARCS::IndexMap imap;
-    ARCS::IndexMap dmap;
-    ARCS::PairMap pmap;
+    ARCS::DistanceMap dmap;
+    std::vector<ARCS::PairMap> pmapVec;
     ARCS::Graph g;
 
     std::time_t rawtime;
@@ -993,11 +1004,11 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     time(&rawtime);
     std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
-    pairContigs(imap, pmap, indexMultMap);
+    pairContigs(dmap, pmapVec, indexMultMap);
 
     time(&rawtime);
     std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
-    createGraph(pmap, g);
+    createGraph(pmapVec, g);
 
     if (params.dist_est) {
         std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
@@ -1025,7 +1036,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     if (!params.tsv_name.empty()) {
         time(&rawtime);
         std::cout << "\n=> Writing TSV file... " << ctime(&rawtime) << "\n";
-        writeTSV(params.tsv_name, imap, pmap, barcodeCount);
+        writeTSV(params.tsv_name, imap, pmapVec, barcodeCount);
     }
 
     time(&rawtime);

@@ -79,76 +79,77 @@ typedef typename PairToBarcodeStats::iterator PairToBarcodeStatsIt;
  * Measure distance between contig ends vs.
  * barcode intersection size and barcode union size.
  */
-void calcDistSamples(const ARCS::IndexMap& dmap,
+void calcDistSamples(const ARCS::DistanceMap& dmap,
         const ARCS::ContigToLength& contigToLength,
         const std::unordered_map<std::string, int>& indexMultMap,
         const ARCS::ArcsParams& params,
         DistSampleMap& distSamples)
 {
     /* for each chromium barcode */
-    for (auto barcodeIt = dmap.begin(); barcodeIt != dmap.end();
-            ++barcodeIt)
-    {
-        /* skip barcodes outside of min/max multiplicity range */
-        std::string index = barcodeIt->first;
-        int indexMult = indexMultMap.at(index);
-        if (indexMult < params.min_mult || indexMult > params.max_mult)
-            continue;
-
-        /* contig head/tail => number of mapped read pairs */
-        const ARCS::ScafMap& contigToCount = barcodeIt->second;
-
-        for (auto contigIt = contigToCount.begin();
-                contigIt != contigToCount.end(); ++contigIt)
+    for (int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000){
+        for (auto barcodeIt = dmap.at(distEstCutOff).begin(); barcodeIt != dmap.at(distEstCutOff).end(); ++barcodeIt)
         {
-            std::string contigID;
-            bool isHead;
-            std::tie(contigID, isHead) = contigIt->first;
-            int readPairs = contigIt->second;
-
-            /*
-             * skip contigs with less than required number of
-             * mapped read pairs (-c option)
-             */
-            if (readPairs < params.min_reads)
+            /* skip barcodes outside of min/max multiplicity range */
+            std::string index = barcodeIt->first;
+            int indexMult = indexMultMap.at(index);
+            if (indexMult < params.min_mult || indexMult > params.max_mult)
                 continue;
 
-            /*
-             * skip contigs shorter than 2 times the contig
-             * end length, because we want our distance samples
-             * to be based on a uniform head/tail length
-             */
+            /* contig head/tail => number of mapped read pairs */
+            const ARCS::ScafMap& contigToCount = barcodeIt->second;
 
-            unsigned l = contigToLength.at(contigID);
-            if (l < (unsigned) 2 * params.dist_length)
-                continue;
-            DistSample& distSample = distSamples[contigID];
-            distSample.distance = l - 2 * params.dist_length;
+            for (auto contigIt = contigToCount.begin();
+                    contigIt != contigToCount.end(); ++contigIt)
+            {
+                std::string contigID;
+                bool isHead;
+                std::tie(contigID, isHead) = contigIt->first;
+                int readPairs = contigIt->second;
 
-            if (isHead)
-                distSample.barcodesHead++;
-            else
-                distSample.barcodesTail++;
+                /*
+                 * skip contigs with less than required number of
+                 * mapped read pairs (-c option)
+                 */
+                if (readPairs < params.min_reads)
+                    continue;
 
-            /*
-             * Check if barcode also maps to other end of contig
-             * with sufficient number of read pairs.
-             *
-             * The `isHead` part of the `if` condition prevents
-             * double-counting when a barcode maps to both
-             * ends of a contig.
-             */
+                /*
+                 * skip contigs shorter than 2 times the contig
+                 * end length, because we want our distance samples
+                 * to be based on a uniform head/tail length
+                 */
 
-            ARCS::CI otherEnd(contigID, !isHead);
-            ARCS::ScafMapConstIt otherIt = contigToCount.find(otherEnd);
-            bool foundOther = otherIt != contigToCount.end()
-                && otherIt->second >= params.min_reads;
+                unsigned l = contigToLength.at(contigID);
+                if (l < (unsigned) 2 * params.dist_length)
+                    continue;
+                DistSample& distSample = distSamples[contigID];
+                distSample.distance = l - 2 * params.dist_length;
 
-            if (foundOther && isHead) {
-                distSample.barcodesIntersect++;
-                distSample.barcodesUnion++;
-            } else if (!foundOther) {
-                distSample.barcodesUnion++;
+                if (isHead)
+                    distSample.barcodesHead++;
+                else
+                    distSample.barcodesTail++;
+
+                /*
+                 * Check if barcode also maps to other end of contig
+                 * with sufficient number of read pairs.
+                 *
+                 * The `isHead` part of the `if` condition prevents
+                 * double-counting when a barcode maps to both
+                 * ends of a contig.
+                 */
+
+                ARCS::CI otherEnd(contigID, !isHead);
+                ARCS::ScafMapConstIt otherIt = contigToCount.find(otherEnd);
+                bool foundOther = otherIt != contigToCount.end()
+                    && otherIt->second >= params.min_reads;
+
+                if (foundOther && isHead) {
+                    distSample.barcodesIntersect++;
+                    distSample.barcodesUnion++;
+                } else if (!foundOther) {
+                    distSample.barcodesUnion++;
+                }
             }
         }
     }
