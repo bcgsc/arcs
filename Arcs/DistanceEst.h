@@ -120,10 +120,11 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
                  */
 
                 unsigned l = contigToLength.at(contigID);
-                if (l < (unsigned) 2 * params.dist_length)
+                if (l < (unsigned) 2 * distEstCutOff){
                     continue;
+                }
                 DistSample& distSample = distSamples[contigID];
-                distSample.distance = l - 2 * params.dist_length;
+                distSample.distance = l - 2 * distEstCutOff; 
 
                 if (isHead)
                     distSample.barcodesHead++;
@@ -204,13 +205,16 @@ static inline bool validBarcodeMapping(unsigned contigLength,
     if (pairs < params.min_reads)
         return false;
 
+
     /*
      * skip contigs shorter than 2 times the assigned 
      * end length, our distance samples are based
      * based on a uniform head/tail length
      */
 
-    if (contigLength < unsigned(2 * params.end_length))
+    int cutOff = params.end_length - (params.end_length /10000 - 1) * 10000;
+    
+    if (contigLength < unsigned(2 * cutOff))
         return false;
 
     return true;

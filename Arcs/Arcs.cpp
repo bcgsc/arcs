@@ -389,7 +389,7 @@ void readBAM(const std::string bamName,
                                    imap[readyToAddIndex][key] = 0;
                            }
                            for (int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000) {
-                               if (size < distEstCutOff * 2){
+                               if (size > distEstCutOff * 2){
 
                                    /* Aligns to head */
                                    if (readyToAddPos <= distEstCutOff) {
@@ -543,6 +543,7 @@ void pairContigs(ARCS::DistanceMap& dmap, std::vector<ARCS::PairMap>& pmapVec, s
 
     /* Iterate through each index in IndexMap */
     for(int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000){
+        std::cout << "Making pairing for " << distEstCutOff << std::endl;
         ARCS::PairMap pmap;
         for(auto it = dmap[distEstCutOff].begin(); it != dmap[distEstCutOff].end(); ++it) {
 
@@ -648,32 +649,34 @@ void createGraph(const std::vector<ARCS::PairMap>& pmapVec, ARCS::Graph& g) {
                     second = count[i];
             }
 
-            /* Only insert edge if orientation with max links is dominant */
+                /* Only insert edge if orientation with max links is dominant */
             if (checkSignificance(max, second)) {
-                if(pairSet.insert(it->first).second){}
+                // Adds to graph if pair hasn't been added yet 
+                if(pairSet.insert(it->first).second){
 
-                /* If scaf1 is not a node in the graph, add it */
-                if (vmap.count(scaf1) == 0) {
-                    ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                    g[v].id = scaf1;
-                    vmap[scaf1] = v;
-                }
+                    /* If scaf1 is not a node in the graph, add it */
+                    if (vmap.count(scaf1) == 0) {
+                        ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                        g[v].id = scaf1;
+                        vmap[scaf1] = v;
+                    }
 
-                /* If scaf2 is not a node in the graph, add it */
-                if (vmap.count(scaf2) == 0) {
-                    ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
-                    g[v].id = scaf2;
-                    vmap[scaf2] = v;
-                }
+                    /* If scaf2 is not a node in the graph, add it */
+                    if (vmap.count(scaf2) == 0) {
+                        ARCS::Graph::vertex_descriptor v = boost::add_vertex(g);
+                        g[v].id = scaf2;
+                        vmap[scaf2] = v;
+                    }
 
-                ARCS::Graph::edge_descriptor e;
-                bool inserted;
+                    ARCS::Graph::edge_descriptor e;
+                    bool inserted;
 
-                /* Add the edge representing the pair */
-                std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
-                if (inserted) {
-                    g[e].weight = max;
-                    g[e].orientation = index;
+                    /* Add the edge representing the pair */
+                    std::tie (e, inserted) = boost::add_edge(vmap[scaf1], vmap[scaf2], g);
+                    if (inserted) {
+                        g[e].weight = max;
+                        g[e].orientation = index;
+                    }
                 }
             }
         }
