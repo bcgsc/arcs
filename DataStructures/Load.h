@@ -67,6 +67,10 @@ static inline std::pair<double, bool> identity(const bam1_t* rec)
 	int qalen = bam_cigar2qlen(rec->core.n_cigar, bam_get_cigar(rec));
 	assert(qalen > 0);
 
+	/* if SEQ field of SAM record is "*" */
+	if (rec->core.l_qseq == 0)
+		return std::make_pair(100.0, false);
+
 	uint8_t* tagData = bam_aux_get(rec, "NM");
 	if (tagData == NULL)
 		return std::make_pair(100.0, false);
@@ -136,9 +140,9 @@ static inline void readSAM(const std::string& path,
 
 		/* check for sufficient sequence identity (if 'NM:i' tag is available) */
 		double _identity;
-		bool nmTag;
-		boost::tie(_identity, nmTag) = identity(rec);
-		if (nmTag) {
+		bool success;
+		boost::tie(_identity, success) = identity(rec);
+		if (success) {
 			counters.nmTag++;
 			if (_identity < params.identity) {
 				counters.belowSeqIdentity++;
