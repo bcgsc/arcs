@@ -5,16 +5,29 @@
 #include "DataStructures/Barcode.h"
 #include "DataStructures/Segment.h"
 
-#include <map>
-#include <unordered_map>
+#if HAVE_GOOGLE_SPARSE_HASH_MAP
 
-/** Maps barcode => number of read mappings */
-typedef std::map<BarcodeIndex, unsigned> BarcodeToCount;
-typedef typename BarcodeToCount::const_iterator BarcodeToCountConstIt;
+#	include <google/sparse_hash_map>
 
-/** Maps contig segment => barcodes / mapping counts */
-typedef std::unordered_map<Segment, BarcodeToCount, HashSegment>
+	/** Maps barcode => number of read mappings */
+	typedef google::sparse_hash_map<BarcodeIndex, unsigned> BarcodeToCount;
+	/** Maps contig segment => barcodes / mapping counts */
+	typedef google::sparse_hash_map<Segment, BarcodeToCount, HashSegment>
+		SegmentToBarcode;
+
+#else
+
+#	include <unordered_map>
+
+	/** Maps barcode => number of read mappings */
+	typedef std::unordered_map<BarcodeIndex, unsigned> BarcodeToCount;
+	/** Maps contig segment => barcodes / mapping counts */
+	typedef std::unordered_map<Segment, BarcodeToCount, HashSegment>
 	SegmentToBarcode;
+
+#endif
+
+typedef typename BarcodeToCount::const_iterator BarcodeToCountConstIt;
 typedef typename SegmentToBarcode::const_iterator SegmentToBarcodeConstIt;
 typedef typename SegmentToBarcode::iterator SegmentToBarcodeIt;
 

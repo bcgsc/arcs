@@ -85,19 +85,28 @@ typedef typename PairToBarcodeStats::iterator PairToBarcodeStatsIt;
 void filterBarcodeMappings(SegmentToBarcode& segmentToBarcode,
 	const BarcodeMultMap& barcodeMultMap, const ARCS::ArcsParams& params)
 {
-    for (auto& segment : segmentToBarcode) {
+	for (auto& segment : segmentToBarcode) {
 		auto& barcodes = segment.second;
 		for (auto barcodeIt = barcodes.begin(); barcodeIt != barcodes.end();)
 		{
 			int mult = barcodeMultMap.at(barcodeIt->first);
 			unsigned mappings = barcodeIt->second;
 
+#if HAVE_GOOGLE_SPARSE_HASH_MAP
+			/* sparsehash erase() behaves differently than std::unordered_map */
+			if (mult < params.min_mult || mult > params.max_mult
+				|| mappings < (unsigned)params.min_reads) {
+				barcodes.erase(barcodeIt);
+			}
+			++barcodeIt;
+#else
 			if (mult < params.min_mult || mult > params.max_mult
 				|| mappings < (unsigned)params.min_reads) {
 				barcodeIt = barcodes.erase(barcodeIt);
 			} else {
 				++barcodeIt;
 			}
+#endif
 		}
 	}
 }

@@ -4,16 +4,32 @@
 #include "DataStructures/BarcodeToSegment.h"
 #include "DataStructures/Segment.h"
 
+#include <google/sparse_hash_map>
 #include <iterator>
 #include <unordered_map>
 
-/** a contig ID and shared barcode count */
-typedef std::map<ContigIndex, BarcodeCount> ContigToCount;
+#if HAVE_GOOGLE_SPARSE_HASH_MAP
+
+#	include <google/sparse_hash_map>
+
+	/** a contig ID and shared barcode count */
+	typedef google::sparse_hash_map<ContigIndex, BarcodeCount> ContigToCount;
+	/** maps contig => contigs with shared barcodes */
+	typedef google::sparse_hash_map<ContigIndex, ContigToCount> SharedBarcodeMap;
+
+#else
+
+#	include <unordered_map>
+
+	/** a contig ID and shared barcode count */
+	typedef std::unordered_map<ContigIndex, BarcodeCount> ContigToCount;
+	/** maps contig => contigs with shared barcodes */
+	typedef std::unordered_map<ContigIndex, ContigToCount> SharedBarcodeMap;
+
+#endif
+
 typedef typename ContigToCount::const_iterator ContigToCountConstIt;
 typedef typename ContigToCount::iterator ContigToCountIt;
-
-/** maps contig => contigs with shared barcodes */
-typedef std::unordered_map<ContigIndex, ContigToCount> SharedBarcodeMap;
 typedef typename SharedBarcodeMap::const_iterator SharedBarcodeMapConstIt;
 typedef typename SharedBarcodeMap::iterator SharedBarcodeMapIt;
 
@@ -53,15 +69,19 @@ static inline void buildSharedBarcodeMap(
 		it1 != sharedBarcodeMap.end(); ++it1)
 	{
 		ContigToCount& contigToCount = it1->second;
+        contigToCount.set_deleted_key(std::numeric_limits<ContigIndex>::max());
+
 		for (ContigToCountIt it2 = contigToCount.begin();
-			it2 != contigToCount.end();)
+			it2 != contigToCount.end(); ++it2)
 		{
 			if (it2->second < minSharedBarcodes)
-				it2 = contigToCount.erase(it2);
-			else
-				++it2;
+				contigToCount.erase(it2);
 		}
+
+        /* force google::sparse_hash_map to perform compaction of deleted keys */
+        contigToCount.resize(0);
 	}
+
 }
 
 #endif
