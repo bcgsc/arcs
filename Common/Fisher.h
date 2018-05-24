@@ -11,6 +11,112 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <vector>
+
+enum SegmentPairResultCode {
+	SPRC_COMPUTED_P_VALUE=0,
+	SPRC_SEGMENTS_TOO_CLOSE,
+	SPRC_NOT_ENOUGH_SAMPLES,
+	SPRC_OVERFLOW
+};
+
+template <class Graph>
+struct SegmentPairResult
+{
+    ContigNode contig1;
+	ContigNode contig2;
+	const Graph& g;
+	SegmentIndex segmentIndex1;
+	SegmentIndex segmentIndex2;
+	unsigned segmentSize;
+	int distance;
+	float jaccard;
+	float p;
+	SegmentPairResultCode code;
+
+	SegmentPairResult(const ContigNode& contig1, const ContigNode& contig2,
+		const Graph& g, SegmentIndex segmentIndex1, SegmentIndex segmentIndex2,
+		unsigned segmentSize, int distance, float jaccard, float p,
+		SegmentPairResultCode code)
+		: contig1(contig1), contig2(contig2), g(g),
+		segmentIndex1(segmentIndex1), segmentIndex2(segmentIndex2),
+		segmentSize(segmentSize), distance(distance), jaccard(jaccard),
+		p(p), code(code)
+		{}
+
+	friend std::ostream& operator <<(std::ostream& out, const SegmentPairResult& o)
+	{
+		unsigned length1 = o.g[o.contig1].length;
+		unsigned length2 = o.g[o.contig2].length;
+
+		std::stringstream name1;
+		name1 << get(vertex_name, o.g, o.contig1);
+		assert(name1);
+		std::stringstream name2;
+		name2 << get(vertex_name, o.g, o.contig2);
+		assert(name2);
+
+		/*
+		 * calc start/end coordinates of the segments w.r.t. to the given
+		 * contig orientations
+		 */
+
+		SegmentCalc calc(o.segmentSize);
+		unsigned start1 = calc.start(length1, o.segmentIndex1, o.contig1.sense());
+		unsigned start2 = calc.start(length2, o.segmentIndex2, o.contig2.sense());
+		unsigned end1 = start1 + o.segmentSize - 1;
+		unsigned end2 = start2 + o.segmentSize - 1;
+
+		/* calc segment distance rounded to a multiple of segment size */
+
+		unsigned roundedDist =
+			(unsigned)std::round((double)o.distance / o.segmentSize)
+			* o.segmentSize;
+
+		/* calc end-to-end distance between the two contigs */
+
+		int endDist = o.distance - start2 - (length1 - start1);
+		assert(endDist > -int(length1));
+
+		out << name1.str() << '\t' /* id1 */
+			<< length1 << '\t'     /* length1 */
+			<< name2.str() << '\t' /* id2 */
+			<< length2 << '\t'     /* l2 */
+			<< endDist << '\t'     /* end-to-end distance between sequences */
+			<< o.segmentIndex1 << '\t' /* segment index w.r.t. forward orientation */
+			<< start1 << '\t'      /* start1 */
+			<< end1 << '\t'        /* end1 */
+			<< o.segmentIndex2 << '\t' /* segment index w.r.t. forward orientation */
+			<< start2 << '\t'      /* start2 */
+			<< end2 << '\t'        /* end2 */
+			<< o.distance << '\t'  /* dist */
+			<< roundedDist << '\t' /* roundedDist */
+			<< o.jaccard << '\t'   /* jaccard */
+			<< o.p << '\n';        /* p */
+
+		return out;
+	}
+
+};
+
+enum FisherResultCode {
+	FRC_COMPUTED_P_VALUE=0,
+	FRC_OVERFLOW
+};
+
+template <class Graph>
+struct FisherResult
+{
+	ContigNode contig1;
+	ContigNode contig2;
+	int distance;
+	float p;
+	FisherResultCode code;
+
+	std::vector< SegmentPairResult<Graph> > segmentPairResults;
+
+	FisherResult() : distance(0), p(0.0f), code(FRC_OVERFLOW) {}
+};
 
 /**
  * Compute a p-value that two contigs are located next
@@ -19,13 +125,21 @@
  * probability test for all segment pairs across
  * contig1 and contig2.
  */
-static inline double fisher(
-	const ContigNode& contig1, const std::string& name1, unsigned length1,
-	const ContigNode& contig2, const std::string& name2, unsigned length2,
+template <class Graph>
+static inline FisherResult<Graph> fisher(
+	const ContigNode& contig1, const ContigNode& contig2, const Graph& g,
 	const SegmentToBarcode& segmentToBarcode,
-	const DistanceModel& distModel, int dist,
-	std::ostream& segmentStatsOut)
+	const DistanceModel& distModel, int dist)
 {
+	FisherResult<Graph> result;
+	result.contig1 = contig1;
+	result.contig2 = contig2;
+	result.distance = dist;
+	result.code = FRC_COMPUTED_P_VALUE;
+
+	unsigned length1 = g[contig1].length;
+	unsigned length2 = g[contig2].length;
+
 	const unsigned segmentSize = distModel.segmentSize();
 
 	SegmentCalc calc(segmentSize);
@@ -48,8 +162,6 @@ static inline double fisher(
 
 			unsigned start1 = calc.start(length1, i, contig1.sense());
 			unsigned start2 = calc.start(length2, j, contig2.sense());
-			unsigned end1 = start1 + segmentSize - 1;
-			unsigned end2 = start2 + segmentSize - 1;
 
 			assert(dist > -int(length1));
 			unsigned segmentDist = length1 + dist + start2 - start1;
@@ -60,16 +172,26 @@ static inline double fisher(
 				(unsigned)std::round((double)segmentDist / segmentSize)
 				* segmentSize;
 
-			if (roundedSegmentDist < segmentSize)
+			if (roundedSegmentDist < segmentSize) {
+				result.segmentPairResults.push_back(
+					SegmentPairResult<Graph>(contig1, contig2, g, i, j, 
+					segmentSize, segmentDist, 0.0f, 0.0f,
+					SPRC_SEGMENTS_TOO_CLOSE));
 				continue;
+			}
 
 			/*
 			 * if there are insufficient Jaccard samples
 			 * for given distance
 			 */
 
-			if (distModel.samples(roundedSegmentDist) < MIN_SAMPLES)
+			if (distModel.samples(roundedSegmentDist) < MIN_SAMPLES) {
+				result.segmentPairResults.push_back(
+					SegmentPairResult<Graph>(contig1, contig2, g, i, j,
+						segmentSize, segmentDist, 0.0f, 0.0f,
+						SPRC_NOT_ENOUGH_SAMPLES));
 				continue;
+			}
 
 			/* calculate p-value for segment pair at given distance */
 
@@ -78,38 +200,27 @@ static inline double fisher(
 			double jacc = jaccard(segment1, segment2, segmentToBarcode);
 			double p = distModel.p(roundedSegmentDist, jacc);
 
-			segmentStatsOut
-				<< name1 << '\t'  /* id1 */
-				<< length1 << '\t'        /* length1 */
-				<< name2 << '\t'  /* id2 */
-				<< length2 << '\t'     /* l2 */
-				<< dist << '\t'        /* path_length */
-				<< i << '\t'           /* segment1 */
-				<< start1 << '\t'      /* start1 */
-				<< end1 << '\t'        /* end1 */
-				<< j << '\t'           /* segment2 */
-				<< start2 << '\t'      /* start2 */
-				<< end2 << '\t'        /* end2 */
-				<< segmentDist << '\t' /* dist */
-				<< roundedSegmentDist << '\t' /* roundedDist */
-				<< jacc << '\t'        /* jaccard */
-				<< p << '\n';          /* p */
+			SegmentPairResult<Graph> pairResult(contig1, contig2, g, i, j,
+				segmentSize, segmentDist, jacc, p, SPRC_COMPUTED_P_VALUE);
 
 			/* add to sum for Fisher combined probability test */
 
-			if (p == 0)
-				overflow = true;
+			if (p == 0) {
+				pairResult.code = SPRC_OVERFLOW;
+				result.code = FRC_OVERFLOW;
+			}
 
 			logsum += log(p);
-			segmentPairs++;
 
+			result.segmentPairResults.push_back(pairResult);
+			segmentPairs++;
 		}
 	}
 
-	if (segmentPairs == 0 || overflow)
-		return 0.0;
+	if (segmentPairs == 0 || result.code == FRC_OVERFLOW)
+		return result;
 
-	/* combine p-values using *Fisher's mthod* */
+	/* combine p-values using *Fisher's method* */
 	double fisherp = 1.0 -
 		boost::math::gamma_p(segmentPairs, -logsum / 2.0);
 
@@ -117,7 +228,10 @@ static inline double fisher(
 	double corrected = double(segmentPairs + 1) / (2 * segmentPairs)
 		* fisherp;
 
-	return corrected;
+	result.p = corrected;
+	result.code = FRC_COMPUTED_P_VALUE;
+
+	return result;
 }
 
 #endif
