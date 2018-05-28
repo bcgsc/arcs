@@ -109,13 +109,29 @@ struct FisherResult
 {
 	ContigNode contig1;
 	ContigNode contig2;
+	const Graph& g;
 	int distance;
 	float p;
 	FisherResultCode code;
 
 	std::vector< SegmentPairResult<Graph> > segmentPairResults;
 
-	FisherResult() : distance(0), p(0.0f), code(FRC_OVERFLOW) {}
+	FisherResult(const ContigNode& contig1, const ContigNode& contig2,
+		const Graph& g, int distance)
+		: contig1(contig1), contig2(contig2), g(g), distance(distance),
+		p(0.0f), code(FRC_OVERFLOW) {}
+
+	friend std::ostream& operator<<(std::ostream& out, const FisherResult& o)
+	{
+		out << get(vertex_name, o.g, o.contig1) << '\t'
+			<< o.g[o.contig1].length << '\t'
+			<< get(vertex_name, o.g, o.contig2) << '\t'
+			<< o.g[o.contig2].length << '\t'
+			<< o.distance << '\t'
+			<< o.p << '\n';
+
+		return out;
+	}
 };
 
 /**
@@ -131,10 +147,8 @@ static inline FisherResult<Graph> fisher(
 	const SegmentToBarcode& segmentToBarcode,
 	const DistanceModel& distModel, int dist)
 {
-	FisherResult<Graph> result;
-	result.contig1 = contig1;
-	result.contig2 = contig2;
-	result.distance = dist;
+	FisherResult<Graph> result(contig1, contig2, g, dist);
+	/* assume success until error is encountered */
 	result.code = FRC_COMPUTED_P_VALUE;
 
 	unsigned length1 = g[contig1].length;
