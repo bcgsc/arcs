@@ -907,6 +907,9 @@ static inline void calcDistanceEstimates(
     const ARCS::ContigToLength& contigToLength,
     ARCS::Graph& g)
 {
+    if(imap.empty())
+        std::cout << "Hello World!" << std::endl;
+    
     std::time_t rawtime;
 
     time(&rawtime);
@@ -930,7 +933,7 @@ static inline void calcDistanceEstimates(
     std::cout << "\n\t=> Calculating barcode stats for scaffold pairs... "
         << ctime(&rawtime);
     PairToBarcodeStats pairToStats;
-    buildPairToBarcodeStats(imap, indexMultMap, contigToLength, params, pairToStats);
+    buildPairToBarcodeStats(dmap, indexMultMap, contigToLength, params, pairToStats);
 
     time(&rawtime);
     std::cout << "\n\t=> Adding edge distances... " << ctime(&rawtime);

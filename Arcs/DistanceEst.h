@@ -195,7 +195,7 @@ static inline void buildJaccardToDist(
  * mapping in our calculations.
  */
 static inline bool validBarcodeMapping(unsigned contigLength,
-        int pairs, const ARCS::ArcsParams& params)
+        int pairs, const ARCS::ArcsParams& params, int cutOff)
 {
     /*
      * skip contigs with less than required number of
@@ -211,8 +211,6 @@ static inline bool validBarcodeMapping(unsigned contigLength,
      * end length, our distance samples are based
      * based on a uniform head/tail length
      */
-
-    int cutOff = params.end_length - (params.end_length /10000 - 1) * 10000;
     
     if (contigLength < unsigned(2 * cutOff))
         return false;
@@ -222,7 +220,7 @@ static inline bool validBarcodeMapping(unsigned contigLength,
 
 /** calculate shared barcode stats for candidate contig pairs */
 static inline void buildPairToBarcodeStats(
-        const ARCS::IndexMap& imap,
+        const ARCS::DistanceMap& dmap,
         const std::unordered_map<std::string, int>& indexMultMap,
         const ARCS::ContigToLength& contigToLength,
         const ARCS::ArcsParams& params,
@@ -234,70 +232,72 @@ static inline void buildPairToBarcodeStats(
 
     /* calculate number of shared barcodes for candidate contig end pairs */
 
-    for (auto barcodeIt = imap.begin(); barcodeIt != imap.end();
-            ++barcodeIt)
+    for (auto imap = dmap.begin(); imap != dmap.end(); ++imap)
     {
-        /* skip barcodes outside of min/max multiplicity range */
-        std::string index = barcodeIt->first;
-        int indexMult = indexMultMap.at(index);
-        if (indexMult < params.min_mult || indexMult > params.max_mult)
-            continue;
-
-        /* contig head/tail => number of mapped read pairs */
-        const ARCS::ScafMap& contigEndToPairCount = barcodeIt->second;
-
-        for (auto endIt1 = contigEndToPairCount.begin();
-                endIt1 != contigEndToPairCount.end(); ++endIt1)
+        for (auto barcodeIt = imap->second.begin(); barcodeIt != imap->second.end(); ++barcodeIt)
         {
-            /* get contig ID and head/tail flag */
-            std::string id1;
-            bool head1;
-            std::tie(id1, head1) = endIt1->first;
-
-            /* check requirements for calculating distance estimates */
-            unsigned length1 = contigToLength.at(id1);
-            int pairs1 = endIt1->second;
-            if (!validBarcodeMapping(length1, pairs1, params))
+            /* skip barcodes outside of min/max multiplicity range */
+            std::string index = barcodeIt->first;
+            int indexMult = indexMultMap.at(index);
+            if (indexMult < params.min_mult || indexMult > params.max_mult)
                 continue;
 
-            /* count distinct barcodes mapped to head/tail of each contig */
-            contigEndToBarcodeCount[endIt1->first]++;
+            /* contig head/tail => number of mapped read pairs */
+            const ARCS::ScafMap& contigEndToPairCount = barcodeIt->second;
 
-            for (auto endIt2 = contigEndToPairCount.begin();
-                    endIt2 != contigEndToPairCount.end(); ++endIt2)
+            for (auto endIt1 = contigEndToPairCount.begin();
+                    endIt1 != contigEndToPairCount.end(); ++endIt1)
             {
                 /* get contig ID and head/tail flag */
-                std::string id2;
-                bool head2;
-                std::tie(id2, head2) = endIt2->first;
+                std::string id1;
+                bool head1;
+                std::tie(id1, head1) = endIt1->first;
 
                 /* check requirements for calculating distance estimates */
-                unsigned length2 = contigToLength.at(endIt2->first.first);
-                int pairs2 = endIt2->second;
-                if (!validBarcodeMapping(length2, pairs2, params))
+                unsigned length1 = contigToLength.at(id1);
+                int pairs1 = endIt1->second;
+                if (!validBarcodeMapping(length1, pairs1, params, imap->first))
                     continue;
 
-                /* avoid double-counting contig end pairs */
-                if (id1 > id2)
-                    continue;
+                /* count distinct barcodes mapped to head/tail of each contig */
+                contigEndToBarcodeCount[endIt1->first]++;
 
-                /* initialize barcode/weight data for contig end pair */
-                ARCS::ContigPair pair(id1, id2);
-                if (pairToStats.count(pair) == 0)
-                    pairToStats[pair].fill(BarcodeStats());
+                for (auto endIt2 = contigEndToPairCount.begin();
+                        endIt2 != contigEndToPairCount.end(); ++endIt2)
+                {
+                    /* get contig ID and head/tail flag */
+                    std::string id2;
+                    bool head2;
+                    std::tie(id2, head2) = endIt2->first;
 
-                // Head - Head
-                if (head1 && head2) {
-                    pairToStats[pair][0].barcodesIntersect++;
-                    // Head - Tail
-                } else if (head1 && !head2) {
-                    pairToStats[pair][1].barcodesIntersect++;
-                    // Tail - Head
-                } else if (!head1 && head2) {
-                    pairToStats[pair][2].barcodesIntersect++;
-                    // Tail - Tail
-                } else if (!head1 && !head2) {
-                    pairToStats[pair][3].barcodesIntersect++;
+                    /* check requirements for calculating distance estimates */
+                    unsigned length2 = contigToLength.at(endIt2->first.first);
+                    int pairs2 = endIt2->second;
+                    if (!validBarcodeMapping(length2, pairs2, params, imap->first))
+                        continue;
+
+                    /* avoid double-counting contig end pairs */
+                    if (id1 > id2)
+                        continue;
+
+                    /* initialize barcode/weight data for contig end pair */
+                    ARCS::ContigPair pair(id1, id2);
+                    if (pairToStats.count(pair) == 0)
+                        pairToStats[pair].fill(BarcodeStats());
+
+                    // Head - Head
+                    if (head1 && head2) {
+                        pairToStats[pair][0].barcodesIntersect++;
+                        // Head - Tail
+                    } else if (head1 && !head2) {
+                        pairToStats[pair][1].barcodesIntersect++;
+                        // Tail - Head
+                    } else if (!head1 && head2) {
+                        pairToStats[pair][2].barcodesIntersect++;
+                        // Tail - Tail
+                    } else if (!head1 && !head2) {
+                        pairToStats[pair][3].barcodesIntersect++;
+                    }
                 }
             }
         }
