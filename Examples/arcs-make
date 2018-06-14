@@ -165,4 +165,4 @@ empty.fof:
 
 # Run LINKS
 %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
-	/usr/bin/time -v /projects/btl_scratch/jtse/distEstARCS/newParam/arcs/Examples/LINKSprioritizationbasic3_Zgaps.pl -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z |& tee $(patsubst %.scaffolds.fa,%,$@)_links.log
+	/usr/bin/time -v LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z |& tee $(patsubst %.scaffolds.fa,%,$@)_links.log
