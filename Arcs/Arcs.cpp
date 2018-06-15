@@ -995,7 +995,9 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::cout << "\n=> Done. " << ctime(&rawtime);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
+    opt::trimMasked = false;
 
     bool die = false;
     for (int c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;) {
