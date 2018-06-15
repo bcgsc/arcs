@@ -154,59 +154,59 @@ struct HashScaffoldEnd {
 };
 
 /** Check if SAM flag is one of the accepted ones. */
-static inline bool checkFlag(int flag)
-{
-    flag &= ~0xc0; // clear READ1,READ2
-    return flag == 19 // PAIRED,PROPER_PAIR,REVERSE
-        || flag == 35; // PAIRED,PROPER_PAIR,MREVERSE
-}
+// static inline bool checkFlag(int flag)
+// {
+//     flag &= ~0xc0; // clear READ1,READ2
+//     return flag == 19 // PAIRED,PROPER_PAIR,REVERSE
+//         || flag == 35; // PAIRED,PROPER_PAIR,MREVERSE
+// }
 
 /*
  * Check if character is one of the accepted ones.
  */
-bool checkChar(char c) {
-    return (c == 'M' || c == '=' || c == 'X' || c == 'I');
-}
+// bool checkChar(char c) {
+//     return (c == 'M' || c == '=' || c == 'X' || c == 'I');
+// }
 
 /*
  * Calculate the sequence identity from the cigar string
  * sequence length, and tags.
  */
-double calcSequenceIdentity(const std::string& line, const std::string& cigar, const std::string& seq) {
-
-    int qalen = 0;
-    std::stringstream ss;
-    for (auto i = cigar.begin(); i != cigar.end(); ++i) {
-        if (!isdigit(*i)) {
-            if (checkChar(*i)) {
-                ss << "\t";
-                int value = 0;
-                ss >> value;
-                qalen += value;
-                ss.str("");
-            } else {
-                ss.str("");
-            }
-        } else {
-            ss << *i;
-        }
-    }
-
-    int edit_dist = 0;
-    std::size_t found = line.find("NM:i:");
-    if (found!=std::string::npos) {
-        edit_dist = std::strtol(&line[found + 5], 0, 10);
-    }
-
-    double si = 0;
-    if (qalen != 0) {
-        double mins = qalen - edit_dist;
-        double div = mins/seq.length();
-        si = div * 100;
-    }
-
-    return si;
-}
+// double calcSequenceIdentity(const std::string& line, const std::string& cigar, const std::string& seq) {
+//
+//     int qalen = 0;
+//     std::stringstream ss;
+//     for (auto i = cigar.begin(); i != cigar.end(); ++i) {
+//         if (!isdigit(*i)) {
+//             if (checkChar(*i)) {
+//                 ss << "\t";
+//                 int value = 0;
+//                 ss >> value;
+//                 qalen += value;
+//                 ss.str("");
+//             } else {
+//                 ss.str("");
+//             }
+//         } else {
+//             ss << *i;
+//         }
+//     }
+//
+//     int edit_dist = 0;
+//     std::size_t found = line.find("NM:i:");
+//     if (found!=std::string::npos) {
+//         edit_dist = std::strtol(&line[found + 5], 0, 10);
+//     }
+//
+//     double si = 0;
+//     if (qalen != 0) {
+//         double mins = qalen - edit_dist;
+//         double div = mins/seq.length();
+//         si = div * 100;
+//     }
+//
+//     return si;
+// }
 
 
 /* Get all scaffold sizes from FASTA file */
@@ -243,7 +243,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     }
 
     std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
-    int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
+    int prevMapq = 0, prevPos = -1, readyToAddPos = -1;
     int ct = 1;
 
     std::string line;
@@ -315,7 +315,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 indexMultMap[index]++;
 
             /* Calculate the sequence identity */
-            int si = calcSequenceIdentity(line, cigar, seq);
 
             if (ct == 2 && readName != prevRN) {
                 if (countUnpaired == 0)
@@ -333,8 +332,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             if (ct == 1) {
                 if (readName.compare(prevRN) != 0) {
                     prevRN = readName;
-                    prevSI = si;
-                    prevFlag = flag;
                     prevMapq = mapq;
                     prevRef = scafName;
                     prevPos = pos;
@@ -392,8 +389,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 }
             } else if (ct == 2) {
                 assert(readName == prevRN);
-                if (!seq.empty() && checkFlag(flag) && checkFlag(prevFlag)
-                        && mapq != 0 && prevMapq != 0 && si >= params.seq_id && prevSI >= params.seq_id) {
+                if (!seq.empty() && mapq != 0 && prevMapq != 0) {
                     if (prevRef.compare(scafName) == 0 && scafName.compare("*") != 0 && !scafName.empty() && !index.empty()) {
 
                         readyToAddIndex = index;
