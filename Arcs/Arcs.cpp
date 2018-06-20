@@ -153,61 +153,6 @@ struct HashScaffoldEnd {
     }
 };
 
-/** Check if SAM flag is one of the accepted ones. */
-// static inline bool checkFlag(int flag)
-// {
-//     flag &= ~0xc0; // clear READ1,READ2
-//     return flag == 19 // PAIRED,PROPER_PAIR,REVERSE
-//         || flag == 35; // PAIRED,PROPER_PAIR,MREVERSE
-// }
-
-/*
- * Check if character is one of the accepted ones.
- */
-// bool checkChar(char c) {
-//     return (c == 'M' || c == '=' || c == 'X' || c == 'I');
-// }
-
-/*
- * Calculate the sequence identity from the cigar string
- * sequence length, and tags.
- */
-// double calcSequenceIdentity(const std::string& line, const std::string& cigar, const std::string& seq) {
-//
-//     int qalen = 0;
-//     std::stringstream ss;
-//     for (auto i = cigar.begin(); i != cigar.end(); ++i) {
-//         if (!isdigit(*i)) {
-//             if (checkChar(*i)) {
-//                 ss << "\t";
-//                 int value = 0;
-//                 ss >> value;
-//                 qalen += value;
-//                 ss.str("");
-//             } else {
-//                 ss.str("");
-//             }
-//         } else {
-//             ss << *i;
-//         }
-//     }
-//
-//     int edit_dist = 0;
-//     std::size_t found = line.find("NM:i:");
-//     if (found!=std::string::npos) {
-//         edit_dist = std::strtol(&line[found + 5], 0, 10);
-//     }
-//
-//     double si = 0;
-//     if (qalen != 0) {
-//         double mins = qalen - edit_dist;
-//         double div = mins/seq.length();
-//         si = div * 100;
-//     }
-//
-//     return si;
-// }
-
 
 /* Get all scaffold sizes from FASTA file */
 void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
