@@ -259,9 +259,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             if (!index.empty())
                 indexMultMap[index]++;
 
-            /* Calculate the sequence identity */
-
-            if (ct == 2 && readName != prevRN) {
+            if (ct == 2 && false) {
                 if (countUnpaired == 0)
                     std::cerr << "Warning: Skipping an unpaired read. Read pairs should be consecutive in the SAM/BAM file.\n"
                         "  Prev read: " << prevRN << "\n"
@@ -275,7 +273,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             if (ct >= 3)
                 ct = 1;
             if (ct == 1) {
-                if (readName.compare(prevRN) != 0) {
+                if (true) {
                     prevRN = readName;
                     prevMapq = mapq;
                     prevRef = scafName;
@@ -333,7 +331,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     readyToAddPos = -1;
                 }
             } else if (ct == 2) {
-                assert(readName == prevRN);
                 if (!seq.empty() && mapq != 0 && prevMapq != 0) {
                     if (prevRef.compare(scafName) == 0 && scafName.compare("*") != 0 && !scafName.empty() && !index.empty()) {
 
