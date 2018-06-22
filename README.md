@@ -30,6 +30,8 @@ If your boost library headers are not in your PATH you can specify their locatio
 
 ### ARCS+LINKS Pipeline 
 
+The Makefile located here: Examples/arcs-make will run the full ARCS pipeline given the input interleaved reads (with BX:Z tag in read headers) and draft genome assembly. It will also optionally run the misassembly corrector [Tigmint](https://github.com/bcgsc/tigmint) prior to scaffolding with ARCS.
+
 There are three steps to the pipeline:
 
 1. Run ARCS to generate a Graphviz Dot file (.gv). Nodes in the graph are the sequences to scaffold, and edges show that there is evidence to suggest nodes are linked based on the data obtained from the GemCode/Chromium reads.
