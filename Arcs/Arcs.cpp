@@ -74,7 +74,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
 "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:x:r:v";
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:x:y:p:r:v";
 
 enum {
     OPT_HELP = 1,
@@ -115,6 +115,7 @@ static const struct option longopts[] = {
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
     {"dist_length", required_argument, NULL, 'x'},
+    {"min_length", required_argument, NULL, 'y'},
     {"error_percent", required_argument, NULL, 'r'},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
@@ -388,7 +389,7 @@ void readBAM(const std::string bamName,
                                if (imap[readyToAddIndex].count(key) == 0)
                                    imap[readyToAddIndex][key] = 0;
                            }
-                           for (int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000) {
+                           for (int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length) {
                                if (size > distEstCutOff * 2){
 
                                    /* Aligns to head */
@@ -542,7 +543,7 @@ std::pair<bool, bool> headOrTail(int head, int tail) {
 void pairContigs(ARCS::DistanceMap& dmap, std::vector<ARCS::PairMap>& pmapVec, std::unordered_map<std::string, int>& indexMultMap) {
 
     /* Iterate through each index in IndexMap */
-    for(int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000){
+    for(int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length){
         std::cout << "Making pairing for " << distEstCutOff << std::endl;
         ARCS::PairMap pmap;
         for(auto it = dmap[distEstCutOff].begin(); it != dmap[distEstCutOff].end(); ++it) {
@@ -957,6 +958,8 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -d " << params.max_degree
         << "\n -e " << params.end_length
         << "\n -x " << params.dist_length
+        << "\n -y " << params.min_length
+        << "\n -p " << params.dec_length
         << "\n -l " << params.min_links
         << "\n -m " << params.min_mult << '-' << params.max_mult
         << "\n -r " << params.error_percent
@@ -1108,6 +1111,10 @@ int main(int argc, char** argv) {
                 arg >> params.end_length; break;
             case 'x':
                 arg >> params.dist_length; break;
+            case 'y':
+                arg >> params.min_length; break;
+            case 'p':
+                arg >> params.dec_length; break;
             case 'r':
                 arg >> params.error_percent; break;
             case 'v':

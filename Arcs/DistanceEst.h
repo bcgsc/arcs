@@ -86,7 +86,7 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
         DistSampleMap& distSamples)
 {
     /* for each chromium barcode */
-    for (int distEstCutOff = params.dist_length; distEstCutOff > 0; distEstCutOff -= 10000){
+    for (int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length){
         for (auto barcodeIt = dmap.at(distEstCutOff).begin(); barcodeIt != dmap.at(distEstCutOff).end(); ++barcodeIt)
         {
             /* skip barcodes outside of min/max multiplicity range */
