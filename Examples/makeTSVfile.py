@@ -79,15 +79,15 @@ def writeTSVFile(infile, outfile):
                     match = re.search(r"d=(\d+)", line.rstrip())
                     if match:
                         dist = int(match.group(1))
-			estDist = True
+                        estDist = True
                     else:
-                        dist = 10 
-			estDist = False
+                        dist = 10
+                        estDist = False
 
                     if dist < 0:
                         dist_category = -1
-		    elif dist == 10 and estDist is False:
-			dist_category = 10
+                    elif dist == 10 and estDist is False:
+                        dist_category = 10
                     elif dist < 500:
                         dist_category = 500
                     elif dist < 1000:
