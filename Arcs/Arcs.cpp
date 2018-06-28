@@ -187,7 +187,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
         exit(EXIT_FAILURE);
     }
 
-    std::string prevRN = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
+    std::string prevRN = "", prevIndex = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
     int prevMapq = 0, prevPos = -1, readyToAddPos = -1;
     int ct = 1;
 
@@ -246,12 +246,18 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             /* Parse the index from the readName */
             std::string index = parseBXTag(tags);
             if (index.empty()) {
-                std::size_t found = readName.rfind("_");
-                if (found != std::string::npos) {
-                    index = readName.substr(found + 1);
-                    // Check that the barcode is composed of only ACGT.
-                    if (index.find_first_not_of("ACGTacgt") != std::string::npos)
-                      index.clear();
+                if (!prevIndex.empty()){
+                    index = prevIndex;
+                    prevIndex.clear();
+                }
+                else{
+                    std::size_t found = readName.rfind("_");
+                    if (found != std::string::npos) {
+                        index = readName.substr(found + 1);
+                        // Check that the barcode is composed of only ACGT.
+                        if (index.find_first_not_of("ACGTacgt") != std::string::npos)
+                            index.clear();
+                    }
                 }
             }
 
@@ -278,6 +284,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     prevMapq = mapq;
                     prevRef = scafName;
                     prevPos = pos;
+                    prevIndex = index;
 
 
                     /*
