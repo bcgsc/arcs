@@ -148,7 +148,7 @@ else
 endif
 else
 	/usr/bin/time -v bwa index $^ |& tee $(patsubst %_bamfiles.fof,%,$@)_bwa_index.log
-	/usr/bin/time -v sh -c 'bwa mem -t$t -C -p $< $(reads).fq.gz | samtools view -Sb - | samtools sort -@$t -n - -o $@' |& tee $(patsubst %_bamfiles.fof,%,$@)_bwa_mem.log
+	/usr/bin/time -v sh -c 'bwa mem -t$t -C -p $< $(reads).fq.gz | samtools view -Sb - | samtools sort -@$t -n - -o $(patsubst %_bamfiles.fof,%,$@).sorted.bam' |& tee $(patsubst %_bamfiles.fof,%,$@)_bwa_mem.log
 	echo $(patsubst %_bamfiles.fof,%,$@).sorted.bam > $@
 endif
 
