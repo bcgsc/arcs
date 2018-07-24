@@ -19,6 +19,7 @@ window=1000
 
 # bwa Parameters
 t=8
+
 # ARCS Parameters
 c=5
 m=50-10000
@@ -59,7 +60,7 @@ help:
 	@echo ""
 	@echo "    bwa Options:"
 	@echo ""
-	@echo "	threads         number of threads used [8]"
+	@echo "	t         number of threads used [8]"
 	@echo ""
 	@echo "    Tigmint Options:"
 	@echo ""
