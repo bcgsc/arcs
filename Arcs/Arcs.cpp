@@ -894,49 +894,46 @@ static const char* maybeNA(const std::string& s)
  * barcodes between contig ends
  */
 static inline void calcDistanceEstimates(
-    const ARCS::DistanceMap& dmap, 
-    const ARCS::IndexMap& imap,
+    ARCS::DistanceMap& dmap, 
     const std::unordered_map<std::string, int> &indexMultMap,
     const ARCS::ContigToLength& contigToLength,
     ARCS::Graph& g)
 {
-    if(imap.empty())
-        std::cout << "Hello World!" << std::endl;
     
     std::time_t rawtime;
 
     time(&rawtime);
     std::cout << "\n\t=> Measuring intra-contig distances / shared barcodes... "
         << ctime(&rawtime);
-    DistSampleMap distSamples;
-    calcDistSamples(dmap, contigToLength, indexMultMap, params, distSamples);
+    DistSamplesMap distSamplesMap;
+    calcDistSamples(dmap, contigToLength, indexMultMap, params, distSamplesMap);
 
     time(&rawtime);
     std::cout << "\n\t=> Writing intra-contig distance samples to TSV... "
         << ctime(&rawtime);
-    writeDistSamplesTSV(params.dist_samples_tsv, distSamples);
+    writeDistSamplesTSV(params.dist_samples_tsv, distSamplesMap);
 
     time(&rawtime);
     std::cout << "\n\t=> Building Jaccard to distance map... "
         << ctime(&rawtime);
-    JaccardToDist jaccardToDist;
-    buildJaccardToDist(distSamples, jaccardToDist);
+    JaccardToDistMap jaccardToDistMap;
+    buildJaccardToDist(distSamplesMap, jaccardToDistMap);
 
     time(&rawtime);
     std::cout << "\n\t=> Calculating barcode stats for scaffold pairs... "
         << ctime(&rawtime);
-    PairToBarcodeStats pairToStats;
-    buildPairToBarcodeStats(dmap, indexMultMap, contigToLength, params, pairToStats);
+    PairToBarcodeStatsMap pairToStatsMap;
+    buildPairToBarcodeStats(dmap, indexMultMap, contigToLength, params, pairToStatsMap);
 
     time(&rawtime);
     std::cout << "\n\t=> Adding edge distances... " << ctime(&rawtime);
-    addEdgeDistances(pairToStats, jaccardToDist, params, g);
+    addEdgeDistances(pairToStatsMap, jaccardToDistMap, params, g);
 
     if (!params.dist_tsv.empty()) {
         time(&rawtime);
         std::cout << "\n\t=> Writing distance estimates to TSV... "
             << ctime(&rawtime);
-        writeDistTSV(params.dist_tsv, pairToStats, g);
+        writeDistTSV(params.dist_tsv, pairToStatsMap, g);
     }
 }
 
@@ -1013,7 +1010,7 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     if (params.dist_est) {
         std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
-        calcDistanceEstimates(dmap, imap, indexMultMap, scaffSizeMap, g);
+        calcDistanceEstimates(dmap, indexMultMap, scaffSizeMap, g);
     }
 
     if (!params.base_name.empty()) {

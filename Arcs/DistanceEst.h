@@ -46,10 +46,12 @@ struct DistSample
 };
 
 /** maps contig ID => intra-contig distance/barcode sample */
+typedef std::unordered_map<int, std::unordered_map<std::string, DistSample>> DistSamplesMap;
 typedef std::unordered_map<std::string, DistSample> DistSampleMap;
 typedef typename DistSampleMap::const_iterator DistSampleConstIt;
 
 /** maps barcode Jaccard index => intra-contig distance sample */
+typedef std::unordered_map<int, std::map<double, DistSample>> JaccardToDistMap;
 typedef std::map<double, DistSample> JaccardToDist;
 typedef typename JaccardToDist::const_iterator JaccardToDistConstIt;
 
@@ -72,6 +74,7 @@ enum PairOrientation { HH=0, HT, TH, TT, NUM_ORIENTATIONS };
 typedef std::array<BarcodeStats, NUM_ORIENTATIONS> BarcodeStatsArray;
 
 /** barcode stats each possible orientation of a contig pair */
+typedef std::unordered_map<int, std::map<ARCS::ContigPair, BarcodeStatsArray>> PairToBarcodeStatsMap;
 typedef std::map<ARCS::ContigPair, BarcodeStatsArray> PairToBarcodeStats;
 typedef typename PairToBarcodeStats::iterator PairToBarcodeStatsIt;
 
@@ -83,10 +86,11 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
         const ARCS::ContigToLength& contigToLength,
         const std::unordered_map<std::string, int>& indexMultMap,
         const ARCS::ArcsParams& params,
-        DistSampleMap& distSamples)
+        DistSamplesMap& distSamplesMap)
 {
     /* for each chromium barcode */
     for (int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length){
+        DistSampleMap& distSamples = distSamplesMap[distEstCutOff];
         for (auto barcodeIt = dmap.at(distEstCutOff).begin(); barcodeIt != dmap.at(distEstCutOff).end(); ++barcodeIt)
         {
             /* skip barcodes outside of min/max multiplicity range */
@@ -154,13 +158,18 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
             }
         }
     }
-        for(DistSampleConstIt itr = distSamples.begin();
-                itr != distSamples.end();){
+
+    for(auto distSamples : distSamplesMap){
+        std::cout << distSamples.second.size() << std::endl;
+        for(DistSampleConstIt itr = distSamples.second.begin();
+                itr != distSamples.second.end();){
             if(itr->second.barcodesIntersect == 0)
-                distSamples.erase(itr++);
+                distSamples.second.erase(itr++);
             else
                 ++itr;
         }
+        std::cout << distSamples.second.size() << std::endl;
+    }
 }
 
 /**
@@ -171,21 +180,25 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
  * counts.
  */
 static inline void buildJaccardToDist(
-        const DistSampleMap& distSamples,
-        JaccardToDist& jaccardToDist)
+        const DistSamplesMap& distSamplesMap,
+        JaccardToDistMap& jaccardToDistMap)
 {
-    for (DistSampleConstIt it = distSamples.begin();
-            it != distSamples.end(); ++it)
+    for (auto distSamples : distSamplesMap)
     {
-        const DistSample& sample = it->second;
-        // Skips sample if there are no intersecting barcodes
-        if(sample.barcodesIntersect == 0){
-            continue;
+        JaccardToDist& jaccardToDist = jaccardToDistMap[distSamples.first];
+        for (DistSampleConstIt it = distSamples.second.begin();
+                it != distSamples.second.end(); ++it)
+        {
+            const DistSample& sample = it->second;
+            // Skips sample if there are no intersecting barcodes
+            if(sample.barcodesIntersect == 0){
+                continue;
+            }
+            double jaccard = double(sample.barcodesIntersect)
+                / sample.barcodesUnion;
+            jaccardToDist.insert(
+                    JaccardToDist::value_type(jaccard, sample));
         }
-        double jaccard = double(sample.barcodesIntersect)
-            / sample.barcodesUnion;
-        jaccardToDist.insert(
-                JaccardToDist::value_type(jaccard, sample));
     }
 }
 
@@ -211,7 +224,7 @@ static inline bool validBarcodeMapping(unsigned contigLength,
      * end length, our distance samples are based
      * based on a uniform head/tail length
      */
-    
+
     if (contigLength < unsigned(2 * cutOff))
         return false;
 
@@ -224,7 +237,7 @@ static inline void buildPairToBarcodeStats(
         const std::unordered_map<std::string, int>& indexMultMap,
         const ARCS::ContigToLength& contigToLength,
         const ARCS::ArcsParams& params,
-        PairToBarcodeStats& pairToStats)
+        PairToBarcodeStatsMap& pairToStatsMap)
 {
     typedef std::unordered_map<ARCS::CI, size_t, PairHash> ContigEndToBarcodeCount;
     typedef typename ContigEndToBarcodeCount::const_iterator BarcodeCountConstIt;
@@ -234,6 +247,7 @@ static inline void buildPairToBarcodeStats(
 
     for (auto imap = dmap.begin(); imap != dmap.end(); ++imap)
     {
+        PairToBarcodeStats& pairToStats = pairToStatsMap[imap->first];
         for (auto barcodeIt = imap->second.begin(); barcodeIt != imap->second.end(); ++barcodeIt)
         {
             /* skip barcodes outside of min/max multiplicity range */
@@ -301,47 +315,46 @@ static inline void buildPairToBarcodeStats(
                 }
             }
         }
-    }
 
-    /*
-     * Compute/store further barcode stats for each candidate
-     * contig pair:
-     *
-     * (1) number of distinct barcodes mapping to contig A (|A|)
-     * (2) number of distinct barcodes mapping to contig B (|B|)
-     * (3) barcode union size for contigs A and B (|A union B|)
-     */
-
-    for (PairToBarcodeStatsIt it = pairToStats.begin(); it != pairToStats.end(); ++it)
-    {
-        for (PairOrientation i = HH; i < NUM_ORIENTATIONS;
-                i = PairOrientation(i + 1))
+        /*
+         * Compute/store further barcode stats for each candidate
+         * contig pair:
+         *
+         * (1) number of distinct barcodes mapping to contig A (|A|)
+         * (2) number of distinct barcodes mapping to contig B (|B|)
+         * (3) barcode union size for contigs A and B (|A union B|)
+         */
+        for (PairToBarcodeStatsIt it = pairToStats.begin(); it != pairToStats.end(); ++it)
         {
-            BarcodeStats& stats = it->second.at(i);
-            // if (stats.barcodesIntersect == 0)
-            //     continue;
+            for (PairOrientation i = HH; i < NUM_ORIENTATIONS;
+                    i = PairOrientation(i + 1))
+            {
+                BarcodeStats& stats = it->second.at(i);
+                // if (stats.barcodesIntersect == 0)
+                //     continue;
 
-            const std::string& id1 = it->first.first;
-            const std::string& id2 = it->first.second;
+                const std::string& id1 = it->first.first;
+                const std::string& id2 = it->first.second;
 
-            ARCS::CI tail1(id1, i == HH || i == HT);
-            ARCS::CI tail2(id2, i == HH || i == TH);
+                ARCS::CI tail1(id1, i == HH || i == HT);
+                ARCS::CI tail2(id2, i == HH || i == TH);
 
-            BarcodeCountConstIt countIt1 = contigEndToBarcodeCount.find(tail1);
-            if (countIt1 == contigEndToBarcodeCount.end())
-                continue;
-            stats.barcodes1 = countIt1->second;
-            assert(stats.barcodes1 > 0);
+                BarcodeCountConstIt countIt1 = contigEndToBarcodeCount.find(tail1);
+                if (countIt1 == contigEndToBarcodeCount.end())
+                    continue;
+                stats.barcodes1 = countIt1->second;
+                assert(stats.barcodes1 > 0);
 
-            BarcodeCountConstIt countIt2 = contigEndToBarcodeCount.find(tail2);
-            if (countIt2 == contigEndToBarcodeCount.end())
-                continue;
-            stats.barcodes2 = countIt2->second;
-            assert(stats.barcodes2 > 0);
+                BarcodeCountConstIt countIt2 = contigEndToBarcodeCount.find(tail2);
+                if (countIt2 == contigEndToBarcodeCount.end())
+                    continue;
+                stats.barcodes2 = countIt2->second;
+                assert(stats.barcodes2 > 0);
 
-            assert(stats.barcodes1 + stats.barcodes2 >= stats.barcodesIntersect);
-            stats.barcodesUnion = stats.barcodes1 + stats.barcodes2
-                - stats.barcodesIntersect;
+                assert(stats.barcodes1 + stats.barcodes2 >= stats.barcodesIntersect);
+                stats.barcodesUnion = stats.barcodes1 + stats.barcodes2
+                    - stats.barcodesIntersect;
+            }
         }
     }
 }
@@ -409,47 +422,54 @@ std::pair<DistanceEstimate, bool> estimateDistance(
 
 /** add distance estimates to output graph edges */
 static inline void addEdgeDistances(
-        const PairToBarcodeStats& pairToStats,
-        const JaccardToDist& jaccardToDist,
+        PairToBarcodeStatsMap& pairToStatsMap,
+        const JaccardToDistMap& jaccardToDistMap,
         const ARCS::ArcsParams& params, ARCS::Graph& g)
 {
-    if (jaccardToDist.empty())
-        return;
-
-    for (const auto e : boost::make_iterator_range(boost::edges(g))) {
-
-        auto v1 = source(e, g);
-        auto v2 = target(e, g);
-
-        auto id1 = g[v1].id;
-        auto id2 = g[v2].id;
-
-        auto orientation = g[e].orientation;
-
-        auto pair = std::make_pair(id1, id2);
-        auto statsIt = pairToStats.find(pair);
-        if (statsIt == pairToStats.end())
+    for(auto jaccardToDistPair : jaccardToDistMap)
+    {
+        JaccardToDist jaccardToDist = jaccardToDistPair.second;
+        if (jaccardToDist.empty())
             continue;
-        const BarcodeStats& stats = statsIt->second.at(orientation);
+        PairToBarcodeStats pairToStats = pairToStatsMap[jaccardToDistPair.first];
 
-        DistanceEstimate est;
-        bool success;
+        for (const auto e : boost::make_iterator_range(boost::edges(g))) {
 
-        std::tie(est, success) = estimateDistance(stats, jaccardToDist, params);
-        if (!success)
-            continue;
+            auto v1 = source(e, g);
+            auto v2 = target(e, g);
 
-        g[e].minDist = est.minDist;
-        g[e].dist = est.dist;
-        g[e].maxDist = est.maxDist;
-        g[e].jaccard = est.jaccard;
+            auto id1 = g[v1].id;
+            auto id2 = g[v2].id;
+            bool success;
 
+            auto orientation = g[e].orientation;
+
+            auto pair = std::make_pair(id1, id2);
+            auto statsIt = pairToStats.find(pair);
+            if (statsIt == pairToStats.end())
+                continue;
+            const BarcodeStats& stats = statsIt->second.at(orientation);
+            // std::cout << stats.barcodes1 << stats.barcodes2 << stats.barcodesUnion << stats.barcodesIntersect << std::endl;
+
+            DistanceEstimate est;
+
+            std::tie(est, success) = estimateDistance(stats, jaccardToDist, params);
+
+            if (!success)
+                continue;
+
+            g[e].minDist = est.minDist;
+            g[e].dist = est.dist;
+            g[e].maxDist = est.maxDist;
+            g[e].jaccard = est.jaccard;
+
+        }
     }
 }
 
 /** dump distance estimates and barcode data to TSV */
 static inline void writeDistTSV(const std::string& path,
-        const PairToBarcodeStats& pairToStats, const ARCS::Graph& g)
+        const PairToBarcodeStatsMap& pairToStatsMap, const ARCS::Graph& g)
 {
     assert(!path.empty());
 
@@ -470,59 +490,63 @@ static inline void writeDistTSV(const std::string& path,
         << "barcodes_union" << '\t'
         << "barcodes_intersect" << '\n';
     assert(tsvOut);
+    for (auto pairToStatsPair : pairToStatsMap)
+    { 
+        PairToBarcodeStats pairToStats = pairToStatsPair.second;
 
-    for (const auto e : boost::make_iterator_range(boost::edges(g))) {
+        for (const auto e : boost::make_iterator_range(boost::edges(g))) {
 
-        auto v1 = source(e, g);
-        auto v2 = target(e, g);
+            auto v1 = source(e, g);
+            auto v2 = target(e, g);
 
-        auto id1 = g[v1].id;
-        auto id2 = g[v2].id;
+            auto id1 = g[v1].id;
+            auto id2 = g[v2].id;
 
-        auto orientation = g[e].orientation;
+            auto orientation = g[e].orientation;
 
-        auto pair = std::make_pair(id1, id2);
-        auto statsIt = pairToStats.find(pair);
-        if (statsIt == pairToStats.end())
-            continue;
-        const BarcodeStats& stats = statsIt->second.at(orientation);
+            auto pair = std::make_pair(id1, id2);
+            auto statsIt = pairToStats.find(pair);
+            if (statsIt == pairToStats.end())
+                continue;
+            const BarcodeStats& stats = statsIt->second.at(orientation);
 
-        bool sense1 = orientation < 2;
-        bool sense2 = orientation % 2;
+            bool sense1 = orientation < 2;
+            bool sense2 = orientation % 2;
 
-        tsvOut << pair.first << (sense1 ? '-' : '+') << '\t'
-            << pair.second << (sense2 ? '-' : '+') << '\t';
-        if (g[e].jaccard >= 0) {
-            tsvOut << g[e].minDist << '\t'
-                << g[e].dist << '\t'
-                << g[e].maxDist << '\t';
-        } else {
-            tsvOut << "NA" << '\t'
-                << "NA" << '\t'
-                << "NA" << '\t';
+            tsvOut << pair.first << (sense1 ? '-' : '+') << '\t'
+                << pair.second << (sense2 ? '-' : '+') << '\t';
+            if (g[e].jaccard >= 0) {
+                tsvOut << g[e].minDist << '\t'
+                    << g[e].dist << '\t'
+                    << g[e].maxDist << '\t';
+            } else {
+                tsvOut << "NA" << '\t'
+                    << "NA" << '\t'
+                    << "NA" << '\t';
+            }
+            tsvOut << stats.barcodes1 << '\t'
+                << stats.barcodes2 << '\t'
+                << stats.barcodesUnion << '\t'
+                << stats.barcodesIntersect << '\n';
+
+            tsvOut << pair.second << (sense2 ? '+' : '-') << '\t'
+                << pair.first << (sense1 ? '+' : '-') << '\t';
+            if (g[e].jaccard >= 0) {
+                tsvOut << g[e].minDist << '\t'
+                    << g[e].dist << '\t'
+                    << g[e].maxDist << '\t';
+            } else {
+                tsvOut << "NA" << '\t'
+                    << "NA" << '\t'
+                    << "NA" << '\t';
+            }
+            tsvOut << stats.barcodes2 << '\t'
+                << stats.barcodes1 << '\t'
+                << stats.barcodesUnion << '\t'
+                << stats.barcodesIntersect << '\n';
+
+            assert(tsvOut);
         }
-        tsvOut << stats.barcodes1 << '\t'
-            << stats.barcodes2 << '\t'
-            << stats.barcodesUnion << '\t'
-            << stats.barcodesIntersect << '\n';
-
-        tsvOut << pair.second << (sense2 ? '+' : '-') << '\t'
-            << pair.first << (sense1 ? '+' : '-') << '\t';
-        if (g[e].jaccard >= 0) {
-            tsvOut << g[e].minDist << '\t'
-                << g[e].dist << '\t'
-                << g[e].maxDist << '\t';
-        } else {
-            tsvOut << "NA" << '\t'
-                << "NA" << '\t'
-                << "NA" << '\t';
-        }
-        tsvOut << stats.barcodes2 << '\t'
-            << stats.barcodes1 << '\t'
-            << stats.barcodesUnion << '\t'
-            << stats.barcodesIntersect << '\n';
-
-        assert(tsvOut);
     }
 
     tsvOut.close();
@@ -535,7 +559,7 @@ static inline void writeDistTSV(const std::string& path,
  * barcode intersection size).
  */
 static inline std::ostream& writeDistSamplesTSV(std::ostream& out,
-        const DistSampleMap& distSamples)
+        const DistSamplesMap& distSamplesMap)
 {
     out << "contig_id" << '\t'
         << "distance" << '\t'
@@ -544,18 +568,21 @@ static inline std::ostream& writeDistSamplesTSV(std::ostream& out,
         << "barcodes_union" << '\t'
         << "barcodes_intersect" << '\n';
 
-    for (DistSampleConstIt it = distSamples.begin();
-            it != distSamples.end(); ++it)
+    for (auto distSamples : distSamplesMap)
     {
-        const std::string& contigID = it->first;
-        const DistSample& sample = it->second;
+        for (DistSampleConstIt it = distSamples.second.begin();
+                it != distSamples.second.end(); ++it)
+        {
+            const std::string& contigID = it->first;
+            const DistSample& sample = it->second;
 
-        out << contigID << '\t'
-            << sample.distance << '\t'
-            << sample.barcodesHead << '\t'
-            << sample.barcodesTail << '\t'
-            << sample.barcodesUnion << '\t'
-            << sample.barcodesIntersect << '\n';
+            out << contigID << '\t'
+                << sample.distance << '\t'
+                << sample.barcodesHead << '\t'
+                << sample.barcodesTail << '\t'
+                << sample.barcodesUnion << '\t'
+                << sample.barcodesIntersect << '\n';
+        }
     }
 
     return out;
@@ -566,7 +593,7 @@ static inline std::ostream& writeDistSamplesTSV(std::ostream& out,
  * TSV file.
  */
 static inline void writeDistSamplesTSV(const std::string& path,
-        const DistSampleMap& distSamples)
+        const DistSamplesMap& distSamplesMap)
 {
     if (path.empty())
         return;
@@ -574,7 +601,7 @@ static inline void writeDistSamplesTSV(const std::string& path,
     ofstream samplesOut;
     samplesOut.open(path.c_str());
     assert(samplesOut);
-    writeDistSamplesTSV(samplesOut, distSamples);
+    writeDistSamplesTSV(samplesOut, distSamplesMap);
     assert(samplesOut);
     samplesOut.close();
 }
