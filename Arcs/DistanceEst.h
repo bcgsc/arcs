@@ -422,16 +422,16 @@ std::pair<DistanceEstimate, bool> estimateDistance(
 
 /** add distance estimates to output graph edges */
 static inline void addEdgeDistances(
-        PairToBarcodeStatsMap& pairToStatsMap,
+        const PairToBarcodeStatsMap& pairToStatsMap,
         const JaccardToDistMap& jaccardToDistMap,
         const ARCS::ArcsParams& params, ARCS::Graph& g)
 {
-    for(auto jaccardToDistPair : jaccardToDistMap)
+    for(int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length)
     {
-        JaccardToDist jaccardToDist = jaccardToDistPair.second;
+        JaccardToDist jaccardToDist = jaccardToDistMap.at(distEstCutOff);
         if (jaccardToDist.empty())
             continue;
-        PairToBarcodeStats pairToStats = pairToStatsMap[jaccardToDistPair.first];
+        PairToBarcodeStats pairToStats = pairToStatsMap.at(distEstCutOff);
 
         for (const auto e : boost::make_iterator_range(boost::edges(g))) {
 

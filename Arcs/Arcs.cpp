@@ -406,7 +406,7 @@ void readBAM(const std::string bamName,
                                        if (dmap[distEstCutOff][readyToAddIndex].count(key) == 0)
                                            dmap[distEstCutOff][readyToAddIndex][key] = 0;
                                    }
-                                   break;
+                                   // break;
                                }
                            }
 
