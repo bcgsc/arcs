@@ -31,7 +31,9 @@ dist_upper=false
 d=0
 gap=100
 B=20
-x=60000
+x=30000
+y=10000
+p=10000
 # LINKS Parameters
 l=5
 a=0.3
@@ -133,7 +135,7 @@ arcs-with-tigmint: $(draft).tigmint_c$c_m$m_z$z_s$s_r$r_e$e_l$l_a$a.scaffolds.fa
 # Use bwa mem to Align Reads to Draft Assembly and Sort it
 %.sorted.bam: %.renamed.fa $(reads).fq.gz %.renamed.fa.bwt
 	bwa mem -t$t -C -p $< $(reads).fq.gz | samtools view -Sb - | samtools sort -@$t -n - -o $@ 
-    
+
 # Create an fof File Containing the bam File
 %_bamfiles.fof: %.sorted.bam
 	echo $^ > $@
@@ -143,7 +145,7 @@ arcs-with-tigmint: $(draft).tigmint_c$c_m$m_z$z_s$s_r$r_e$e_l$l_a$a.scaffolds.fa
 ifneq ($D, true)
 	arcs --bx -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@)
 else ifneq ($(dist_upper), true)
-	$(bin)../Arcs/arcs -D -B $B --bx -v -f $< -a $(word 2,$^) -x $x -c $c -m $m -s $s -r $r -e $e -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --dist_tsv dist.tsv --samples_tsv samples.tsv |& tee arcsx$x.log
+	arcs -D -B $B --bx -v -f $< -a $(word 2,$^) -x $x -y $y -p $p -c $c -m $m -s $s -r $r -e $e -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) 
 else
 	arcs -D -B $B --dist_upper --bx -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) 
 endif
@@ -162,4 +164,4 @@ empty.fof:
 
 # Run LINKS
 %_c$c_m$m_z$z_s$s_r$r_e$e_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_z$z_s$s_r$r_e$e_l$l_a$a.tigpair_checkpoint.tsv
-	$(bin)LINKSprioritizationbasic3_Zgaps.pl -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z 
+	$(bin)LINKSprioritizationbasic3_Zgaps -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z 
