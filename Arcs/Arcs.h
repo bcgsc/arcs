@@ -61,6 +61,7 @@ namespace ARCS {
         int max_degree;
         int end_length;
         float error_percent;
+        bool miBF;
         int verbose;
 
         ArcsParams() :
@@ -78,6 +79,7 @@ namespace ARCS {
             max_degree(0),
             end_length(30000),
             error_percent(0.05),
+            miBF(false),
             verbose(0) {
         }
 

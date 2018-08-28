@@ -62,6 +62,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "   -e, --end_length=N    contig head/tail length for masking alignments [30000]\n"
 "   -r, --error_percent=N p-value for head/tail assignment and link orientation\n"
 "                         (lower is more stringent) [0.05]\n"
+"       --miBF            enable use of miBF output\n"
 "   -v, --run_verbose     verbose logging\n"
 "\n"
 " Distance Estimation Options:\n"
@@ -78,6 +79,7 @@ static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
 
 enum {
     OPT_HELP = 1,
+    OPT_MIBF,
     OPT_VERSION,
     OPT_BX,
     OPT_GAP,
@@ -115,6 +117,7 @@ static const struct option longopts[] = {
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
     {"error_percent", required_argument, NULL, 'r'},
+    {"miBF", no_argument, NULL, OPT_MIBF},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
     {"help", no_argument, NULL, OPT_HELP},
@@ -153,6 +156,61 @@ struct HashScaffoldEnd {
     }
 };
 
+/** Check if SAM flag is one of the accepted ones. */
+static inline bool checkFlag(int flag)
+{
+    flag &= ~0xc0; // clear READ1,READ2
+    return flag == 19 // PAIRED,PROPER_PAIR,REVERSE
+        || flag == 35; // PAIRED,PROPER_PAIR,MREVERSE
+}
+
+/*
+ * Check if character is one of the accepted ones.
+ */
+bool checkChar(char c) {
+    return (c == 'M' || c == '=' || c == 'X' || c == 'I');
+}
+
+/*
+ * Calculate the sequence identity from the cigar string
+ * sequence length, and tags.
+ */
+double calcSequenceIdentity(const std::string& line, const std::string& cigar, const std::string& seq) {
+
+    int qalen = 0;
+    std::stringstream ss;
+    for (auto i = cigar.begin(); i != cigar.end(); ++i) {
+        if (!isdigit(*i)) {
+            if (checkChar(*i)) {
+                ss << "\t";
+                int value = 0;
+                ss >> value;
+                qalen += value;
+                ss.str("");
+            } else {
+                ss.str("");
+            }
+        } else {
+            ss << *i;
+        }
+    }
+
+    int edit_dist = 0;
+    std::size_t found = line.find("NM:i:");
+    if (found!=std::string::npos) {
+        edit_dist = std::strtol(&line[found + 5], 0, 10);
+    }
+
+    double si = 0;
+    if (qalen != 0) {
+        double mins = qalen - edit_dist;
+        double div = mins/seq.length();
+        si = div * 100;
+    }
+
+    return si;
+}
+
 
 /* Get all scaffold sizes from FASTA file */
 void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
@@ -188,7 +246,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     }
 
     std::string prevRN = "", prevIndex = "", readyToAddIndex = "", prevRef = "", readyToAddRefName = "";
-    int prevMapq = 0, prevPos = -1, readyToAddPos = -1;
+    int prevSI = 0, prevFlag = 0, prevMapq = 0, prevPos = -1, readyToAddPos = -1;
     int ct = 1;
 
     std::string line;
@@ -246,7 +304,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             /* Parse the index from the readName */
             std::string index = parseBXTag(tags);
             if (index.empty()) {
-                if (!prevIndex.empty()){
+                if (!prevIndex.empty() && params.miBF){
                     index = prevIndex;
                     prevIndex.clear();
                 }
@@ -265,7 +323,10 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             if (!index.empty())
                 indexMultMap[index]++;
 
-            if (ct == 2 && false) {
+            /* Calculate the sequence identity */
+            int si = calcSequenceIdentity(line, cigar, seq);
+
+            if (ct == 2 && readName != prevRN && !params.miBF) {
                 if (countUnpaired == 0)
                     std::cerr << "Warning: Skipping an unpaired read. Read pairs should be consecutive in the SAM/BAM file.\n"
                         "  Prev read: " << prevRN << "\n"
@@ -279,8 +340,10 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             if (ct >= 3)
                 ct = 1;
             if (ct == 1) {
-                if (true) {
+                if (readName.compare(prevRN) != 0 || params.miBF) {
                     prevRN = readName;
+                    prevSI = si;
+                    prevFlag = flag;
                     prevMapq = mapq;
                     prevRef = scafName;
                     prevPos = pos;
@@ -338,7 +401,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     readyToAddPos = -1;
                 }
             } else if (ct == 2) {
-                if (!seq.empty() && mapq != 0 && prevMapq != 0) {
+                assert(readName == prevRN || params.miBF);
+                if (!seq.empty() && (params.miBF || (checkFlag(flag) && checkFlag(prevFlag)
+                        && mapq != 0 && prevMapq != 0 && si >= params.seq_id && prevSI >= params.seq_id))) {
                     if (prevRef.compare(scafName) == 0 && scafName.compare("*") != 0 && !scafName.empty() && !index.empty()) {
 
                         readyToAddIndex = index;
@@ -990,6 +1055,8 @@ int main(int argc, char** argv)
                 params.dist_mode = ARCS::DIST_MEDIAN; break;
             case OPT_DIST_UPPER:
                 params.dist_mode = ARCS::DIST_UPPER; break;
+            case OPT_MIBF:
+                params.miBF = true; break;
             case 'm': {
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
