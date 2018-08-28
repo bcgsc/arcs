@@ -160,7 +160,6 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
     }
 
     for(auto distSamples : distSamplesMap){
-        std::cout << distSamples.second.size() << std::endl;
         for(DistSampleConstIt itr = distSamples.second.begin();
                 itr != distSamples.second.end();){
             if(itr->second.barcodesIntersect == 0)
@@ -168,7 +167,6 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
             else
                 ++itr;
         }
-        std::cout << distSamples.second.size() << std::endl;
     }
 }
 
@@ -330,8 +328,8 @@ static inline void buildPairToBarcodeStats(
                     i = PairOrientation(i + 1))
             {
                 BarcodeStats& stats = it->second.at(i);
-                // if (stats.barcodesIntersect == 0)
-                //     continue;
+                if (stats.barcodesIntersect == 0)
+                    continue;
 
                 const std::string& id1 = it->first.first;
                 const std::string& id2 = it->first.second;

@@ -67,6 +67,9 @@ PROGRAM " " PACKAGE_VERSION "\n"
 " Distance Estimation Options:\n"
 "\n"
 "   -B, --bin_size=N        estimate distance using N closest Jaccard scores [20]\n"
+"   -x                      maximum head/tail length for distance estimation [30000]\n"
+"   -y                      minimum head/tail length for distance estimation [10000]\n"
+"   -p                      decrement value for head/tail length for distance estimation [10000]\n"
 "   -D, --dist_est          enable distance estimation\n"
 "       --no_dist_est       disable distance estimation [default]\n"
 "       --dist_median       use median distance in ABySS dist.gv [default]\n"
@@ -389,24 +392,26 @@ void readBAM(const std::string bamName,
                                if (imap[readyToAddIndex].count(key) == 0)
                                    imap[readyToAddIndex][key] = 0;
                            }
-                           for (int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length) {
-                               if (size > distEstCutOff * 2){
+                           if(params.dist_est)
+                           {
+                               for (int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length) {
+                                   if (size > distEstCutOff * 2){
 
-                                   /* Aligns to head */
-                                   if (readyToAddPos <= distEstCutOff) {
-                                       dmap[distEstCutOff][readyToAddIndex][key]++;
+                                       /* Aligns to head */
+                                       if (readyToAddPos <= distEstCutOff) {
+                                           dmap[distEstCutOff][readyToAddIndex][key]++;
 
-                                       if (dmap[distEstCutOff][readyToAddIndex].count(keyR) == 0)
-                                           dmap[distEstCutOff][readyToAddIndex][keyR] = 0;
+                                           if (dmap[distEstCutOff][readyToAddIndex].count(keyR) == 0)
+                                               dmap[distEstCutOff][readyToAddIndex][keyR] = 0;
 
-                                       /* Aligns to tail */
-                                   } else if (readyToAddPos > size - distEstCutOff) {
-                                       dmap[distEstCutOff][readyToAddIndex][keyR]++;
+                                           /* Aligns to tail */
+                                       } else if (readyToAddPos > size - distEstCutOff) {
+                                           dmap[distEstCutOff][readyToAddIndex][keyR]++;
 
-                                       if (dmap[distEstCutOff][readyToAddIndex].count(key) == 0)
-                                           dmap[distEstCutOff][readyToAddIndex][key] = 0;
+                                           if (dmap[distEstCutOff][readyToAddIndex].count(key) == 0)
+                                               dmap[distEstCutOff][readyToAddIndex][key] = 0;
+                                       }
                                    }
-                                   // break;
                                }
                            }
 
@@ -1042,6 +1047,7 @@ void runArcs(const std::vector<std::string>& filenames) {
 }
 
 int main(int argc, char** argv) {
+    opt::trimMasked = false;
 
     bool die = false;
     for (int c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;) {
