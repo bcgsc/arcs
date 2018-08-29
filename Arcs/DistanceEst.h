@@ -447,7 +447,6 @@ static inline void addEdgeDistances(
             if (statsIt == pairToStats.end())
                 continue;
             const BarcodeStats& stats = statsIt->second.at(orientation);
-            // std::cout << stats.barcodes1 << stats.barcodes2 << stats.barcodesUnion << stats.barcodesIntersect << std::endl;
 
             DistanceEstimate est;
 
