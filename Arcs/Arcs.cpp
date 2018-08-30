@@ -67,15 +67,15 @@ PROGRAM " " PACKAGE_VERSION "\n"
 " Distance Estimation Options:\n"
 "\n"
 "   -B, --bin_size=N        estimate distance using N closest Jaccard scores [20]\n"
-"   -x                      maximum head/tail length for distance estimation [30000]\n"
-"   -y                      minimum head/tail length for distance estimation [10000]\n"
-"   -p                      decrement value for head/tail length for distance estimation [10000]\n"
 "   -D, --dist_est          enable distance estimation\n"
 "       --no_dist_est       disable distance estimation [default]\n"
 "       --dist_median       use median distance in ABySS dist.gv [default]\n"
 "       --dist_upper        use upper bound distance in ABySS dist.gv\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
-"       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
+"       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n"
+"       --dist_max          maximum head/tail length for distance estimation [30000]\n"
+"       --dist_min          minimum head/tail length for distance estimation [10000]\n"
+"       --dist_dec          decrement value for head/tail length for distance estimation [10000]\n";
 
 static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:x:y:p:r:v";
 
@@ -90,7 +90,10 @@ enum {
     OPT_DIST_TSV,
     OPT_NO_DIST_EST,
     OPT_DIST_MEDIAN,
-    OPT_DIST_UPPER
+    OPT_DIST_UPPER,
+    OPT_DIST_MAXLEN,
+    OPT_DIST_MINLEN,
+    OPT_DIST_DECLEN
 };
 
 static const struct option longopts[] = {
@@ -117,8 +120,9 @@ static const struct option longopts[] = {
     {"index_multiplicity", required_argument, NULL, 'm'},
     {"max_degree", required_argument, NULL, 'd'},
     {"end_length", required_argument, NULL, 'e'},
-    {"dist_length", required_argument, NULL, 'x'},
-    {"min_length", required_argument, NULL, 'y'},
+    {"dist_max", required_argument, NULL, OPT_DIST_MAXLEN},
+    {"dist_min", required_argument, NULL, OPT_DIST_MINLEN},
+    {"dist_dec", required_argument, NULL, OPT_DIST_DECLEN},
     {"error_percent", required_argument, NULL, 'r'},
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
@@ -951,9 +955,6 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -c " << params.min_reads
         << "\n -d " << params.max_degree
         << "\n -e " << params.end_length
-        << "\n -x " << params.dist_length
-        << "\n -y " << params.min_length
-        << "\n -p " << params.dec_length
         << "\n -l " << params.min_links
         << "\n -m " << params.min_mult << '-' << params.max_mult
         << "\n -r " << params.error_percent
@@ -1105,11 +1106,11 @@ int main(int argc, char** argv)
                 arg >> params.max_degree; break;
             case 'e':
                 arg >> params.end_length; break;
-            case 'x':
+            case OPT_DIST_MAXLEN:
                 arg >> params.dist_length; break;
-            case 'y':
+            case OPT_DIST_MINLEN:
                 arg >> params.min_length; break;
-            case 'p':
+            case OPT_DIST_DECLEN:
                 arg >> params.dec_length; break;
             case 'r':
                 arg >> params.error_percent; break;

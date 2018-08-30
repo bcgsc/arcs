@@ -91,11 +91,17 @@ void calcDistSamples(const ARCS::DistanceMap& dmap,
     /* for each chromium barcode */
     for (int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length){
         DistSampleMap& distSamples = distSamplesMap[distEstCutOff];
-        for (auto barcodeIt = dmap.at(distEstCutOff).begin(); barcodeIt != dmap.at(distEstCutOff).end(); ++barcodeIt)
+        auto imap = dmap.find(distEstCutOff);
+        if(imap == dmap.end())
+            continue;
+        for (auto barcodeIt = imap->second.begin(); barcodeIt != imap->second.end(); ++barcodeIt)
         {
             /* skip barcodes outside of min/max multiplicity range */
             std::string index = barcodeIt->first;
-            int indexMult = indexMultMap.at(index);
+            auto indexItr = indexMultMap.find(index);
+            if (indexItr == indexMultMap.end())
+                continue;
+            int indexMult = indexItr->second;
             if (indexMult < params.min_mult || indexMult > params.max_mult)
                 continue;
 
@@ -426,10 +432,16 @@ static inline void addEdgeDistances(
 {
     for(int distEstCutOff = params.dist_length; distEstCutOff >= params.min_length; distEstCutOff -= params.dec_length)
     {
-        JaccardToDist jaccardToDist = jaccardToDistMap.at(distEstCutOff);
+        auto jaccardToDistItr = jaccardToDistMap.find(distEstCutOff);
+        if (jaccardToDistItr == jaccardToDistMap.end())
+            continue;
+        JaccardToDist jaccardToDist = jaccardToDistItr->second;
         if (jaccardToDist.empty())
             continue;
-        PairToBarcodeStats pairToStats = pairToStatsMap.at(distEstCutOff);
+        auto pairToStatsItr = pairToStatsMap.find(distEstCutOff);
+        if (pairToStatsItr == pairToStatsMap.end())
+            continue;
+        PairToBarcodeStats pairToStats = pairToStatsItr->second;
 
         for (const auto e : boost::make_iterator_range(boost::edges(g))) {
 
