@@ -77,7 +77,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_min          minimum head/tail length for distance estimation [10000]\n"
 "       --dist_dec          decrement value for head/tail length for distance estimation [10000]\n";
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:x:y:p:r:v";
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
 
 enum {
     OPT_HELP = 1,
