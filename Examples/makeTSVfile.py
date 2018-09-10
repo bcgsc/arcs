@@ -81,12 +81,12 @@ def writeTSVFile(infile, outfile):
                         dist = int(match.group(1))
                         estDist = True
                     else:
-                        dist = 10
+                        dist = 100
                         estDist = False
 
                     if dist < 0:
                         dist_category = -1
-                    elif dist == 10 and estDist is False:
+                    elif dist == 100 and estDist is False:
                         dist_category = 10
                     elif dist < 500:
                         dist_category = 500
