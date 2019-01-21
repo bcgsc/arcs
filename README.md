@@ -56,7 +56,7 @@ and compare your output to the files provided at: Examples/arcs_test-demo/output
 Paper :
 https://doi.org/10.1101/100750
 
-**PLEASE NOTE: The supplementary data at ftp://ftp.bcgsc.ca/supplementary/ARCS is currently unavailable. We are working on a solution - Please contact Rene Warren (rwarren@bcgsc.ca) or Lauren Coombe (lcoombe@bcgsc.ca) if you have any questions.**
+**NOTE: The supplementary data and scripts have been moved to http://www.bcgsc.ca/downloads/supplementary/ARCS/**
 
 LINKS :
 http://www.bcgsc.ca/platform/bioinfo/software/links
