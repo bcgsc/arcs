@@ -1,8 +1,8 @@
 #!/bin/bash
 #RLW2016
 echo Downloading sample Chromium read alignment .bam file and human genome assembly draft...
-wget ftp://ftp.bcgsc.ca/supplementary/ARCS/testdata/NA24143_genome_phased_namesorted.bam1.sorted.bam
-wget ftp://ftp.bcgsc.ca/supplementary/ARCS/testdata/hsapiens-8reformat.fa
+wget http://www.bcgsc.ca/downloads/supplementary/ARCS/testdata/NA24143_genome_phased_namesorted.bam1.sorted.bam
+wget http://www.bcgsc.ca/downloads/supplementary/ARCS/testdata/hsapiens-8reformat.fa
 echo Running ARCS...
 nohup ./ARCS.sh 5 0.05 30000 hsapiens-8reformat.fa &> ARCSlog_c5r0.05e30000.txt
 echo Converting graph for LINKS...
