@@ -19,4 +19,4 @@ e=$1; shift
 draft=$1;shift
 
 #loose dependency on -i
-/usr/bin/time -v -o ARCStime_$c-$r-$e.txt arcs -f $draft -a alignments.fof -s 98 -c $c -l 0 -d 0 -r $r -e $e -v 1 -m 20-10000
+/usr/bin/time -v -o ARCStime_$c-$r-$e.txt arcs -f $draft -a alignments.fof -s 98 -c $c -l 0 -d 0 -r $r -e $e -v -m 20-10000
