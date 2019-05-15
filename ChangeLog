@@ -1,3 +1,9 @@
+2019-05-13  Rene Warren <rwarren@bcgsc.ca>
+
+	* Big fixes
+	* Improved documentation
+	* Better input error handling
+
 2018-07-31  Ben Vandervalk <benv@bcgsc.ca>
 
 	* Release version 1.0.5.
