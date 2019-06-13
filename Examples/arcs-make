@@ -98,7 +98,7 @@ help:
 	@echo "    ARCS Options:"
 	@echo ""
 	@echo "	c               minimum aligned read pairs per barcode mapping [5]"
-	@echo "	m               barcode multiplicty range [50-10000]"
+	@echo "	m               barcode multiplicity range [50-10000]"
 	@echo "	z               minimum contig length [500]"
 	@echo "	s               minimum sequence identity [98]"
 	@echo "	r               p-value for head/tail assigment and link orientation [0.05]"
