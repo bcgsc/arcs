@@ -79,7 +79,7 @@ namespace ARCS {
 	    int k_shift;            // --- newly added for arks support
         double j_index;         // --- newly added for arks support
 	    unsigned threads;       // --- newly added for arks support
-        int kmer_method;        // --- newly added for differentiation between methods
+        bool kmer_method;        // --- newly added for differentiation between methods
 
         ArcsParams() :
             bx(false),
@@ -96,7 +96,7 @@ namespace ARCS {
             max_degree(0),
             end_length(30000),
             error_percent(0.05),
-            verbose(1), 
+            verbose(0), 
             //new part below
             checkpoint_outs(0),
             k_value(30), 

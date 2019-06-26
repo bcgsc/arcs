@@ -77,7 +77,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
 "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v:t:x:p:u:q:w:i:o:k:h:j";   // --newly added part t:x:p:u:q:w:i:o:k:h:j
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v:t:u:k:j";   // --newly added part t:x:p:u:q:w:i:o:k:h:j
 
 enum {
     OPT_HELP = 1,
@@ -90,7 +90,8 @@ enum {
     OPT_DIST_TSV,
     OPT_NO_DIST_EST,
     OPT_DIST_MEDIAN,
-    OPT_DIST_UPPER
+    OPT_DIST_UPPER,
+    OPT_KMER_METHOD
 };
     // possibly new options must be put here as well.
 static const struct option longopts[] = {
@@ -122,16 +123,11 @@ static const struct option longopts[] = {
     {"version", no_argument, NULL, OPT_VERSION},
     {"help", no_argument, NULL, OPT_HELP},
     {"threads", required_argument, NULL, 't'},      //new part
-    {"kmer_method", required_argument, NULL, 'x'},
-    {"program", required_argument, NULL, 'p'},
+    //{"kmer_method", required_argument, NULL, 'x'},
     {"multfile", required_argument, NULL, 'u'},
-    {"conrecfile", required_argument, NULL, 'q'},
-    {"kmapfile", required_argument, NULL, 'w'},
-    {"imapfile", required_argument, NULL, 'i'},
-    {"checkpoint_outs", required_argument, NULL, 'o'},
     {"k_value", required_argument, NULL, 'k'},
-    {"k_shift", required_argument, NULL, 'h'},
     {"j_index", required_argument, NULL, 'j'},
+    {"kmer", no_argument, NULL, OPT_KMER_METHOD},
     { NULL, 0, NULL, 0 }
 };
 
@@ -151,13 +147,8 @@ namespace opt {
 typedef ContigGraph<DirectedGraph<Length, DistanceEst>> DistGraph;
 
 /** A dictionary of contig names. */
-Dictionary g_contigNames;
-unsigned g_nextContigName;
-
-/** Added for program flow of ARKS(kmer) */
-bool full = false;
-bool alignc = false;
-bool graph = false;
+Dictionary g_contigNames;   // no need
+unsigned g_nextContigName;  // no need
 
 /** Added for program flow of ARKS(kmer) */
 unsigned int s_numkmersmapped = 0, s_numkmercollisions = 0, s_numkmersremdup = 0,
@@ -300,6 +291,32 @@ static inline bool checkContigSequence(std::string seq) {
 	return true;
 }
 
+bool checkSameFormat(std::vector<std::string> fileNames, bool &allAlignment){
+    //int foundPos;
+    int prevType = 0;       // 0:unknown  1:alignment file type 2:read file type
+    int curType = 0;
+    size_t npos = std::string::npos;
+    //bool allSameType =false;
+
+    for (const auto& fileName : fileNames){
+        curType = 0;
+        if((fileName.find(".sam") != npos) || (fileName.find(".bam") != npos))
+            curType = 1;
+        if((fileName.find(".fastq") != npos) || (fileName.find(".fastq") != npos) || (fileName.find(".fq") != npos) || (fileName.find(".fq.gz") != npos))
+            curType = 2;
+        if(!curType){
+            std::cout << "Unknown type file is observed!" << std::endl;
+            return false;
+        }
+        if(!(!prevType || prevType == curType)){
+            return false;
+        }
+        prevType = curType;
+    }
+    allAlignment = (curType == 1);
+    return true;
+}
+
 // /* Create ContigKmerMap */
 // void createContigKmerMap(std::string kmaptsv, ARKS::ContigKMap &kmap) {
 
@@ -437,7 +454,7 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 	multfile_stream.close();
 
 	if (params.verbose) {
-		std::cout << "Saw " << numbarcodes << " barcodes and keeping " << numreadskept << " read pairs out of " << numreadstotal << std::endl;
+		std::cout << "Saw " << numbarcodes << " barcodes and read " << numreadskept << " read pairs" << std::endl;
 	}
 
 }
@@ -474,10 +491,85 @@ size_t initContigArray(std::string contigfile) {
 	//Let the first index represent the a null contig
 	return (count * 2) + 1;
 }
+// under implementation 
+void readBarcodes(vector<string> inputFiles, 
+		std::unordered_map<std::string, int> &indexMultMap) {
+
+    int added_barcode = 0;
+    //int stopped_occasion = 0;
+    int seq_read = 0;
+	std::string chromFile;
+
+	for (auto p = inputFiles.begin(); p != inputFiles.end(); ++p) {
+		chromFile = *p;
+		if (params.verbose)
+			std::cout << "Reading chrom " << chromFile << std::endl;
+
+        bool stop = false; //no need maybe
+        int l;
+        std::string comment;
+        std::string barcode;
+        std::size_t foundTag;
+	    std::size_t foundEnd;
+
+        gzFile fp2;
+	    //const char* filename = chromFile.c_str();
+        char *filename = new char[chromFile.length() + 1];
+        strcpy(filename, chromFile.c_str());
+        
+
+	    fp2 = gzopen(filename, "r");
+	    if (fp2 == Z_NULL) {
+		    cerr << "File " << filename << " cannot be opened." << endl;
+		    exit(1);
+	    } else {
+		    cerr << "File " << filename << " opened." << endl;
+	    }
+	    kseq_t * seq2 = kseq_init(fp2);
+
+        while(!stop){
+            l = kseq_read(seq2);
+            if(l > 0){
+                seq_read++;
+			    comment = seq2->comment.s;
+                barcode.clear();
+                foundTag = comment.find("BX:Z:");
+                if(foundTag != std::string::npos){
+			        // End is space if there is another tag, newline otherwise
+	                foundEnd = comment.find(' ', foundTag);
+			        // Get substring from end of BX:Z: to space or end of string
+            	    if(foundEnd != std::string::npos){
+		    	        barcode = comment.substr(foundTag + 5, foundEnd - foundTag - 5);
+				    }else {
+		    			barcode = comment.substr(foundTag + 5);
+				    }
+	    	    }
+                indexMultMap[barcode]++;  
+                added_barcode++;
+                if (added_barcode % 10000000 == 0)
+                {
+                    std::cout << "added_barcode: " << added_barcode << " barcode: " << barcode << std::endl;
+                }
+
+            }else{
+                stop = true;
+                //stopped_occasion++;
+                std::cout << "here 1" << std::endl;
+            }
+        }
+        delete [] filename;
+	}
+    if (params.verbose) {
+		std::cout << "Saw " << indexMultMap.size() << " barcodes and read " << seq_read << " read pairs" << std::endl;
+	}
+    // std::cout << "At all " << added_barcode << " barcodes added" << std::endl; 
+    // std::cout << "Stopped on " << stopped_occasion << " occasions" << std::endl; 
+    // std::cout << "Total seq read " << seq_read << std::endl; 
+}
 
 
 /* Get all scaffold sizes from FASTA file */
-void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes, ARCS::ContigToLength& contigToLength) {
+void getScaffSizes(std::string file, ARCS::ContigToLength& contigToLength) {
 
     int counter = 0;
     FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
@@ -485,7 +577,7 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes, ARCS::Cont
         counter++;
         std::string  scafName = rec.id;
         int size = rec.seq.length();
-        scaffSizes.push_back(std::make_pair(rec.id, size));
+        //scaffSizes.push_back(std::make_pair(rec.id, size));
         contigToLength[rec.id] = size;          //newly added
     }
 
@@ -498,8 +590,11 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes, ARCS::Cont
  * update indexMap. IndexMap also stores information about
  * contig number index algins with and counts.
  */
+// void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
+//         ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& sMap, ARCS::ContigToLength& contigToLengthMap)
+// {
 void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
-        ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& sMap, ARCS::ContigToLength& contigToLengthMap)
+        ARCS::ContigToLength& contigToLengthMap)
 {
     /* Open BAM file */
     std::ifstream bamName_stream;
@@ -545,8 +640,8 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 if (addSAMSequenceLengths) {
                     //ARCS::ScaffSizeMap::value_type sq_ln(name, size);
                     ARCS::ContigToLength::value_type sq_ln(name, size);
-                    scaffSizeList.push_back(sq_ln);
-                    sMap.insert(sq_ln);
+                    //scaffSizeList.push_back(sq_ln);
+                    //sMap.insert(sq_ln);
                     contigToLengthMap.insert(sq_ln);
                 } else {
                     // auto it = sMap.find();
@@ -722,14 +817,18 @@ static std::vector<std::string> readFof(const std::string& fofName)
 /**
  * Read the BAM files.
  */
+// void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
+//         ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& scaffSizeMap, ARCS::ContigToLength& contigToLengthMap)
+// {
 void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
-        ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& scaffSizeMap, ARCS::ContigToLength& contigToLengthMap)
+        ARCS::ContigToLength& contigToLengthMap)
 {
     assert(!bamNames.empty());
     for (const auto& bamName : bamNames) {
-        if (params.verbose)
-            std::cout << "Reading alignments: " << bamName << std::endl;
-        readBAM(bamName, imap, indexMultMap, scaffSizeList, scaffSizeMap, contigToLengthMap);
+        //if (params.verbose)
+            //std::cout << "Reading alignments: " << bamName << std::endl;
+        //readBAM(bamName, imap, indexMultMap, scaffSizeList, scaffSizeMap, contigToLengthMap);
+        readBAM(bamName, imap, indexMultMap, contigToLengthMap);
     }
 }
 
@@ -786,7 +885,7 @@ std::pair<bool, bool> headOrTail(int head, int tail) {
  *	int							k-value specified by user
  *	ARKS::ContigKMap					ContigKMap for storage of kmers
  */
-int mapKmers(std::string seqToKmerize, int k, int k_shift,
+int mapKmers(std::string seqToKmerize, int k,
 		ARCS::ContigKMap &kmap, ReadsProcessor &proc, int conreci) {
 
 	int seqsize = seqToKmerize.length();
@@ -850,7 +949,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
 					s_uniquedraftkmers++;
 					s_numkmersmapped++;
 				}
-				i += k_shift;
+				i++;
 			} else {
 				i += k;
 //#pragma omp atomic
@@ -869,7 +968,7 @@ int mapKmers(std::string seqToKmerize, int k, int k_shift,
  *      double j_index				Jaccard Index (default 0.5)
  *	ReadsProcessor				kmerizer
  */
-int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
+int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k,
 		double j_index, ReadsProcessor &proc) {
 
 	// to keep track of what contig+H/T that the k-mer from barcode matches to
@@ -934,7 +1033,7 @@ int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k, int k_shift,
 			s_numbadckmers++;
 		}
         //std::cout << "here! 9" << std::endl;
-		i += k_shift;
+		i++;
         // //* put here for debugging purposes
         // if (i-k_shift / 50 != i / 50 )
         // {
@@ -1057,7 +1156,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap &kmap,
 				contigRecord[tempConreci1] = headside;		// in contigRecord head/tail of contig are kept as different contigs.
 				std::string seqend;
 				seqend = sequence.substr(0, cutOff);
-				int num = mapKmers(seqend, params.k_value, params.k_shift,
+				int num = mapKmers(seqend, params.k_value, 
 						kmap, proc, tempConreci1);
 //#pragma omp atomic
 				totalKmers += num;
@@ -1065,7 +1164,7 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap &kmap,
 				contigRecord[tempConreci2] = tailside;
 				seqend = sequence.substr(sequence_length - cutOff,
 						sequence_length);
-				num = mapKmers(seqend, params.k_value, params.k_shift, kmap,
+				num = mapKmers(seqend, params.k_value, kmap,
 						proc, tempConreci2);
 
 //#pragma omp atomic
@@ -1126,6 +1225,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	int invalidbarcode = 0;
 	int emptybarcode=0; 
 
+    int parsed_comment = 0;
+
 	size_t count = 0;
 	bool stop = false;
 
@@ -1172,6 +1273,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				read1_name = seq2->name.s;
 				if (seq2->comment.l) {
 					comment1 = seq2->comment.s;
+#pragma omp atomic
+                    parsed_comment++;
 				}
 				cread1 = seq2->seq.s;
 				l = kseq_read(seq2);
@@ -1179,6 +1282,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 					read2_name = seq2->name.s;
 					if (seq2->comment.l) {
 						comment2 = seq2->comment.s;
+#pragma omp atomic
+                        parsed_comment++;
 					}
 					cread2 = seq2->seq.s;
 				} else {
@@ -1197,7 +1302,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			}
 			count += 2;
 			if (params.verbose) {
-				if (count % 100000 == 0) {
+				if (count % 1000000 == 0) {
 					std::cout << "Processed " << count << " read pairs." << std::endl;
 				}
 			}
@@ -1251,8 +1356,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 				bool goodmult = indexMult > params.min_mult || indexMult < params.max_mult;
 				if (goodmult && checkReadSequence(cread1) && checkReadSequence(cread2)) {
                     //std::cout << "Here! 3" << std::endl;
-					corrConReci1 = bestContig(kmap, cread1, params.k_value, params.k_shift, params.j_index, *procs[omp_get_thread_num()]);
-					corrConReci2 = bestContig(kmap, cread2, params.k_value, params.k_shift, params.j_index, *procs[omp_get_thread_num()]);
+					corrConReci1 = bestContig(kmap, cread1, params.k_value, params.j_index, *procs[omp_get_thread_num()]);
+					corrConReci2 = bestContig(kmap, cread2, params.k_value, params.j_index, *procs[omp_get_thread_num()]);
                     //std::cout << "Here! 4" << std::endl;
                 } else {
 #pragma omp atomic    //--commented
@@ -1289,6 +1394,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	}
 
 	if (params.verbose) {
+        std::cout << "parsed comment count: " << parsed_comment << std::endl;
 		printf(
 				"Stored read pairs: %u\nSkipped invalid read pairs: %u\nSkipped unpaired reads: %u\nSkipped reads pairs without a good contig: %u\n",
 				stored_readpairs, skipped_invalidreadpair, skipped_unpaired,
@@ -1753,6 +1859,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     ARCS::PairMap pmap;         // --same except int<->unsigned difference
     ARCS::Graph g;              // --same
     std::unordered_map<std::string, int> indexMultMap;  // --same
+    //std::unordered_map<std::string, int> indexMultMap2;
 
     ARCS::ContigKMap kmap;      // --newly added
     kmap.set_deleted_key("");   // --newly added
@@ -1762,65 +1869,85 @@ void runArcs(const std::vector<std::string>& filenames) {
     ARCS::ContigToLength contigToLength;    // --newly added normally it is declared in calcDistanceEstimates() function
     ARCS::ContigToLengthIt contigToLengthIt;
 
-    ARCS::ScaffSizeList scaffSizeList;      // will be deleted at all.
-    ARCS::ScaffSizeMap scaffSizeMap;        // will be converted to ContigToLength map structure.
+    //ARCS::ScaffSizeList scaffSizeList;      // will be deleted at all.
+    //ARCS::ScaffSizeMap scaffSizeMap;        // will be converted to ContigToLength map structure.
     
     std::vector<ARCS::CI> contigRecord;
 
-    if (!params.file.empty() && !params.kmer_method) {     // this is arcs method file type. scaffold file can be empty because same info can be gathered from SAM header file.(scaff id, length).
-        time(&rawtime);
-        std::cout << "\n=> Getting scaffold sizes... " << ctime(&rawtime);
-        getScaffSizes(params.file, scaffSizeList, contigToLength);      // gets scaff ids and their sizes. Its said to be optional we'll see..
-        scaffSizeMap.insert(scaffSizeList.begin(), scaffSizeList.end());
-    }
+    // if (!params.file.empty() && !params.kmer_method) {     // this is arcs method file type. scaffold file can be empty because same info can be gathered from SAM header file.(scaff id, length).
+    //     time(&rawtime);
+    //     std::cout << "\n=> Getting scaffold sizes... " << ctime(&rawtime);
+    //     //getScaffSizes(params.file, scaffSizeList, contigToLength);      // gets scaff ids and their sizes. Its said to be optional we'll see..
+    //     getScaffSizes(params.file, contigToLength);
+    //     //scaffSizeMap.insert(scaffSizeList.begin(), scaffSizeList.end());
+    // }
     // -- results of above test are contigToLength works same as scaffSizeList after the methods called above. So no need for that.
     std::cout << "\n CTL Map size: " << contigToLength.size() << '\n';
-    std::cout << "\n SSM Map size: " << scaffSizeMap.size() << '\n';
+    //std::cout << "\n SSM Map size: " << scaffSizeMap.size() << '\n';
     
     // std::cout << "\n CTL Map key:468 value:" << contigToLength["10335"] << '\n';
     // std::cout << "\n SSM Map key:468 value:" << scaffSizeMap["10335"] << '\n';
     
 
-    
+    // In most occasions fofNames is changed with fileNames.
 
-    //std::unordered_map<std::string, int> indexMultMap;
-    time(&rawtime);
-    std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
-    //std::vector<std::string> bamFiles = readFof(params.fofName);
-    std::vector<std::string> fofFiles = readFof(params.fofName);    // readFof is generic for both arcs/arks.
-    //std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
-    std::copy(filenames.begin(), filenames.end(), std::back_inserter(fofFiles));
-    std::cout << "\n Filenames have these files: \n";
-    for(unsigned i = 0; i < fofFiles.size(); i++){
-        std::cout << fofFiles.at(i) << '\n';
-    }
+    // time(&rawtime);
+    // std::cout << "\n=> Reading input files... " << ctime(&rawtime);
+    // std::vector<std::string> fofFiles = readFof(params.fofName);  
+    // std::copy(filenames.begin(), filenames.end(), std::back_inserter(fofFiles));
     
+    // // check they are all alignment file or chromium read here and decide on the path to go.
+    // bool allSame;
+    // bool alignmentFiles;
+    
+    // allSame = checkSameFormat(fofFiles, alignmentFiles);    // allSame if they are all same format alignmentFiles=true if they are alignment files
+    // std::cout << "\n Filenames have these files: \n";   // for debug purposes
+    // for(unsigned i = 0; i < fofFiles.size(); i++){
+    //     std::cout << fofFiles.at(i) << '\n';
+    // }
+    // if(allSame)
+    //     std::cout << "All files are same format!" << std::endl;
+    // if(alignmentFiles)
+    //     std::cout << "They are all alignment files" << std::endl;
+    // else
+    //     std::cout << "They are all read files" << std::endl;
 
+
+    //return;
     //readBAMS(bamFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap);
     // this is a critical method as imap is constructed here, indexMultMap(barcodeMultiplicity map) constructed here. If scaffold file
     // is not given, then scaffSizeList and scaffSizeMap are also constructed here.
     if (!params.kmer_method)
     {
-        readBAMS(fofFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap, contigToLength);
+         if (!params.file.empty()) {     // this is arcs method file type. scaffold file can be empty because same info can be gathered from SAM header file.(scaff id, length).
+            time(&rawtime);
+            std::cout << "\n=> Getting scaffold sizes... " << ctime(&rawtime);
+            getScaffSizes(params.file, contigToLength);
+        }
+        //readBAMS(fofFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap, contigToLength);
+        time(&rawtime);
+        std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
+        readBAMS(filenames, imap, indexMultMap, contigToLength);
     }else
     {
-        std::cout << "\n----Full ARKS----\n" << std::endl;
-        // if(!params.conrecfile.empty()){
-        //     time(&rawtime);
-		//     std::cout << "\n=>Detected ContigRecord file, making ContigRecord from checkpoint...\n" << ctime(&rawtime) << std::endl;
-		//     createContigRecord(params.conrecfile, contigRecord);
-        // }
-        // if(!params.kmapfile.empty()){
-		//     time(&rawtime);
-		//     std::cout << "\n=>Detected ContigKmerMap file, making ContigKmerMap from checkpoint...\n" << ctime(&rawtime) << std::endl;
-		//     createContigKmerMap(params.kmapfile, kmap);
-        // }
-
         time(&rawtime);
         std::cout << "\n=>Preprocessing: Gathering barcode multiplicity information..." << ctime(&rawtime);
-        createIndexMultMap(params.multfile, indexMultMap);
+        if(!params.multfile.empty()){
+            //std::cout << "Multiplicity information is formed from " << params.multfile << std::cout; 
+            createIndexMultMap(params.multfile, indexMultMap);
+        }
+        else{
+            std::cout << "Multiplicity information is being formed from reads as no barcode multiplicity file provided." << std::endl;
+            readBarcodes(filenames, indexMultMap);
+        }
         
-        std::cout << "barcode id: TACCACCCAAGGTCGA " << indexMultMap["TACCACCCAAGGTCGA-1"] << std::endl;
+        std::cout << "barcode id imap: CGGTACGTCAAAGTAG-1 " << indexMultMap["CGGTACGTCAAAGTAG-1"] << std::endl;
+        // std::cout << "barcode id imap2: CGGTACGTCAAAGTAG-1 " << indexMultMap2["CGGTACGTCAAAGTAG-1"] << std::endl;
+
+        std::cout << "size of imap: " << indexMultMap.size() << std::endl;
+        //std::cout << "size of imap2: " << indexMultMap2.size() << std::endl;
+
+        
 
         time(&rawtime);
         std::cout << "\n=>Preprocessing: Gathering draft information..." << ctime(&rawtime) << "\n";
@@ -1828,41 +1955,15 @@ void runArcs(const std::vector<std::string>& filenames) {
         //std::vector<ARKS::CI> contigRecord(size);
         contigRecord.resize(size);
 
-        //return;     // --- return border was set here and it worked!
-
     	time(&rawtime);
     	std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime) << std::endl;
     	getContigKmers(params.file, kmap, contigRecord, contigToLength);
-        
-        std::cout << "contigToLength cid:9 " << contigToLength["9"] << std::endl; //92
-        std::cout << "contigToLength cid:10 " << contigToLength["10"] << std::endl; //674
-
-        //return;     // --- return border is set here and working
 
         time(&rawtime);
   	    std::cout << "\n=>Reading Chromium FASTQ file(s)... " << ctime(&rawtime) << std::endl;
-  	    //readChroms(inputFiles, kmap, imap, indexMultMap, contigRecord);
-        readChroms(fofFiles, kmap, imap, indexMultMap, contigRecord);
+        readChroms(filenames, kmap, imap, indexMultMap, contigRecord);
 
-        //return;
-
-  	    std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
-    }
-    
-
-
-    //return;     // --- return border is set here!
-    //readBAMS(fofFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap);
-    
-
-
-
-    size_t barcodeCount = countBarcodes(imap, indexMultMap);    // just for counting
-
-    if (!params.barcode_counts_name.empty()) {
-        time(&rawtime);
-        std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime) << "\n";
-        writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
+  	    //std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
     }
 
     time(&rawtime);
@@ -1875,32 +1976,40 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     if (params.dist_est) {
         std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
-        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+        //calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
+        calcDistanceEstimates(imap, indexMultMap, contigToLength, g);
     }
 
-    if (!params.base_name.empty()) {
-        time(&rawtime);
-        std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
-        std::string graphFile = params.base_name + "_original.gv";
-        writePostRemovalGraph(g, graphFile);
-    }
+    
+    time(&rawtime);
+    std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
+    std::string graphFile = params.base_name + "_original.gv";
+    writePostRemovalGraph(g, graphFile);
+    
+    time(&rawtime);
+    std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
+    DistGraph gdist;
+    //createAbyssGraph(scaffSizeList, g, gdist);
+    createAbyssGraph(contigToLength, g, gdist);
 
-    if (!params.dist_graph_name.empty()) {
-        time(&rawtime);
-        std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
-        DistGraph gdist;
-        //createAbyssGraph(scaffSizeList, g, gdist);
-        createAbyssGraph(contigToLength, g, gdist);
-
-        time(&rawtime);
-        std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
-        writeAbyssGraph(params.dist_graph_name, gdist);
-    }
+    time(&rawtime);
+    std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
+    std::string distanceGraphFile = params.base_name + "_dist.gv";
+    writeAbyssGraph(distanceGraphFile, gdist);
+    //writeAbyssGraph(params.dist_graph_name, gdist);
+    
 
     if (!params.tsv_name.empty()) {
+        size_t barcodeCount = countBarcodes(imap, indexMultMap);
         time(&rawtime);
         std::cout << "\n=> Writing TSV file... " << ctime(&rawtime) << "\n";
         writeTSV(params.tsv_name, imap, pmap, barcodeCount);
+    }
+
+    if (!params.barcode_counts_name.empty()) {
+        time(&rawtime);
+        std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime) << "\n";
+        writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
     }
 
     time(&rawtime);
@@ -1911,8 +2020,6 @@ int main(int argc, char** argv)
 {
     
     printf("Reading user inputs...\n");
-    // Couldn't understand how rawInputFiles string works.
-	std::string rawInputFiles = "";
 
     // namesspace opt is declared in Graph/Options.h and used by DotIO.
     
@@ -1923,102 +2030,20 @@ int main(int argc, char** argv)
     for (int c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
-            //*
-            // Options only arks have are:
-            
-            // @ full, align and graph options are presented to user in arks with program param.
-            // case 'p':
-			//    arg >> params.program;
-			//    break;
-
-            // @ a parameter is used for multiplicity file declaration in arks. Can be tsv or gsv but required to create indexMultMap.
-            // case 'a':
-			//     arg >> params.multfile;
-			//     break;
-
-            // @ from this file contig record id(conreci), contig name and head/tail is read and vector is created in methods from it.
-            // Not needed in full pipeline as it can be built in getContigKmers() method.
-            // case 'q':
-			//     arg >> params.conrecfile;
-			//     break;
-
-            // @ Gets a file to create kmap hash table. Not needed in full program.
-            // case 'w':
-			//     arg >> params.kmapfile;
-			//     break;
-
-            // @ Used only in graph program flow and specifies the input of index mappings and used to create imap.
-            //case 'i':
-			//    arg >> params.imapfile;
-			//    break;
-
-            // @ can get {0,1,2,3} which decides which of the checkpoint tsv output files will be created.
-            // case 'o':
-			//     arg >> params.checkpoint_outs;
-			//     break;
-
-            // @ size of k-mer.
-            // case 'k':
-			//     arg >> params.k_value;
-			//     break;
-		    
-            // kmer shift step size.
-            // case 'g':
-			//     arg >> params.k_shift;
-			//     break;
-
-            // @ jaccard threshold used in determining the best contig according to kmer hits.
-            // case 'j':
-			//    arg >> params.j_index;
-			//    break;
-
-            // @ number fo threads running in the parallelized parts of chromiumRead() and atomic precautions taken in its 'calling' function
-            // bestContig().
-            // case 't':
-			//     arg >> params.threads;
-			//     break;
-            
-
-            // case 's':
-			//     arg >> params.intra_contig_tsv;
-			//     break;
-		    
-            // @ written distance/barcode data in TSV as output.
-            // case 'S':
-			//     arg >> params.inter_contig_tsv;
-			//     break;
-
-            case 'p':
-			    arg >> params.program; break;
             case 'u':
 			    arg >> params.multfile; break;
-            case 'q':
-			    arg >> params.conrecfile; break;
-            case 'w':
-			    arg >> params.kmapfile; break;
-            case 'i':
-		        arg >> params.imapfile; break;
-            case 'o':
-			    arg >> params.checkpoint_outs; break;
             case 'k':
 			    arg >> params.k_value; break;
-            case 'h':
-		        arg >> params.k_shift; break;
             case 'j':
 			    arg >> params.j_index; break;
             case 't':
 			    arg >> params.threads; break;
-            case 'x':
-                arg >> params.kmer_method; break;   // -- newly added if kmer_method is 1 kmer arks method will be used.
-                                                    // --- newly added params are above.
-
             case '?':
                 die = true; break; //same
             case 'f':
                 arg >> params.file; break; // same
             case 'a':
                 arg >> params.fofName; break;   // -a is multfile in arks which is barcode multiplicity file having barcode and occurences(?).
-                                                // fof file will be implemented to arks as well for chromium reads.
             case 'B':
                 arg >> params.dist_bin_size; break; //same
             case 's':
@@ -2052,6 +2077,8 @@ int main(int argc, char** argv)
                 params.dist_mode = ARCS::DIST_MEDIAN; break;    // this is distance estimation method option not included in arks
             case OPT_DIST_UPPER:
                 params.dist_mode = ARCS::DIST_UPPER; break;     // second option of the upper one.
+            case OPT_KMER_METHOD:
+                params.kmer_method = true; break; // same
             case 'm': {                                         // same
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
@@ -2084,25 +2111,8 @@ int main(int argc, char** argv)
     }
 
     std::vector<std::string> filenames(argv + optind, argv + argc); // now filenames have specified SAM/BAM files or chromuim reads. 
-    // later edit the readfof function that is compatible with reading of chromium reads.
     if (params.fofName.empty() && filenames.empty()) {      //user whether needs to put SAM/BAM files as parameter without flag or in a fof file.
             cerr << PROGRAM ": error: specify input (SAM/BAM file(s) || chromium reads) or a list of files with -a option\n";
-            die = true;
-    }
-
-    std::ifstream g(params.file.c_str());       // this part can not be used for both as file is optional for arcs.
-	if (!g.good() && params.kmer_method) {
-		std::cerr << "Cannot find -f [required for kmer]" << params.file << ". Exiting... \n";
-		die = true;
-	}
-
-    if (params.dist_graph_name.empty() && !params.base_name.empty())
-            params.dist_graph_name = params.base_name + ".dist.gv";
-    
-    if (params.base_name.empty()                // think about this later whether it is necessary or not.
-        && params.dist_graph_name.empty()
-        && params.tsv_name.empty()) {
-            cerr << PROGRAM ": error: specify an output file using one or more of -b, -g, or --tsv\n";
             die = true;
     }
 
@@ -2113,60 +2123,55 @@ int main(int argc, char** argv)
     for (const auto& filename : filenames)
         assert_readable(filename);
 
-    //std::vector<std::string> inputFiles;
+    std::vector<std::string> fofFiles = readFof(params.fofName);  
+    std::copy(fofFiles.begin(), fofFiles.end(), std::back_inserter(filenames));
+    
+    // check they are all alignment file or chromium read here and decide on the path to go.
+    bool alignmentFiles;        // T/F <-> alignment file/read file
+    
+    if(!checkSameFormat(filenames, alignmentFiles)){    // allSame if they are all same format alignmentFiles=true if they are alignment files
+        std::cerr << "Input files must be all alignment or all read files." << params.file << ". Exiting... \n";
+        die = true;
+    }
+
+    if(!(alignmentFiles ^ params.kmer_method)){
+        std::cerr << "File type must be compatible with the method.(BAM/SAM-alignment method) or (Read-kmer method)" << ". Exiting... \n";
+        die = true;
+    }
+
+    std::ifstream g(params.file.c_str());       // this part can not be used for both as file is optional for arcs.
+	if (!g.good() && params.kmer_method) {
+		std::cerr << "Cannot find [-f] scaffold file which is required for kmer" << params.file << ". Exiting... \n";
+		die = true;
+	}
+
+    //if (params.dist_graph_name.empty() && !params.base_name.empty())
+    //        params.dist_graph_name = params.base_name + ".dist.gv";
+    
+    if (params.base_name.empty()                // think about this later whether it is necessary or not.
+        && params.dist_graph_name.empty()
+        && params.tsv_name.empty()) {
+            cerr << PROGRAM ": error: specify an output file using one or more of -b, -g, or --tsv\n";
+            die = true;
+    }
 
     // this is not a good implementation of parameter processing in this case. But improving this part is left as later work.
     if(params.kmer_method){
-        omp_set_num_threads(params.threads);    //omp method called only if kmer_method is using as openmp only implemented in arks.
-        //gather all the chromium files
-	    //inputFiles = convertInputString(rawInputFiles); // --convertInputString() is copied from arks.
-                                                        // those elements in input file is just filename for chromium reads that iz opened by gzopen.
-
-        // if (optind == argc) {   // optind is the number of arguments processed above. So the remaining must be chromium files.
-		//     std::cerr << "No Chromium read files are specified. Exiting... \n"; 
-		//     die=true;
-	    // } else {
-		//     while (optind < argc) {
-		// 	    inputFiles.push_back(argv[optind]);
-		// 	    optind++;
-		//     }
-	    // }
-        // std::ifstream g(params.file.c_str());       // this part can not be used for both as file is optional for arcs.
-	    // if (!g.good()) {
-		//     std::cerr << "Cannot find -f " << params.file << ". Exiting... \n";
-		//     die = true;
-	    // }
-
-	    if (params.program == "full") {         //those booleans specified here, are declared on the top of the script as global variables.
-		    full = true;
-	    } else if (params.program == "align") {
-		    alignc = true;
-	    } else if (params.program == "graph") {
-		    graph = true;
-	    }else {
-		    std::cerr << "You must specify where you want ARKS(kmer) to start. Exiting... \n";
-		    die = true;
-	    }
-
-	    // if (die) {              // this part can be used for both
-		//     std::cerr << "Try " << PROGRAM << " --help for more information.\n";
-		//     exit(EXIT_FAILURE);
-	    // }   
+        omp_set_num_threads(params.threads);   
 
 	    /* Setting base name if not previously set */
 	    if (params.base_name.empty()) {         // check here if you can add components by easily checking a boolean
 		    std::ostringstream filename;
-		    filename << params.file << ".scaff" << "k-method" << "_c"
-				<< params.min_reads << "_k" << params.k_value << "_g"
-				<< params.k_shift << "_j" << params.j_index << "_l"
-				<< params.min_links << "_d" << params.max_degree << "_e"
-				<< params.end_length << "_r" << params.error_percent;
+		    filename << params.file << ".scaff" << "k-method" 
+            << "_c" << params.min_reads 
+            << "_k" << params.k_value 
+            << "_j" << params.j_index 
+            << "_l" << params.min_links 
+            << "_d" << params.max_degree 
+            << "_e" << params.end_length 
+            << "_r" << params.error_percent;
 		    params.base_name = filename.str();
 	    }
-
-	    // printf("%s\n", "Finished reading user inputs...entering runArks()...");
-
-	    //runArks(inputFiles);
     }else{
         // Set base name if not previously set.
         if (params.base_name.empty() && !params.file.empty()) {
@@ -2180,38 +2185,11 @@ int main(int argc, char** argv)
                 << "_r" << params.error_percent;
             params.base_name = filename.str();
         }
-
-        // Set dist graph name unless specified.
-        // if (params.dist_graph_name.empty() && !params.base_name.empty())
-        //     params.dist_graph_name = params.base_name + ".dist.gv";
-
-        // if (params.base_name.empty()
-        // && params.dist_graph_name.empty()
-        // && params.tsv_name.empty()) {
-        //     cerr << PROGRAM ": error: specify an output file using one or more of -b, -g, or --tsv\n";
-        //     die = true;
-        // }
-
-        //filenames(argv + optind, argv + argc);
-        // if (params.fofName.empty() && filenames.empty()) {      //user whether needs to put SAM/BAM files as parameter without flag or in a fof file.
-        //     cerr << PROGRAM ": error: specify input SAM/BAM file(s) or a list of files with -a option\n";
-        //     die = true;
-        // }
-
-        // if (die) {
-        //     std::cerr << "Try " PROGRAM " --help for more information.\n";
-        //     exit(EXIT_FAILURE);
-        // }
-
-        // if (!params.file.empty())
-        //     assert_readable(params.file);
-        // if (!params.fofName.empty())
-        //     assert_readable(params.fofName);
-        // for (const auto& filename : filenames)
-        //     assert_readable(filename);
-
-        //runArcs(filenames);
     }
+
+    //Set distance graph name unless specified.
+    if (params.dist_graph_name.empty() && !params.base_name.empty())
+            params.dist_graph_name = params.base_name + ".dist.gv";
 
     
     if (die) {              // this part can be used for both
