@@ -836,6 +836,70 @@ std::pair<bool, bool> headOrTail(int head, int tail) {
     }
 }
 
+// ------------- for check !!!
+std::string HeadOrTail(bool orientation) {
+	if (orientation) {
+		return "H";
+	} else {
+		return "T";
+	}
+}
+
+void writeContigRecord(std::vector<ARCS::CI> &contigRecord) {
+
+	std::string outputfilename = params.base_name + "_contigrec.tsv";
+
+	FILE* fout = fopen(outputfilename.c_str(), "w");
+
+	size_t conreci = 0;
+	for (std::vector<ARCS::CI>::iterator it = contigRecord.begin(); it != contigRecord.end(); ++it) {
+		std::string contigname = it->first;
+		std::string ht = HeadOrTail(it->second);
+		fprintf(fout, "%zu\t%s\t%s\n", conreci, contigname.c_str(), ht.c_str());
+		conreci++;
+	}
+	fclose(fout);
+}
+/* writes contigKMap to TSV */
+void writeContigKmerMap(ARCS::ContigKMap &kmap) {
+
+	std::string outputfilename = params.base_name + "_kmercontigrec.tsv";
+
+	FILE* fout = fopen(outputfilename.c_str(), "w");
+
+	for (auto it=kmap.begin(); it != kmap.end(); ++it) {
+		std::string kmer = it->first;
+		size_t contigreci = it->second;
+		fprintf(fout, "%s\t%zu\n", kmer.c_str(), contigreci);
+	}
+	fclose(fout);
+}
+/* write IndexMap to TSV */
+void writeIndexMap(ARCS::IndexMap &imap) {
+
+	std::string barcode = "";
+	std::string contigname = "";
+	std::string orientation = "";
+	int count = 0;
+
+	std::string outputfilename = params.base_name + "_imap.tsv";
+
+	FILE* fout = fopen(outputfilename.c_str(), "w");
+
+	for (auto it = imap.begin(); it != imap.end(); ++it) {
+		barcode = it->first;
+		ARCS::ScafMap smap = it->second;
+		for (auto j = smap.begin(); j != smap.end(); ++j) {
+			contigname = j->first.first;
+			orientation = HeadOrTail(j->first.second);
+			count = j->second;
+			fprintf(fout, "%s\t%s\t%s\t%d\n", barcode.c_str(), contigname.c_str(), orientation.c_str(), count);
+		}
+	}
+	fclose(fout);
+}
+///// ---------- for checkhs! ends here
+
 // --newly added
 /* Shreds end sequence into kmers and inputs them one by one into the ContigKMap
  * 	std::pair<std::string, bool> 				specifies contigID and head/tail
@@ -1311,7 +1375,9 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 #pragma omp critical(imap)
 					{
 						imap[barcode1][corrContigId]++;
-
+                        if(imap[barcode1].count(std::make_pair(corrContigId.first, !corrContigId.second)) == 0){
+							imap[barcode1][std::make_pair(corrContigId.first, !corrContigId.second)] = 0;
+						}
 					}
 
 #pragma omp atomic
@@ -1849,6 +1915,7 @@ void runArcs(const std::vector<std::string>& filenames) {
 
   	    //std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
     }
+    std::cout << "\n=> imap size before \n" << imap.size() << std::endl; 
 
     time(&rawtime);
     std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
@@ -1895,6 +1962,13 @@ void runArcs(const std::vector<std::string>& filenames) {
         std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime) << "\n";
         writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
     }
+
+    std::cout << "\n=> imap size after \n" << imap.size() << std::endl; 
+
+    // -- for checks !!!
+    writeContigRecord(contigRecord);
+	writeContigKmerMap(kmap);
+	writeIndexMap(imap);
 
     time(&rawtime);
     std::cout << "\n=> Done. " << ctime(&rawtime);
