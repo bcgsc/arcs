@@ -93,7 +93,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 
 
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v:t:u:k:j";   // --newly added part t:x:p:u:q:w:i:o:k:h:j
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v:t:u:j:k:";   // --newly added part t:x:p:u:q:w:i:o:k:h:j
 
 enum {
     OPT_HELP = 1,
@@ -493,10 +493,18 @@ void readBarcodes(vector<string> inputFiles,
         while(!stop){
             l = kseq_read(seq2);
             if(l > 0){
+                //std::cout << "here! 1 \n" << std::endl; 
                 seq_read++;
+                if (!seq2->comment.l) {
+					continue;
+				}
 			    comment = seq2->comment.s;
+                //std::cout << comment << "\n" << std::endl;
+                //std::cout << "here! 2 \n" << std::endl;
                 barcode.clear();
+                //std::cout << "here! 3 \n" << std::endl;
                 foundTag = comment.find("BX:Z:");
+                //std::cout << "here! 4 \n" << std::endl;
                 if(foundTag != std::string::npos){
 			        // End is space if there is another tag, newline otherwise
 	                foundEnd = comment.find(' ', foundTag);
@@ -506,14 +514,15 @@ void readBarcodes(vector<string> inputFiles,
 				    }else {
 		    			barcode = comment.substr(foundTag + 5);
 				    }
+                    indexMultMap[barcode]++;  
+                    added_barcode++;
 	    	    }
-                indexMultMap[barcode]++;  
-                added_barcode++;
-                if (added_barcode % 10000000 == 0)
+                //std::cout << "here! 5 \n" << std::endl;
+                if (params.verbose && added_barcode % 10000000 == 0)
                 {
                     std::cout << added_barcode << " barcodes read" << std::endl;
                 }
-
+                //std::cout << "here! 6 \n" << std::endl;
             }else{
                 stop = true;
             }
@@ -536,6 +545,7 @@ void getScaffSizes(std::string file, ARCS::ContigToLength& contigToLength) {
         std::string  scafName = rec.id;
         int size = rec.seq.length();
         //scaffSizes.push_back(std::make_pair(rec.id, size));
+        //contigToLength.push_back(std::make_pair(rec.id, size)); // change this to have same order.
         contigToLength[rec.id] = size;          //newly added
     }
 
@@ -845,60 +855,6 @@ std::string HeadOrTail(bool orientation) {
 	}
 }
 
-void writeContigRecord(std::vector<ARCS::CI> &contigRecord) {
-
-	std::string outputfilename = params.base_name + "_contigrec.tsv";
-
-	FILE* fout = fopen(outputfilename.c_str(), "w");
-
-	size_t conreci = 0;
-	for (std::vector<ARCS::CI>::iterator it = contigRecord.begin(); it != contigRecord.end(); ++it) {
-		std::string contigname = it->first;
-		std::string ht = HeadOrTail(it->second);
-		fprintf(fout, "%zu\t%s\t%s\n", conreci, contigname.c_str(), ht.c_str());
-		conreci++;
-	}
-	fclose(fout);
-}
-/* writes contigKMap to TSV */
-void writeContigKmerMap(ARCS::ContigKMap &kmap) {
-
-	std::string outputfilename = params.base_name + "_kmercontigrec.tsv";
-
-	FILE* fout = fopen(outputfilename.c_str(), "w");
-
-	for (auto it=kmap.begin(); it != kmap.end(); ++it) {
-		std::string kmer = it->first;
-		size_t contigreci = it->second;
-		fprintf(fout, "%s\t%zu\n", kmer.c_str(), contigreci);
-	}
-	fclose(fout);
-}
-/* write IndexMap to TSV */
-void writeIndexMap(ARCS::IndexMap &imap) {
-
-	std::string barcode = "";
-	std::string contigname = "";
-	std::string orientation = "";
-	int count = 0;
-
-	std::string outputfilename = params.base_name + "_imap.tsv";
-
-	FILE* fout = fopen(outputfilename.c_str(), "w");
-
-	for (auto it = imap.begin(); it != imap.end(); ++it) {
-		barcode = it->first;
-		ARCS::ScafMap smap = it->second;
-		for (auto j = smap.begin(); j != smap.end(); ++j) {
-			contigname = j->first.first;
-			orientation = HeadOrTail(j->first.second);
-			count = j->second;
-			fprintf(fout, "%s\t%s\t%s\t%d\n", barcode.c_str(), contigname.c_str(), orientation.c_str(), count);
-		}
-	}
-	fclose(fout);
-}
-///// ---------- for checkhs! ends here
 
 // --newly added
 /* Shreds end sequence into kmers and inputs them one by one into the ContigKMap
@@ -1048,12 +1004,6 @@ int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k,
 			s_numbadckmers++;
 		}
 		i++;
-        if (s_numbadckmers % 100000 == 1)
-        {
-            std::cout << "s_numbadckmers: " << s_numbadckmers << std::endl;
-        }
-        
-        
 	}
 	double maxjaccardindex = 0;
 	// for the read, find the contig that it is most compatible with based on the jaccard index
@@ -1842,14 +1792,14 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -l " << params.min_links
         << "\n -m " << params.min_mult << '-' << params.max_mult
         << "\n -r " << params.error_percent
-        << "\n -s " << params.seq_id
+        << "\n -s " << params.seq_id << " default method exclusive"
         << "\n -v " << params.verbose
         << "\n -z " << params.min_size
         << "\n --gap=" << params.gap
         << "\n -u " << maybeNA(params.multfile)
-        << "\n -k " << params.k_value
-        << "\n -j " << params.j_index
-        << "\n -t " << params.threads
+        << "\n -k " << params.k_value << " kmer method exclusive"
+        << "\n -j " << params.j_index << " kmer method exclusive"
+        << "\n -t " << params.threads << " kmer method exclusive"
         // Output files
         << "\n -b " << maybeNA(params.base_name)
         << "\n -g " << maybeNA(params.dist_graph_name)
@@ -1965,10 +1915,6 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     std::cout << "\n=> imap size after \n" << imap.size() << std::endl; 
 
-    // -- for checks !!!
-    writeContigRecord(contigRecord);
-	writeContigKmerMap(kmap);
-	writeIndexMap(imap);
 
     time(&rawtime);
     std::cout << "\n=> Done. " << ctime(&rawtime);
@@ -1986,13 +1932,13 @@ int main(int argc, char** argv)
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'u':
-		arg >> params.multfile; break;
+		        arg >> params.multfile; break;
             case 'k':
-		arg >> params.k_value; break;
+		        arg >> params.k_value; break;
             case 'j':
-		arg >> params.j_index; break;
+		        arg >> params.j_index; break;
             case 't':
-		arg >> params.threads; break;
+		        arg >> params.threads; break;
             case '?':
                 die = true; break;
             case 'f':
@@ -2147,7 +2093,6 @@ int main(int argc, char** argv)
 
     if (params.tsv_name.empty() && !params.base_name.empty())
             params.tsv_name = params.base_name + "_main.tsv";
-
     
     
     if (die) {              // this part can be used for both
