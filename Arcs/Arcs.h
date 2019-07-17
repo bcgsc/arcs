@@ -40,7 +40,6 @@ namespace ARCS {
      */
     struct ArcsParams {
 
-        bool bx;        //actually used nowhere can be deleted later.
         std::string file;
         std::string fofName;
         int seq_id;
@@ -69,20 +68,14 @@ namespace ARCS {
         float error_percent;
         int verbose;
 
-        std::string program;   // ---nerwly added for arks support
-        std::string multfile;  // --- newly added for arks support
-        std::string conrecfile; // --- newly added for arks support
-	    std::string kmapfile;   // --- newly added for arks support
-	    std::string imapfile;   // --- newly added for arks support
-        int checkpoint_outs;    // --- newly added for arks support
-        int k_value;            // --- newly added for arks support
-	    int k_shift;            // --- newly added for arks support
-        double j_index;         // --- newly added for arks support
-	    unsigned threads;       // --- newly added for arks support
-        bool kmer_method;        // --- newly added for differentiation between methods
+        std::string program;
+        std::string multfile; 
+        int k_value;
+        double j_index;
+	    unsigned threads;
+        bool arks;
 
         ArcsParams() :
-            bx(false),
             seq_id(98),
             min_reads(5),
             dist_est(false),
@@ -97,13 +90,10 @@ namespace ARCS {
             end_length(30000),
             error_percent(0.05),
             verbose(0), 
-            //new part below
-            checkpoint_outs(0),
             k_value(30), 
-            k_shift(1), 
             j_index(0.55),
             threads(1),
-            kmer_method(0) {
+            arks(0) {
         }
 
     };
