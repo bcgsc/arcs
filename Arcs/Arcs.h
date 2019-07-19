@@ -21,13 +21,13 @@
 #include <time.h>
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/graph/graphviz.hpp>
-#include "Common/Uncompress.h" //problem with this
-#include "DataLayer/FastaReader.h" // and this
-#include "DataLayer/FastaReader.cpp" // and this include
-#include "Common/ReadsProcessor.h" // -newly added
+#include "Common/Uncompress.h"
+#include "DataLayer/FastaReader.h"
+#include "DataLayer/FastaReader.cpp"
+#include "Common/ReadsProcessor.h"
 // using sparse hash maps for k-merization
-#include <google/sparse_hash_map>   // --newly added
-#include "city.h"       // --newly added
+#include <google/sparse_hash_map>
+#include "city.h"
 
 
 namespace ARCS {
@@ -108,7 +108,7 @@ namespace ARCS {
     /* IndexMap: key = index sequence, value = ScafMap */
     typedef std::unordered_map<std::string, ScafMap> IndexMap;  // -- same
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
-    typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap; // --small diff --vector type will be kept as unsigned but it's int in arks.
+    typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
 
     
 
