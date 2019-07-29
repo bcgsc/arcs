@@ -287,7 +287,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 }
             }
         } else {
-            linecount++;
 
             std::stringstream ss(line);
             std::string readName, scafName, cigar, rnext, seq, qual, tags;
@@ -295,6 +294,13 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
 
             ss >> readName >> flag >> scafName >> pos >> mapq >> cigar
                 >> rnext >> pnext >> tlen >> seq >> qual >> std::ws;
+
+            /* Check if alignment is a primary alignment */
+            if(flag >= 2048){
+                continue;
+            }
+
+            linecount++;
 
             getline(ss, tags);
 
@@ -415,6 +421,8 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     /* Close BAM file */
     assert_eof(bamName_stream, bamName);
     bamName_stream.close();
+
+    std::cout << "Ended on line " << linecount << std::endl;
 
     if (countUnpaired > 0)
         std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. Read pairs should be consecutive in the SAM/BAM file.\n";
