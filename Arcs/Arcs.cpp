@@ -422,8 +422,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     assert_eof(bamName_stream, bamName);
     bamName_stream.close();
 
-    std::cout << "Ended on line " << linecount << std::endl;
-
     if (countUnpaired > 0)
         std::cerr << "Warning: Skipped " << countUnpaired << " unpaired reads. Read pairs should be consecutive in the SAM/BAM file.\n";
 }
