@@ -250,8 +250,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     size_t linecount = 0;
     const unsigned int suppAligFlag = 0x00000800;
 
-    int notPrim = 0;
-
     // Number of unpaired reads.
     size_t countUnpaired = 0;
 
