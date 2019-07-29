@@ -295,7 +295,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
             ss >> readName >> flag >> scafName >> pos >> mapq >> cigar
                 >> rnext >> pnext >> tlen >> seq >> qual >> std::ws;
 
-            /* Check if alignment is a primary alignment */
+            /* Ignore if alignment is a supplementary alignment */
             if(flag >= 2048){
                 continue;
             }
