@@ -249,6 +249,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     std::string line;
     size_t linecount = 0;
     const unsigned int suppAligFlag = 0x00000800;
+    const unsigned int notPrimaryAligFlag = 0x00000100;
 
     // Number of unpaired reads.
     size_t countUnpaired = 0;
@@ -288,7 +289,6 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                 }
             }
         } else {
-
             linecount++;
 
             std::stringstream ss(line);
@@ -311,9 +311,9 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                       index.clear();
                 }
             }
-
-            /* Keep track of index multiplicity if it is not supplementary alignment */
-            if (!index.empty() && !(flag & suppAligFlag))
+            
+            /* Keep track of index multiplicity if alignment is not supplementary alignment and is not non-primary alignment*/
+            if (!index.empty() && !((flag & suppAligFlag) || (flag & notPrimaryAligFlag)))
                 indexMultMap[index]++;
 
             /* Calculate the sequence identity */
