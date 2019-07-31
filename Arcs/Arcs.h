@@ -1,5 +1,3 @@
-//add_arks branch is here!
-
 #ifndef ARCS_H
 #define ARCS_H 1
 
@@ -67,12 +65,12 @@ namespace ARCS {
         int end_length;
         float error_percent;
         int verbose;
-
         std::string program;
         std::string multfile; 
         int k_value;
         double j_index;
 	    unsigned threads;
+        /** arks=1 when user runs arks method. */
         bool arks;
 
         ArcsParams() :
@@ -161,12 +159,7 @@ namespace ARCS {
 		    return (s1 == s2);
 	    }
     };
-    //*
-    // Comment by Murathan.
-    // The comment below for ContigKMap doesn't hold for this uncommented ContigMap. The new one doesn't have
-    // boolean for head/tail qualification.
-    // Possible meaning   sparse_hash_map<string kmerSequence,contig id,hash<k-mer>,eqstr>  .
-    //
+    
     typedef google::sparse_hash_map<std::string, int, CityHasher<std::string>, eqstr> ContigKMap;
 
     struct VertexProperties {

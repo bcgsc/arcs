@@ -16,6 +16,8 @@
 #include <omp.h>
 #include <zlib.h>
 
+#include <ctime>
+
 #define PROGRAM "arcs"
 
 static const char VERSION_MESSAGE[] =
@@ -110,7 +112,7 @@ enum {
     OPT_DIST_UPPER,
     OPT_ARKS_METHOD
 };
-    // possibly new options must be put here as well.
+
 static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
@@ -305,8 +307,8 @@ static inline bool checkContigSequence(std::string seq) {
 }
 
 /* Returns true if files in vector are in same format.
- * If files are in same format pass-by-reference parameter is 1 if files are all 
- * alignment format and 0 if they are all read file format.*/
+ * If they are all in same format pass-by-reference parameter allAlignment=1 tells they are all in alignment format 
+ * and allAlignment=0 if they are all in read file format.*/
 bool checkSameFormat(std::vector<std::string> fileNames, bool &allAlignment){
     int prevType = 0;       // 0:unknown  1:alignment file type 2:read file type
     int curType = 0;
@@ -359,8 +361,6 @@ static inline bool checkReadSequence(std::string seq) {
 
 	return true;
 }
-
-/* Reading TSV (or CSV for barcode mult) checkpoint files */
 
 /* Create indexMultMap from Barcode Multiplicity File */
 void createIndexMultMap(std::string multfile, std::unordered_map<std::string, int> &indexMultMap) {
@@ -416,7 +416,7 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 	multfile_stream.close();
 
 	if (params.verbose) {
-		std::cout << "Saw " << numbarcodes << " barcodes and read " << numreadskept << " read pairs" << std::endl;
+		std::cout << "Saw " << numbarcodes << "  distinct barcodes." << std::endl;
 	}
 
 }
@@ -447,14 +447,14 @@ size_t initContigArray(std::string contigfile) {
 				<< (count * 2) + 1 << endl;
 	}
 
-	//Let the first index represent the a null contig
+	/* Return size for both ends of scaffolds and a null contig. */
 	return (count * 2) + 1;
 }
 /* Reads barcodes from reads and keeps a barcode multiplicity file. */
 void readBarcodes(vector<string> inputFiles, 
 	std::unordered_map<std::string, int> &indexMultMap) {
 
-    int added_barcode = 0;
+    size_t added_barcode = 0;
     int seq_read = 0;
 	std::string chromFile;
 
@@ -506,9 +506,9 @@ void readBarcodes(vector<string> inputFiles,
                     indexMultMap[barcode]++;  
                     added_barcode++;
 	    	    }
-                if (params.verbose && added_barcode % 10000000 == 0)
+                if (params.verbose && added_barcode % 100000000 == 0)
                 {
-                    std::cout << added_barcode << " barcodes read" << std::endl;
+                    std::cout << added_barcode << " read with valid barcode" << std::endl;
                 }
             }else{
                 stop = true;
@@ -517,7 +517,7 @@ void readBarcodes(vector<string> inputFiles,
         delete [] filename;
 	}
     if (params.verbose) {
-		std::cout << "Saw " << indexMultMap.size() << " barcodes and read " << seq_read << " reads." << std::endl;
+		std::cout << "Saw " << indexMultMap.size() << " distinct barcode." << std::endl;
 	} 
 }
 
@@ -932,7 +932,8 @@ int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k,
 
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker
 			if (kmap.find(ckmerseq) != kmap.end()) {
-				int corrConReci = kmap[ckmerseq];
+				
+                int corrConReci = kmap[ckmerseq];
 				if (corrConReci != 0) {
 					ktrack[corrConReci]++;
 #pragma omp atomic    
@@ -957,7 +958,8 @@ int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k,
 		}
 		i++;
 	}
-	double maxjaccardindex = 0;
+	
+    double maxjaccardindex = 0;
 	// for the read, find the contig that it is most compatible with based on the jaccard index
 	for (auto it = ktrack.begin(); it != ktrack.end(); ++it) {
 		double currjaccardindex = calcJacIndex(it->second, totalnumkmers);
@@ -1134,14 +1136,11 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	int invalidbarcode = 0;
 	int emptybarcode=0; 
 
-    int parsed_comment = 0;
-
 	size_t count = 0;
 	bool stop = false;
 
 	//each thread gets a proc;
 	vector<ReadsProcessor*> procs(params.threads);
-
 
 	for (unsigned i = 0; i < params.threads; ++i) {
 		procs[i] = new ReadsProcessor(params.k_value);
@@ -1158,7 +1157,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	}
 	kseq_t * seq2 = kseq_init(fp2);
 
-#pragma omp parallel      //--commented
+#pragma omp parallel
 	while (!stop) {
 		int l;
 		std::string read1_name = "";
@@ -1169,29 +1168,25 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 		std::string cread2 = "";
 		std::string comment1 = "";
 		std::string comment2 = "";
-	        std::size_t foundTag;
-	        std::size_t foundEnd;
+	    std::size_t foundTag;
+	    std::size_t foundEnd;
 		bool paired = false;
 		int corrConReci1 = 0;
 		int corrConReci2 = 0;
-#pragma omp critical(checkread1or2) //chechkread1or2 doesn't exist. //--commented
+#pragma omp critical(checkread1or2)
 		{
 			l = kseq_read(seq2);
 			if (l >= 0) {
 				read1_name = seq2->name.s;
 				if (seq2->comment.l) {
 					comment1 = seq2->comment.s;
-#pragma omp atomic
-                    parsed_comment++;
 				}
 				cread1 = seq2->seq.s;
 				l = kseq_read(seq2);
 				if (l >= 0) {
 					read2_name = seq2->name.s;
-					if (seq2->comment.l) {
-						comment2 = seq2->comment.s;
-#pragma omp atomic
-                        parsed_comment++;
+   					if (seq2->comment.l) {
+					    comment2 = seq2->comment.s;
 					}
 					cread2 = seq2->seq.s;
 				} else {
@@ -1210,7 +1205,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 			}
 			count += 2;
 			if (params.verbose) {
-				if (count % 1000000 == 0) {
+				if (count % 10000000 == 0) {
 					std::cout << "Processed " << count << " read pairs." << std::endl;
 				}
 			}
@@ -1274,14 +1269,13 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 #pragma omp critical(imap)
 					{
 						imap[barcode1][corrContigId]++;
-                        if(imap[barcode1].count(std::make_pair(corrContigId.first, !corrContigId.second)) == 0){
-							imap[barcode1][std::make_pair(corrContigId.first, !corrContigId.second)] = 0;
-						}
+                        //if(imap[barcode1].count(std::make_pair(corrContigId.first, !corrContigId.second)) == 0){
+							//imap[barcode1][std::make_pair(corrContigId.first, !corrContigId.second)] = 0;
+						//}
 					}
 
 #pragma omp atomic
 					stored_readpairs++;
-
 				} else {
 #pragma omp atomic
 					skipped_nogoodcontig++;
@@ -1298,7 +1292,7 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	}
 
 	if (params.verbose) {
-        std::cout << "parsed comment count: " << parsed_comment << std::endl;
+        //std::cout << "parsed comment count: " << parsed_comment << std::endl;
 		printf(
 				"Stored read pairs: %u\nSkipped invalid read pairs: %u\nSkipped unpaired reads: %u\nSkipped reads pairs without a good contig: %u\n",
 				stored_readpairs, skipped_invalidreadpair, skipped_unpaired,
@@ -1607,8 +1601,8 @@ void writeBarcodeCountsTSV(
             });
 
     std::ofstream f(tsvFile);
-    assert_good(f, tsvFile);
-    f << "Barcode\tReads\n";
+    //assert_good(f, tsvFile);
+    //f << "Barcode\tReads\n";
     assert_good(f, tsvFile);
     for (auto x : sorted)
         f << x.first << '\t' << x.second << '\n';
@@ -1746,7 +1740,6 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -v " << params.verbose
         << "\n -z " << params.min_size
         << "\n --gap=" << params.gap
-        << "\n -u " << maybeNA(params.multfile)
         << "\n -s " << params.seq_id << " (arcs specific option)"
         << "\n -k " << params.k_value << " (arks specific option)"
         << "\n -j " << params.j_index << " (arks specific option)"
@@ -1781,50 +1774,59 @@ void runArcs(const std::vector<std::string>& filenames) {
 
     if (!params.arks)
     {
+        /* If scaffold file is specified in arcs method read file for getting scaffold sizes. */
          if (!params.file.empty()) {
             time(&rawtime);
             std::cout << "\n=> Getting scaffold sizes... " << ctime(&rawtime);
             getScaffSizes(params.file, contigToLength);
         }
 
+        /* Read alignment files. */
         time(&rawtime);
         std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
         readBAMS(filenames, imap, indexMultMap, contigToLength);
     }else{
         time(&rawtime);
         std::cout << "\n=>Preprocessing: Gathering barcode multiplicity information..." << ctime(&rawtime);
+        /* If barcode multiplicity file specified read it, otherwise read the reads to gather barcode multiplicity info.
+        This step is done before reading the sequences to prevent kmerization of reads with barcodes out of multiplicity range. */
         if(!params.multfile.empty()){
-            createIndexMultMap(params.multfile, indexMultMap);
+            createIndexMultMap(params.multfile, indexMultMap);  // reading file
         }
         else{
             std::cout << "Multiplicity information is being formed from reads as no barcode multiplicity file provided." << std::endl;
-            readBarcodes(filenames, indexMultMap);
+            readBarcodes(filenames, indexMultMap);  // reading reads
         }
 
+        /* Get the size of contigArray the prevent repetitive memory allocation. */
         time(&rawtime);
         std::cout << "\n=>Preprocessing: Gathering draft information..." << ctime(&rawtime) << "\n";
         size_t size = initContigArray(params.file); 
         contigRecord.resize(size);
 
+        /* Kmerization of contig ends */
     	time(&rawtime);
     	std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime) << std::endl;
     	getContigKmers(params.file, kmap, contigRecord, contigToLength);
 
+        /* Kmerization of reads with barcodes in the multiplicity range. */
         time(&rawtime);
   	    std::cout << "\n=>Reading Chromium FASTQ file(s)... " << ctime(&rawtime) << std::endl;
         readChroms(filenames, kmap, imap, indexMultMap, contigRecord);
     }
-
     std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
 
+    /* Pair each scaffold according to the links(barcodes) hitting them. */
     time(&rawtime);
     std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
     pairContigs(imap, pmap, indexMultMap);
 
+    /* Create graph with nodes=scaffolds edges=number of links between the scaffolds.*/
     time(&rawtime);
     std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
     createGraph(pmap, g);
 
+    /* If user specified, calculate distance and write to output files. */
     if (params.dist_est) {
         std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
         calcDistanceEstimates(imap, indexMultMap, contigToLength, g);
@@ -1844,6 +1846,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
     writeAbyssGraph(params.dist_graph_name, gdist);
 
+    /* If specified write a detail TSV file of scaffolds and their links. */
     if (!params.tsv_name.empty()) {
         size_t barcodeCount = countBarcodes(imap, indexMultMap);
         time(&rawtime);
@@ -1851,6 +1854,7 @@ void runArcs(const std::vector<std::string>& filenames) {
         writeTSV(params.tsv_name, imap, pmap, barcodeCount);
     }
 
+    /* If specified write barcode multiplicity file in TSV format. */
     if (!params.barcode_counts_name.empty()) {
         time(&rawtime);
         std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime) << "\n";
@@ -1952,11 +1956,14 @@ int main(int argc, char** argv)
             exit(EXIT_FAILURE);
         }
     }
+    
+    /* Check if user specified an option contradicting with the method choosen. */
     if((params.arks && arcsOnly) || (!params.arks && arksOnly)){
         cerr << PROGRAM ": error: You specified an option that does not match with method choosen.\nCheck --help for method specific options.\n";
         die = true;
     }
 
+    /* Get files from command line or fof. */
     std::vector<std::string> filenames(argv + optind, argv + argc);  
     if (params.fofName.empty() && filenames.empty()) {
         cerr << PROGRAM ": error: specify input (SAM/BAM file(s) || chromium reads) or a list of files with -a option\n";
@@ -1975,7 +1982,8 @@ int main(int argc, char** argv)
 
     bool alignmentFiles;        // T/F <-> alignment file/read file
 
-    if(!checkSameFormat(filenames, alignmentFiles)){    // allSame if they are all same format alignmentFiles=true if they are alignment files
+    /* Check if files are in same type. */
+    if(!checkSameFormat(filenames, alignmentFiles)){    // alignmentFiles=true if they are alignment files, false if they are read files.
         std::cerr << "Input files must be all alignment or all read files." << params.file << ". Exiting... \n";
         die = true;
     }
@@ -1985,6 +1993,7 @@ int main(int argc, char** argv)
         die = true;
     }
 
+    /* Ensure scaffold file is specified if it's in arks mode. */
     std::ifstream g(params.file.c_str()); 
 	if (!g.good() && params.arks) {
 		std::cerr << "Cannot find [-f] scaffold file which is required for kmer" << params.file << ". Exiting... \n";
@@ -1996,7 +2005,7 @@ int main(int argc, char** argv)
         omp_set_num_threads(params.threads);   
 
 	    /* Setting base name if not previously set */
-	    if (params.base_name.empty()) {         // check here if you can add components by easily checking a boolean
+	    if (params.base_name.empty()) {
 		    std::ostringstream filename;
 		    filename << params.file << ".scaff" << "_k-method" 
             << "_c" << params.min_reads 
@@ -2032,7 +2041,7 @@ int main(int argc, char** argv)
             params.tsv_name = params.base_name + "_main.tsv";
     
     
-    if (die) {              // this part can be used for both
+    if (die) {
 		    std::cerr << "Try " << PROGRAM << " --help for more information.\n";
 		    exit(EXIT_FAILURE);
 	}  
