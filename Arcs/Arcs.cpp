@@ -16,7 +16,6 @@
 #include <omp.h>
 #include <zlib.h>
 
-#include <ctime>
 
 #define PROGRAM "arcs"
 
@@ -163,8 +162,8 @@ namespace opt {
 typedef ContigGraph<DirectedGraph<Length, DistanceEst>> DistGraph;
 
 /** A dictionary of contig names. */
-Dictionary g_contigNames;   // no need
-unsigned g_nextContigName;  // no need
+Dictionary g_contigNames;
+unsigned g_nextContigName;
 
 //** Some useful counters for user. */
 unsigned int s_numkmersmapped = 0, s_numkmercollisions = 0, s_numkmersremdup = 0,
@@ -369,7 +368,7 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 	size_t numreadskept=0;
 	size_t numbarcodes=0;
 
-	// Decide if it is a tsv or csv file
+	/* Decide if it is a tsv or csv file */
 	bool tsv = false;
 	std::size_t found = multfile.find(".tsv");
 	if (found!=std::string::npos)
@@ -1269,9 +1268,6 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 #pragma omp critical(imap)
 					{
 						imap[barcode1][corrContigId]++;
-                        // if(imap[barcode1].count(std::make_pair(corrContigId.first, !corrContigId.second)) == 0){
-						// 	imap[barcode1][std::make_pair(corrContigId.first, !corrContigId.second)] = 0;
-						// }
 					}
 
 #pragma omp atomic
@@ -1291,7 +1287,8 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 		delete procs[i];
 	}
 
-    std::string barcode = "";
+    /* If barcode hits only one end of a contig, set the other one 0. */
+	std::string barcode = "";
 	std::string contigname = "";
 	bool orientation = false;
 
@@ -1300,15 +1297,14 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 		ARCS::ScafMap smap = it->second;
 		for (auto j = smap.begin(); j != smap.end(); ++j) {
 			contigname = j->first.first;
-            orientation = j->first.second;
+			orientation = j->first.second;
 			if(imap[barcode].count(std::make_pair(contigname, !orientation)) == 0){
-				imap[barcode][std::make_pair(contigname, !orientation)] = 0;
+			    imap[barcode][std::make_pair(contigname, !orientation)] = 0;
 			}
 		}
 	}
 
 	if (params.verbose) {
-        //std::cout << "parsed comment count: " << parsed_comment << std::endl;
 		printf(
 				"Stored read pairs: %u\nSkipped invalid read pairs: %u\nSkipped unpaired reads: %u\nSkipped reads pairs without a good contig: %u\n",
 				stored_readpairs, skipped_invalidreadpair, skipped_unpaired,
@@ -1616,8 +1612,6 @@ void writeBarcodeCountsTSV(
             });
 
     std::ofstream f(tsvFile);
-    //assert_good(f, tsvFile);
-    //f << "Barcode\tReads\n";
     assert_good(f, tsvFile);
     for (auto x : sorted)
         f << x.first << '\t' << x.second << '\n';
@@ -1801,10 +1795,11 @@ void runArcs(const std::vector<std::string>& filenames) {
         std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
         readBAMS(filenames, imap, indexMultMap, contigToLength);
     }else{
-        time(&rawtime);
-        std::cout << "\n=>Preprocessing: Gathering barcode multiplicity information..." << ctime(&rawtime);
+
         /* If barcode multiplicity file specified read it, otherwise read the reads to gather barcode multiplicity info.
         This step is done before reading the sequences to prevent kmerization of reads with barcodes out of multiplicity range. */
+        time(&rawtime);
+        std::cout << "\n=>Preprocessing: Gathering barcode multiplicity information..." << ctime(&rawtime);
         if(!params.multfile.empty()){
             createIndexMultMap(params.multfile, indexMultMap);  // reading file
         }
@@ -1998,20 +1993,20 @@ int main(int argc, char** argv)
     bool alignmentFiles;        // T/F <-> alignment file/read file
 
     /* Check if files are in same type. */
-    if(!checkSameFormat(filenames, alignmentFiles)){    // alignmentFiles=true if they are alignment files, false if they are read files.
+    if(!checkSameFormat(filenames, alignmentFiles)){
         std::cerr << "Input files must be all alignment or all read files." << params.file << ". Exiting... \n";
         die = true;
     }
     /* Check if file type and method matches. */
     if(!(alignmentFiles ^ params.arks)){
-        std::cerr << "File type must be compatible with the method.(BAM/SAM-alignment method) or (Read-kmer method)" << ". Exiting... \n";
+        std::cerr << "File type must be compatible with the method.(BAM/SAM for default(arcs)) or (Read file for --arks)" << ". Exiting... \n";
         die = true;
     }
 
     /* Ensure scaffold file is specified if it's in arks mode. */
     std::ifstream g(params.file.c_str()); 
 	if (!g.good() && params.arks) {
-		std::cerr << "Cannot find [-f] scaffold file which is required for kmer" << params.file << ". Exiting... \n";
+		std::cerr << "Cannot find [-f] scaffold file which is required for --arks" << params.file << ". Exiting... \n";
 		die = true;
 	}
 
@@ -2022,7 +2017,7 @@ int main(int argc, char** argv)
 	    /* Setting base name if not previously set */
 	    if (params.base_name.empty()) {
 		    std::ostringstream filename;
-		    filename << params.file << ".scaff" << "_k-method" 
+		    filename << params.file << ".scaff" << "_arks" 
             << "_c" << params.min_reads 
             << "_k" << params.k_value 
             << "_j" << params.j_index 
@@ -2036,7 +2031,7 @@ int main(int argc, char** argv)
         // Set base name if not previously set.
         if (params.base_name.empty()) {
             std::ostringstream filename;
-            filename << params.file << ".scaff" << "_align-method"
+            filename << params.file << ".scaff" << "_arcs"
                 << "_s" << params.seq_id
                 << "_c" << params.min_reads
                 << "_l" << params.min_links

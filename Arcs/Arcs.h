@@ -70,7 +70,7 @@ namespace ARCS {
         int k_value;
         double j_index;
 	    unsigned threads;
-        /** arks=1 when user runs arks method. */
+        /** arks=true when user runs arks method. */
         bool arks;
 
         ArcsParams() :
@@ -91,7 +91,7 @@ namespace ARCS {
             k_value(30), 
             j_index(0.55),
             threads(1),
-            arks(0) {
+            arks(false) {
         }
 
     };
