@@ -53,7 +53,7 @@ namespace ARCS {
         /** chooses median or upper bound for `d` in ABySS dist.gv */
         DistMode dist_mode;
         int min_links;
-        int min_size;       
+        int min_size;
         std::string base_name;
         std::string dist_graph_name;
         std::string tsv_name;
@@ -98,34 +98,34 @@ namespace ARCS {
     /** A contig end: (FASTA ID, head?) */
     typedef std::pair<std::string, bool> CI;
 
-    typedef const char* Kmer;   // --newly added probably not used anywhere necessary.
+    //typedef const char* Kmer;
 
     /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
-    typedef std::map<CI, int> ScafMap;  // --same -- CI added
+    typedef std::map<CI, int> ScafMap;
     typedef typename ScafMap::const_iterator ScafMapConstIt;
     /* IndexMap: key = index sequence, value = ScafMap */
-    typedef std::unordered_map<std::string, ScafMap> IndexMap;  // -- same
+    typedef std::unordered_map<std::string, ScafMap> IndexMap;
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
     typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
 
     
 
     /** a pair of contig IDs */
-    typedef std::pair<std::string, std::string> ContigPair; //-- same
+    typedef std::pair<std::string, std::string> ContigPair;
 
     /**
      * a list of the input scaffolds and their lengths, in the order
      * that they appear in the input contigs FASTA file
      */
-    typedef std::vector< std::pair<std::string, int> > ScaffSizeList;   // only really used in createABySS graph for iteration map can do the work easily.
+    //typedef std::vector< std::pair<std::string, int> > ScaffSizeList;   // only really used in createABySS graph for iteration map can do the work easily.
 
     /**
      * a list of the input scaffolds and their lengths, in the order
      * that they appear in the input contigs FASTA file
      */
-    typedef std::unordered_map<std::string, int> ScaffSizeMap;          // only really used in calcDistance() method after casting to ContigToLength ???. So no need.
+    typedef std::unordered_map<std::string, int> ScaffSizeMap;
 
-    /** maps contig FASTA ID to contig length (bp) */           // -- only this variable should work ScaffSizeMap and ScaffSizeList will be eleminated.
+    /** maps contig FASTA ID to contig length (bp) */
     typedef std::unordered_map<std::string, int> ContigToLength;
     typedef typename ContigToLength::const_iterator ContigToLengthIt;
 

@@ -666,8 +666,8 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                            /*
                             * If length of sequence is less than 2 x end_length, split
                             * the sequence in half to determing head/tail
-                            */ 
-                           int cutOff = params.end_length;     
+                            */
+                           int cutOff = params.end_length;
                            if (cutOff == 0 || size <= cutOff * 2)
                                cutOff = size/2;
 
@@ -1269,9 +1269,9 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 #pragma omp critical(imap)
 					{
 						imap[barcode1][corrContigId]++;
-                        //if(imap[barcode1].count(std::make_pair(corrContigId.first, !corrContigId.second)) == 0){
-							//imap[barcode1][std::make_pair(corrContigId.first, !corrContigId.second)] = 0;
-						//}
+                        // if(imap[barcode1].count(std::make_pair(corrContigId.first, !corrContigId.second)) == 0){
+						// 	imap[barcode1][std::make_pair(corrContigId.first, !corrContigId.second)] = 0;
+						// }
 					}
 
 #pragma omp atomic
@@ -1289,6 +1289,22 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 	// clean up
 	for (unsigned i = 0; i < params.threads; ++i) {
 		delete procs[i];
+	}
+
+    std::string barcode = "";
+	std::string contigname = "";
+	bool orientation = false;
+
+    for (auto it = imap.begin(); it != imap.end(); ++it) {
+		barcode = it->first;
+		ARCS::ScafMap smap = it->second;
+		for (auto j = smap.begin(); j != smap.end(); ++j) {
+			contigname = j->first.first;
+            orientation = j->first.second;
+			if(imap[barcode].count(std::make_pair(contigname, !orientation)) == 0){
+				imap[barcode][std::make_pair(contigname, !orientation)] = 0;
+			}
+		}
 	}
 
 	if (params.verbose) {
@@ -1526,7 +1542,6 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
 /*
  * Construct an ABySS distance estimate graph from a boost graph.
  */
-//void createAbyssGraph(const ARCS::ScaffSizeList& scaffSizes, const ARCS::Graph& gin, DistGraph& gout) {
 void createAbyssGraph(const ARCS::ContigToLength& contigToLength, const ARCS::Graph& gin, DistGraph& gout) {
     // Add the vertices.
     for (const auto& it : contigToLength) {
@@ -1767,7 +1782,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     kmap.set_deleted_key("");
     std::time_t rawtime;
 
-    ARCS::ContigToLength contigToLength;    
+    ARCS::ContigToLength contigToLength;
     ARCS::ContigToLengthIt contigToLengthIt;
     
     std::vector<ARCS::CI> contigRecord;
