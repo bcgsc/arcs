@@ -113,7 +113,7 @@ static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
     {"bin_size", required_argument, NULL, 'B'},
-    {"bx", no_argument, NULL, OPT_BX },}
+    {"bx", no_argument, NULL, OPT_BX },
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'},
@@ -1848,19 +1848,19 @@ void runArcs(const std::vector<std::string>& filenames) {
     if (!params.tsv_name.empty()) {
         size_t barcodeCount = countBarcodes(imap, indexMultMap);
         time(&rawtime);
-        std::cout << "\n=> Writing TSV file... " << ctime(&rawtime) << "\n";
+        std::cout << "\n=> Writing TSV file... " << ctime(&rawtime);
         writeTSV(params.tsv_name, imap, pmap, barcodeCount);
     }
 
     /* If specified write barcode multiplicity file in TSV format. */
     if (!params.barcode_counts_name.empty()) {
         time(&rawtime);
-        std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime) << "\n";
+        std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime);
         writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
     }
 
     time(&rawtime);
-    std::cout << "\n=> Done. " << ctime(&rawtime);
+    std::cout << "\n=> Done.\n" << ctime(&rawtime);
 
 }
 
@@ -1967,6 +1967,8 @@ int main(int argc, char** argv)
         cerr << PROGRAM ": error: specify input (SAM/BAM file(s) or chromium reads) or a list of files with -a option\n";
         die = true;
     }
+    /* Check if user specified inputs in stdin to pass some upcoming checks. */
+    bool stdIn = (filenames[0] == "/dev/stdin");
 
     if (!params.file.empty())
             assert_readable(params.file);
@@ -1977,56 +1979,57 @@ int main(int argc, char** argv)
 
     std::vector<std::string> fofFiles = readFof(params.fofName);  
     std::copy(fofFiles.begin(), fofFiles.end(), std::back_inserter(filenames));
-
+    
     bool alignmentFiles;        // T/F <-> alignment file/read file
 
     /* Check if files are in same type. */
-    if(!checkSameFormat(filenames, alignmentFiles)){
+    if(!stdIn && !checkSameFormat(filenames, alignmentFiles)){
         std::cerr << "Input files must be all alignment or all read files." << params.file << ". Exiting... \n";
         die = true;
     }
     /* Check if file type and method matches. */
-    if(!(alignmentFiles ^ params.arks)){
+    if(!stdIn && !(alignmentFiles ^ params.arks)){
         std::cerr << "File type must be compatible with the method. (BAM/SAM for ARCS) or (Read file for ARKS (--arks))" << ". Exiting... \n";
         die = true;
     }
 
     /* Ensure scaffold file is specified if it's in arks mode. */
     std::ifstream g(params.file.c_str()); 
-	if (!g.good() && params.arks) {
-		std::cerr << "Cannot find [-f] scaffold file which is required for --arks" << params.file << ". Exiting... \n";
-		die = true;
-	}
+    if (!g.good() && params.arks) {
+	std::cerr << "Cannot find [-f] scaffold file which is required for --arks" << params.file << ". Exiting... \n";
+	die = true;
+    }
 
     /* Set base name according to method choosen. */
     if(params.arks){
-        omp_set_num_threads(params.threads);   
+	omp_set_num_threads(params.threads);   
 
-	    /* Setting base name if not previously set */
-	    if (params.base_name.empty()) {
-		    std::ostringstream filename;
-		    filename << params.file << ".scaff" << "_arks" 
-            << "_c" << params.min_reads 
-            << "_k" << params.k_value 
-            << "_j" << params.j_index 
-            << "_l" << params.min_links 
-            << "_d" << params.max_degree 
-            << "_e" << params.end_length 
-            << "_r" << params.error_percent;
-		    params.base_name = filename.str();
-	    }
+	/* Setting base name if not previously set */
+	if (params.base_name.empty()) {
+		std::ostringstream filename;
+		
+		filename << params.file << ".scaff" << "_arks" 
+        	<< "_c" << params.min_reads 
+        	<< "_k" << params.k_value 
+        	<< "_j" << params.j_index 
+        	<< "_l" << params.min_links 
+        	<< "_d" << params.max_degree 
+        	<< "_e" << params.end_length 
+        	<< "_r" << params.error_percent;
+		params.base_name = filename.str();
+	}
     }else{
         // Set base name if not previously set.
         if (params.base_name.empty()) {
-            std::ostringstream filename;
-            filename << params.file << ".scaff" << "_arcs"
-                << "_s" << params.seq_id
-                << "_c" << params.min_reads
-                << "_l" << params.min_links
-                << "_d" << params.max_degree
-                << "_e" << params.end_length
-                << "_r" << params.error_percent;
-            params.base_name = filename.str();
+            	std::ostringstream filename;
+            	filename << params.file << ".scaff" << "_arcs"
+		<< "_s" << params.seq_id
+		<< "_c" << params.min_reads
+		<< "_l" << params.min_links
+		<< "_d" << params.max_degree
+		<< "_e" << params.end_length
+		<< "_r" << params.error_percent;
+		params.base_name = filename.str();
         }
     }
 

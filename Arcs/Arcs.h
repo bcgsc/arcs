@@ -75,7 +75,7 @@ namespace ARCS {
         bool arks;
 
         ArcsParams() :
-            bx(false);
+            bx(false),
             seq_id(98),
             min_reads(5),
             dist_est(false),
