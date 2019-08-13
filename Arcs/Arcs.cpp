@@ -16,7 +16,6 @@
 #include <omp.h>
 #include <zlib.h>
 
-
 #define PROGRAM "arcs"
 
 static const char VERSION_MESSAGE[] =
@@ -31,15 +30,16 @@ PROGRAM " " PACKAGE_VERSION "\n"
 static const char USAGE_MESSAGE[] =
 PROGRAM " " PACKAGE_VERSION "\n"
 "\n"
-"Usage: arcs [Options] <alignment file list>  or\n"
-"       arcs [Options] --arks -f <contig sequence file> <chrom file list>\n"
+"Usage: arcs [Options] <list of alignment files>  or\n"
+"       arcs [Options] --arks -f <contig sequence file> <list of linked read files>\n"
 "\n"
-"CHECKS FOR DEFAULT(ARCS) METHOD:\n"
-"       Aligment files are REQUIRED either in command or in fofFile. Pay attention to have only alignment files in fofFile.\n"
+"Requirements for ARCS (default method):\n"
+"       ARCS utilizes linked read alignments for scaffolding (https://doi.org/10.1093/bioinformatics/btx675)"
+"       Alignment files are REQUIRED either as positional arguments or in a supplied file of BAM paths (with -a).\n"
 "\n"
-"       Alignments may be a SAM or BAM file.\n"
+"       Alignments may be in SAM or BAM file.\n"
 "       The output of the aligner may be piped directly into ARCS by setting\n"
-"       Alignments to /dev/stdin, in which case it must be in SAM format.\n"
+"       alignments to /dev/stdin, in which case it must be in SAM format.\n"
 "\n"
 "       Paired reads must occur consecutively (interleaved) in the SAM/BAM file.\n"
 "       The output of the aligner may either not be sorted,\n"
@@ -48,21 +48,18 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "\n"
 "       The barcode may be found in either the BX:Z:BARCODE SAM tag,\n"
 "       or in the read (query) name following an underscore, READNAME_BARCODE.\n"
-"       In the latter case the barcode must be compsed entirely of nucleotides.\n"
+"       In the latter case the barcode must be composed entirely of nucleotides.\n"
 "\n"
-"       The contig sequence lengths must either be present in the SAM header\n"
-"       or provided by the -f option.\n"
-"\n"
-"CHECKS FOR ARKS METHOD:\n"
+"Requirements for ARKS method:\n"
+"       ARKS scaffolds draft genomes using linked read kmers (https://doi.org/10.1186/s12859-018-2243-x).\n"
 "       Contig seqeunces are REQUIRED by the -f option.\n"
-"       Chromium read files are REQUIRED either in command or in fofFile. Pay attention to have only read files in fofFile.\n"
+"       linked read files are REQUIRED either as positional arguments or in a supplied file of linked read file paths. Pay attention to have only linked read files in the file of file names.\n"
 "\n"
-"       Contig sequences to further scaffold and can be in either FASTA or FASTQ format.\n"
-"       Barcode multiplicity file is optional and can be provided by -u option as both .tsv and .csv format.\n"
+"       The barcode multiplicity file is optional and can be provided by -u option in either .tsv or .csv format.\n"
 "\n"
 "Common Options:\n"
 "   -a, --fofName=FILE    text file listing input filenames\n"
-"   -u, --multfile        tsv or csv file for barcode multiplicities\n"
+"   -u, --multfile        tsv or csv file listing barcode multiplicities [optional]\n"
 "   -c, --min_reads=N     min aligned read pairs per barcode mapping [5]\n"
 "   -l, --min_links=N     min shared barcodes between contigs [0]\n"
 "   -z, --min_size=N      min contig length [500]\n"
@@ -76,16 +73,15 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "   -e, --end_length=N    contig head/tail length for masking alignments [30000]\n"
 "   -r, --error_percent=N p-value for head/tail assignment and link orientation (lower is more stringent) [0.05]\n"
 "   -v, --run_verbose     verbose logging\n"
-"ARCS Specific Options:\n"
+"Options specific to ARCS:\n"
 "   -f, --file=FILE       FASTA file of contig sequences to scaffold [optional]\n"
-"   -s, --seq_id=N        (only in default mode)min sequence identity for read alignments [98]\n"
-"ARKS Specific Options:\n"
-"   -f, --file=FILE       FASTA file of contig sequences to scaffold [required]\n"
+"   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
+"Options specific to ARKS:\n"
 "   -k  --k_value         size of a k-mer [30]\n"
 "   -j  --j_index         minimum fraction of read kmers matching a contigId [0.55]\n"
 "   -t  --threads         number of threads [1]\n"
 "\n"
-" Distance Estimation Options(Common):\n"
+" Distance Estimation Options (Common):\n"
 "   -B, --bin_size=N        estimate distance using N closest Jaccard scores [20]\n"
 "   -D, --dist_est          enable distance estimation\n"
 "       --no_dist_est       disable distance estimation [default]\n"
@@ -101,6 +97,7 @@ static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:";
 enum {
     OPT_HELP = 1,
     OPT_VERSION,
+    OPT_BX,
     OPT_GAP,
     OPT_TSV,
     OPT_BARCODE_COUNTS,
@@ -116,6 +113,7 @@ static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
     {"bin_size", required_argument, NULL, 'B'},
+    {"bx", no_argument, NULL, OPT_BX },}
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'},
@@ -317,7 +315,7 @@ bool checkSameFormat(std::vector<std::string> fileNames, bool &allAlignment){
         curType = 0;
         if((fileName.find(".sam") != npos) || (fileName.find(".bam") != npos))
             curType = 1;
-        if((fileName.find(".fastq") != npos) || (fileName.find(".fastq") != npos) || (fileName.find(".fq") != npos) || (fileName.find(".fq.gz") != npos))
+        if((fileName.find(".fastq") != npos) || (fileName.find(".fastq.gz") != npos) || (fileName.find(".fq") != npos) || (fileName.find(".fq.gz") != npos))
             curType = 2;
         if(!curType){
             std::cout << "Unknown type file is observed!" << std::endl;
@@ -335,8 +333,6 @@ bool checkSameFormat(std::vector<std::string> fileNames, bool &allAlignment){
 
 /* Returns true if seqence only contains ATGC or N
  * 	Allows only if 0.98 of the read is not ambiguous (aka not N)
- *
- *	TODO: Allow ambiguity to be a user defined parameter
  */
 static inline bool checkReadSequence(std::string seq) {
 
@@ -417,7 +413,6 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 	if (params.verbose) {
 		std::cout << "Saw " << numbarcodes << "  distinct barcodes." << std::endl;
 	}
-
 }
 
 /* Returns the size of the array for storing contigs */
@@ -453,8 +448,8 @@ size_t initContigArray(std::string contigfile) {
 void readBarcodes(vector<string> inputFiles, 
 	std::unordered_map<std::string, int> &indexMultMap) {
 
-    size_t added_barcode = 0;
-    int seq_read = 0;
+	size_t added_barcode = 0;
+	int seq_read = 0;
 	std::string chromFile;
 
 	for (auto p = inputFiles.begin(); p != inputFiles.end(); ++p) {
@@ -462,62 +457,59 @@ void readBarcodes(vector<string> inputFiles,
 		if (params.verbose)
 			std::cout << "Reading chrom " << chromFile << std::endl;
 
-        bool stop = false;
-        int l;
-        std::string comment;
-        std::string barcode;
-        std::size_t foundTag;
-	    std::size_t foundEnd;
-
-        gzFile fp2;
-        char *filename = new char[chromFile.length() + 1];
-        strcpy(filename, chromFile.c_str());
+        	bool stop = false;
+        	int l;
+        	std::string comment;
+        	std::string barcode;
+        	std::size_t foundTag;
+		std::size_t foundEnd;
         
+		gzFile fp2;
+        	char *filename = new char[chromFile.length() + 1];
+        	strcpy(filename, chromFile.c_str());
+        
+		fp2 = gzopen(filename, "r");
+		if (fp2 == Z_NULL) {
+			cerr << "File " << filename << " cannot be opened." << endl;
+			exit(1);
+		} else {
+			cerr << "File " << filename << " opened." << endl;
+		}
+		kseq_t * seq2 = kseq_init(fp2);
 
-	    fp2 = gzopen(filename, "r");
-	    if (fp2 == Z_NULL) {
-		    cerr << "File " << filename << " cannot be opened." << endl;
-		    exit(1);
-	    } else {
-		    cerr << "File " << filename << " opened." << endl;
-	    }
-	    kseq_t * seq2 = kseq_init(fp2);
-
-        while(!stop){
-            l = kseq_read(seq2);
-            if(l > 0){
-                seq_read++;
-                if (!seq2->comment.l) {
+        	while(!stop){
+        		l = kseq_read(seq2);
+        		if(l > 0){
+        			seq_read++;
+        			if (!seq2->comment.l) {
 					continue;
 				}
-			    comment = seq2->comment.s;
-                barcode.clear();
-                foundTag = comment.find("BX:Z:");
-                if(foundTag != std::string::npos){
-			        // End is space if there is another tag, newline otherwise
-	                foundEnd = comment.find(' ', foundTag);
-			        // Get substring from end of BX:Z: to space or end of string
-            	    if(foundEnd != std::string::npos){
-		    	        barcode = comment.substr(foundTag + 5, foundEnd - foundTag - 5);
-				    }else {
-		    			barcode = comment.substr(foundTag + 5);
-				    }
-                    indexMultMap[barcode]++;  
-                    added_barcode++;
-	    	    }
-                if (params.verbose && added_barcode % 100000000 == 0)
-                {
-                    std::cout << added_barcode << " read with valid barcode" << std::endl;
-                }
-            }else{
-                stop = true;
-            }
-        }
-        delete [] filename;
+				comment = seq2->comment.s;
+                		barcode.clear();
+                		foundTag = comment.find("BX:Z:");
+                		if(foundTag != std::string::npos){
+					// End is space if there is another tag, newline otherwise
+	        			foundEnd = comment.find(' ', foundTag);
+            				if(foundEnd != std::string::npos){
+						barcode = comment.substr(foundTag + 5, foundEnd - foundTag - 5);
+					}else {
+						barcode = comment.substr(foundTag + 5);
+					}
+					indexMultMap[barcode]++;  
+					added_barcode++;
+				}
+				if (params.verbose && added_barcode % 100000000 == 0){
+					std::cout << added_barcode << " read with valid barcode" << std::endl;
+				}
+			}else{
+				stop = true;
+			}
+		}
+		delete [] filename;
 	}
-    if (params.verbose) {
+	if (params.verbose) {
 		std::cout << "Saw " << indexMultMap.size() << " distinct barcode." << std::endl;
-	} 
+	}
 }
 
 
@@ -837,14 +829,10 @@ int mapKmers(std::string seqToKmerize, int k,
 
 		return 0;
 	} else {
-		//assert(seqsize >= k);
 		int numKmers = 0;
 
 		int i = 0;
 		while (i <= seqsize - k) {
-			//*
-			// This proc.prepSeq() must have been returning the kmer as string.
-			//
 			const unsigned char* temp = proc.prepSeq(seqToKmerize, i); // prepSeq returns NULL if it contains an N
 			// Ignore a NULL kmer
 			if (temp != NULL) {
@@ -858,25 +846,20 @@ int mapKmers(std::string seqToKmerize, int k,
 				bool exists;
 				int alreadyconreci;
 
-//pragma omp critical(exists)
 				exists = kmap.find(kmerseq) != kmap.end();
 
 				alreadyconreci = kmap[kmerseq];
 
 				if (exists) {
 					if (alreadyconreci != conreci) {
-//#pragma omp atomic
 						s_numkmersremdup++;
 						if (alreadyconreci != 0) {
 							s_uniquedraftkmers--;
-//#pragma omp critical(duplicate)
 							kmap[kmerseq] = 0;
 						}
 					}
-//#pragma omp atomic
 					s_numkmercollisions++;
 				} else {
-//#pragma omp critical(insertkmerseq)
 					kmap[kmerseq] = conreci;
 					s_uniquedraftkmers++;
 					s_numkmersmapped++;
@@ -884,7 +867,6 @@ int mapKmers(std::string seqToKmerize, int k,
 				i++;
 			} else {
 				i += k;
-//#pragma omp atomic
 				s_numbadkmers++;
 			}
 		}
@@ -968,7 +950,6 @@ int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k,
 		}
 	}
 
-	// default jaccard threshold is 0.5
 	if (maxjaccardindex > j_index) {
 		s_numreadspassingjaccard++;
 		return corrbestConReci;
@@ -1735,9 +1716,13 @@ static inline void calcDistanceEstimates(
 
 /** Run ARCS. */
 void runArcs(const std::vector<std::string>& filenames) {
+    
+    std::string methodName = "ARCS";
+    if(params.arks)
+	methodName = "ARKS";
 
     std::cout << "Running: " << PROGRAM << " " << PACKAGE_VERSION
-        << "\n arks method: " << params.arks
+        << "\n" << methodName << " method"
         << "\n pid " << ::getpid()
         // Options
         << "\n -c " << params.min_reads
@@ -1748,13 +1733,15 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -r " << params.error_percent
         << "\n -v " << params.verbose
         << "\n -z " << params.min_size
-        << "\n --gap=" << params.gap
-        << "\n -s " << params.seq_id << " (arcs specific option)"
-        << "\n -k " << params.k_value << " (arks specific option)"
-        << "\n -j " << params.j_index << " (arks specific option)"
-        << "\n -t " << params.threads << " (arks specific option)"
+        << "\n --gap=" << params.gap;
+	if(!params.arks)	//ARCS specific options
+        	std:: cout << "\n -s " << params.seq_id;
+	else			//ARKS specific options
+        	std::cout << "\n -k " << params.k_value
+        	<< "\n -j " << params.j_index
+        	<< "\n -t " << params.threads;
         // Output files
-        << "\n -b " << maybeNA(params.base_name)
+    std::cout << "\n -b " << maybeNA(params.base_name)
         << "\n -g " << maybeNA(params.dist_graph_name)
         << "\n --barcode-counts=" << maybeNA(params.barcode_counts_name)
         << "\n --tsv=" << maybeNA(params.tsv_name)
@@ -1763,6 +1750,7 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -f " << maybeNA(params.file)
         << "\n -u " << maybeNA(params.multfile)
         << '\n';
+
     for (const auto& filename : filenames)
         std::cout << ' ' << filename << '\n';
     std::cout.flush();
@@ -1976,7 +1964,7 @@ int main(int argc, char** argv)
     /* Get files from command line or fof. */
     std::vector<std::string> filenames(argv + optind, argv + argc);  
     if (params.fofName.empty() && filenames.empty()) {
-        cerr << PROGRAM ": error: specify input (SAM/BAM file(s) || chromium reads) or a list of files with -a option\n";
+        cerr << PROGRAM ": error: specify input (SAM/BAM file(s) or chromium reads) or a list of files with -a option\n";
         die = true;
     }
 
@@ -1999,7 +1987,7 @@ int main(int argc, char** argv)
     }
     /* Check if file type and method matches. */
     if(!(alignmentFiles ^ params.arks)){
-        std::cerr << "File type must be compatible with the method.(BAM/SAM for default(arcs)) or (Read file for --arks)" << ". Exiting... \n";
+        std::cerr << "File type must be compatible with the method. (BAM/SAM for ARCS) or (Read file for ARKS (--arks))" << ". Exiting... \n";
         die = true;
     }
 

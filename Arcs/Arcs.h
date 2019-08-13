@@ -38,6 +38,7 @@ namespace ARCS {
      */
     struct ArcsParams {
 
+	bool bx;
         std::string file;
         std::string fofName;
         int seq_id;
@@ -74,6 +75,7 @@ namespace ARCS {
         bool arks;
 
         ArcsParams() :
+            bx(false);
             seq_id(98),
             min_reads(5),
             dist_est(false),
@@ -98,8 +100,6 @@ namespace ARCS {
     /** A contig end: (FASTA ID, head?) */
     typedef std::pair<std::string, bool> CI;
 
-    //typedef const char* Kmer;
-
     /* ScafMap: <pair(scaffold id, bool), count>, cout =  # times index maps to scaffold (c), bool = true-head, false-tail*/
     typedef std::map<CI, int> ScafMap;
     typedef typename ScafMap::const_iterator ScafMapConstIt;
@@ -108,16 +108,8 @@ namespace ARCS {
     /* PairMap: key = pair(first < second) of scaf sequence id, value = num links*/
     typedef std::map<std::pair<std::string, std::string>, std::vector<unsigned>> PairMap;
 
-    
-
     /** a pair of contig IDs */
     typedef std::pair<std::string, std::string> ContigPair;
-
-    /**
-     * a list of the input scaffolds and their lengths, in the order
-     * that they appear in the input contigs FASTA file
-     */
-    //typedef std::vector< std::pair<std::string, int> > ScaffSizeList;   // only really used in createABySS graph for iteration map can do the work easily.
 
     /**
      * a list of the input scaffolds and their lengths, in the order
