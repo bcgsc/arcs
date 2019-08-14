@@ -52,7 +52,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "\n"
 "Requirements for ARKS method:\n"
 "       ARKS scaffolds draft genomes using linked read kmers (https://doi.org/10.1186/s12859-018-2243-x).\n"
-"       Contig seqeunces are REQUIRED by the -f option.\n"
+"       Contig sequences are REQUIRED by the -f option.\n"
 "       linked read files are REQUIRED either as positional arguments or in a supplied file of linked read file paths. Pay attention to have only linked read files in the file of file names.\n"
 "\n"
 "       The barcode multiplicity file is optional and can be provided by -u option in either .tsv or .csv format.\n"
@@ -60,6 +60,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "Common Options:\n"
 "   -a, --fofName=FILE    text file listing input filenames\n"
 "   -u, --multfile        tsv or csv file listing barcode multiplicities [optional]\n"
+"   -f, --file=FILE       FASTA file of contig sequences to scaffold\n"
 "   -c, --min_reads=N     min aligned read pairs per barcode mapping [5]\n"
 "   -l, --min_links=N     min shared barcodes between contigs [0]\n"
 "   -z, --min_size=N      min contig length [500]\n"
@@ -74,7 +75,6 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "   -r, --error_percent=N p-value for head/tail assignment and link orientation (lower is more stringent) [0.05]\n"
 "   -v, --run_verbose     verbose logging\n"
 "Options specific to ARCS:\n"
-"   -f, --file=FILE       FASTA file of contig sequences to scaffold [optional]\n"
 "   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
 "Options specific to ARKS:\n"
 "   -k  --k_value         size of a k-mer [30]\n"
@@ -984,72 +984,49 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap &kmap,
 	fp = gzopen(filename, "r");
 	kseq_t * seq = kseq_init(fp);
 
-	//each thread gets a proc;
-	//vector<ReadsProcessor*> procs(params.threads);
-
 	int16_t k_proc = params.k_value;
 	ReadsProcessor proc(k_proc);
 
-//	for (unsigned i = 0; i < params.threads; ++i) {
-//		procs[i] = new ReadsProcessor(params.k_value);
-//	}
-
-//#pragma omp parallel
 	while ((l = kseq_read(seq)) >= 0) {
 		totalNumContigs++;
 		bool good = false;
 		std::string contigID = "", sequence = "";
 		size_t tempConreci1 = 0;
 		size_t tempConreci2 = 0;
-//#pragma omp critical(kseq)
-		{
-			//l = kseq_read(seq);
-			//if (l >= 0) {
-				contigID = seq->name.s;
-				sequence = seq->seq.s;
-				if (static_cast<int>(sequence.length()) >= params.min_size) {
-					tempConreci1 = ++conreci;
-					tempConreci2 = ++conreci;
-					good = true;
-				}
-			//}
+
+		contigID = seq->name.s;
+		sequence = seq->seq.s;
+		if (static_cast<int>(sequence.length()) >= params.min_size) {
+			tempConreci1 = ++conreci;
+			tempConreci2 = ++conreci;
+			good = true;
 		}
 
-
 		if (good) {
-//			if (!checkContigSequence(sequence)) {
-//				std::string errormsg =
-//						"Error: Contig contains non-base characters. Please check your draft genome input file.";
-//				if (params.verbose) {
-//					std::cerr << contigID << ": " << errormsg << std::endl;
-//				}
-//#pragma omp atomic
-//				skippedContigs++;
-//			} else {
-				// If the sequence is above minimum contig length, then will extract kmers from both ends
-				// If not will ignore the contig
-				int sequence_length = sequence.length();
+			// If the sequence is above minimum contig length, then will extract kmers from both ends
+			// If not will ignore the contig
+			int sequence_length = sequence.length();
 
-				// record contig length for later use (distance estimation)
-				contigToLength[contigID] = sequence_length;
+			// record contig length for later use (distance estimation)
+			contigToLength[contigID] = sequence_length;
 
-				// If contig length is less than 2 x end_length, then we split the sequence
-				// in half to decide head/tail (aka we changed the end_length)
-				int cutOff = params.end_length;
-				if (cutOff == 0 || sequence_length <= cutOff * 2)
-					cutOff = sequence_length / 2;
+			// If contig length is less than 2 x end_length, then we split the sequence
+			// in half to decide head/tail (aka we changed the end_length)
+			int cutOff = params.end_length;
+			if (cutOff == 0 || sequence_length <= cutOff * 2)
+				cutOff = sequence_length / 2;
 
-				// Arbitrarily assign head or tail to ends of the contig
-				ARCS::CI headside(contigID, true);
-				ARCS::CI tailside(contigID, false);
+			// Arbitrarily assign head or tail to ends of the contig
+			ARCS::CI headside(contigID, true);
+			ARCS::CI tailside(contigID, false);
 
-				//get ends of the sequence and put k-mers into the map
-				contigRecord[tempConreci1] = headside;		// in contigRecord head/tail of contig are kept as different contigs.
-				std::string seqend;
-				seqend = sequence.substr(0, cutOff);
-				int num = mapKmers(seqend, params.k_value, 
-						kmap, proc, tempConreci1);
-//#pragma omp atomic
+			//get ends of the sequence and put k-mers into the map
+			contigRecord[tempConreci1] = headside;		// in contigRecord head/tail of contig are kept as different contigs.
+			std::string seqend;
+			seqend = sequence.substr(0, cutOff);
+			int num = mapKmers(seqend, params.k_value, 
+					kmap, proc, tempConreci1);
+
 				totalKmers += num;
 
 				contigRecord[tempConreci2] = tailside;
@@ -1058,36 +1035,19 @@ void getContigKmers(std::string contigfile, ARCS::ContigKMap &kmap,
 				num = mapKmers(seqend, params.k_value, kmap,
 						proc, tempConreci2);
 
-//#pragma omp atomic
 				totalKmers += num;
-//#pragma omp atomic
 				validContigs++;
 		} else {
-//#pragma omp atomic
 			skippedContigs++;
 		}
-//			}
-//		}
-		// printprogress
 		if (params.verbose) {
-//#pragma omp critical(stdout)
 			if (totalNumContigs % 1000 == 0) {
-
 				printf("Finished %d Contigs...\n", totalNumContigs);
-				// for memory tracking + debugging usage:
-					//std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
-					//std::cout << "Kmers so far: " << s_numkmersmapped << std::endl;
 			}
 		}
 	}
 	kseq_destroy(seq);
 	gzclose(fp);
-
-	// clean up
-//	delete proc;
-//	for (unsigned i = 0; i < params.threads; ++i) {
-//		delete procs[i];
-//	}
 
 	if (params.verbose) {
 		printf(
