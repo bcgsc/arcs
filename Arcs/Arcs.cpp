@@ -1928,7 +1928,9 @@ int main(int argc, char** argv)
         die = true;
     }
     /* Check if user specified inputs in stdin to pass some upcoming checks. */
-    bool stdIn = (filenames[0] == "/dev/stdin");
+    bool stdIn = false;
+    if(!filenames.empty())
+        stdIn = (filenames[0] == "/dev/stdin");
 
     if (!params.file.empty())
             assert_readable(params.file);
