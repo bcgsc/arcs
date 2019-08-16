@@ -90,8 +90,6 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
 "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
-
-
 static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:";
 
 enum {
@@ -239,7 +237,7 @@ int memory_usage() {
 	while (getline(proc, s), !proc.fail()) {
 		if (s.substr(0, 5) == "VmRSS") {
 			stringstream convert(
-					s.substr(s.find_last_of('\t'), s.find_last_of('k') - 1));
+			        s.substr(s.find_last_of('\t'), s.find_last_of('k') - 1));
 			if (!(convert >> mem)) {
 				return 0;
 			}
@@ -405,7 +403,6 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 		} else {
 			std::cout << "Please check your multiplicity file." << std::endl;
 		}
-
 		assert(multfile_stream);
 	}
 	multfile_stream.close();
@@ -419,7 +416,6 @@ void createIndexMultMap(std::string multfile, std::unordered_map<std::string, in
 size_t initContigArray(std::string contigfile) {
 
 	size_t count = 0;
-
 	gzFile fp;
 
 	int l;
@@ -438,7 +434,7 @@ size_t initContigArray(std::string contigfile) {
 	
 	if (params.verbose) {
 		cerr << "Number of contigs:" << count << "\nSize of Contig Array:"
-				<< (count * 2) + 1 << endl;
+			<< (count * 2) + 1 << endl;
 	}
 
 	/* Return size for both ends of scaffolds and a null contig. */
@@ -457,16 +453,16 @@ void readBarcodes(vector<string> inputFiles,
 		if (params.verbose)
 			std::cout << "Reading chrom " << chromFile << std::endl;
 
-        	bool stop = false;
-        	int l;
-        	std::string comment;
-        	std::string barcode;
-        	std::size_t foundTag;
+        bool stop = false;
+        int l;
+        std::string comment;
+        std::string barcode;
+        std::size_t foundTag;
 		std::size_t foundEnd;
         
 		gzFile fp2;
-        	char *filename = new char[chromFile.length() + 1];
-        	strcpy(filename, chromFile.c_str());
+        char *filename = new char[chromFile.length() + 1];
+        strcpy(filename, chromFile.c_str());
         
 		fp2 = gzopen(filename, "r");
 		if (fp2 == Z_NULL) {
@@ -482,29 +478,29 @@ void readBarcodes(vector<string> inputFiles,
         		if(l > 0){
         			seq_read++;
         			if (!seq2->comment.l) {
-					continue;
-				}
-				comment = seq2->comment.s;
-                		barcode.clear();
-                		foundTag = comment.find("BX:Z:");
-                		if(foundTag != std::string::npos){
-					// End is space if there is another tag, newline otherwise
+					    continue;
+				    }
+				    comment = seq2->comment.s;
+                	barcode.clear();
+                	foundTag = comment.find("BX:Z:");
+                	if(foundTag != std::string::npos){
+				        // End is space if there is another tag, newline otherwise
 	        			foundEnd = comment.find(' ', foundTag);
-            				if(foundEnd != std::string::npos){
-						barcode = comment.substr(foundTag + 5, foundEnd - foundTag - 5);
-					}else {
-						barcode = comment.substr(foundTag + 5);
-					}
-					indexMultMap[barcode]++;  
-					added_barcode++;
-				}
-				if (params.verbose && added_barcode % 100000000 == 0){
-					std::cout << added_barcode << " read with valid barcode" << std::endl;
-				}
-			}else{
-				stop = true;
-			}
-		}
+            			if(foundEnd != std::string::npos){
+					        barcode = comment.substr(foundTag + 5, foundEnd - foundTag - 5);
+				        }else {
+					        barcode = comment.substr(foundTag + 5);
+				        }
+				        indexMultMap[barcode]++;  
+				        added_barcode++;
+			        }
+				    if (params.verbose && added_barcode % 100000000 == 0){
+					    std::cout << added_barcode << " read with valid barcode" << std::endl;
+				    }
+			    }else{
+				    stop = true;
+			    }
+		    }
 		delete [] filename;
 	}
 	if (params.verbose) {
@@ -1153,18 +1149,18 @@ void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexM
 
 		if (!stop) {
 			barcode1.clear();
-	    		//Find position of BX:Z:
+	    	//Find position of BX:Z:
 			foundTag = comment1.find("BX:Z:");
 	    		if(foundTag != std::string::npos){
 				// End is space if there is another tag, newline otherwise
-		                foundEnd = comment1.find(' ', foundTag);
+		            foundEnd = comment1.find(' ', foundTag);
 				// Get substring from end of BX:Z: to space or end of string
-                		if(foundEnd != std::string::npos){
+                	if(foundEnd != std::string::npos){
 		    			barcode1 = comment1.substr(foundTag + 5, foundEnd - foundTag - 5);
-				}
-				else {
+				    }
+				    else {
 		    			barcode1 = comment1.substr(foundTag + 5);
-				}
+				    }
 	    		}
 			
 			barcode2.clear();
@@ -1684,7 +1680,7 @@ void runArcs(const std::vector<std::string>& filenames) {
     std::cout << "Running: " << PROGRAM << " " << PACKAGE_VERSION
         << "\n" << methodName << " method"
         << "\n pid " << ::getpid()
-        // Options
+    // Options
         << "\n -c " << params.min_reads
         << "\n -d " << params.max_degree
         << "\n -e " << params.end_length
@@ -1695,17 +1691,17 @@ void runArcs(const std::vector<std::string>& filenames) {
         << "\n -z " << params.min_size
         << "\n --gap=" << params.gap;
 	if(!params.arks)	//ARCS specific options
-        	std:: cout << "\n -s " << params.seq_id;
+        std:: cout << "\n -s " << params.seq_id;
 	else			//ARKS specific options
-        	std::cout << "\n -k " << params.k_value
+        std::cout << "\n -k " << params.k_value
         	<< "\n -j " << params.j_index
         	<< "\n -t " << params.threads;
-        // Output files
+    // Output files
     std::cout << "\n -b " << maybeNA(params.base_name)
         << "\n -g " << maybeNA(params.dist_graph_name)
         << "\n --barcode-counts=" << maybeNA(params.barcode_counts_name)
         << "\n --tsv=" << maybeNA(params.tsv_name)
-        // Input files
+    // Input files
         << "\n -a " << maybeNA(params.fofName)
         << "\n -f " << maybeNA(params.file)
         << "\n -u " << maybeNA(params.multfile)
@@ -1958,8 +1954,8 @@ int main(int argc, char** argv)
     /* Ensure scaffold file is specified if it's in arks mode. */
     std::ifstream g(params.file.c_str()); 
     if (!g.good() && params.arks) {
-	std::cerr << "Cannot find [-f] scaffold file which is required for --arks" << params.file << ". Exiting... \n";
-	die = true;
+	    std::cerr << "Cannot find [-f] scaffold file which is required for --arks" << params.file << ". Exiting... \n";
+	    die = true;
     }
 
     /* Set base name according to method choosen. */
@@ -1983,30 +1979,29 @@ int main(int argc, char** argv)
     }else{
         // Set base name if not previously set.
         if (params.base_name.empty()) {
-            	std::ostringstream filename;
-            	filename << params.file << ".scaff" << "_arcs"
-		<< "_s" << params.seq_id
-		<< "_c" << params.min_reads
-		<< "_l" << params.min_links
-		<< "_d" << params.max_degree
-		<< "_e" << params.end_length
-		<< "_r" << params.error_percent;
-		params.base_name = filename.str();
+            std::ostringstream filename;
+            filename << params.file << ".scaff" << "_arcs"
+		    << "_s" << params.seq_id
+		    << "_c" << params.min_reads
+		    << "_l" << params.min_links
+		    << "_d" << params.max_degree
+		    << "_e" << params.end_length
+		    << "_r" << params.error_percent;
+		    params.base_name = filename.str();
         }
     }
 
     //Set distance graph name unless specified.
     if (params.dist_graph_name.empty())
-            params.dist_graph_name = params.base_name + ".dist.gv";
+        params.dist_graph_name = params.base_name + ".dist.gv";
 
     //Set tsv name unless specified.
     if (params.tsv_name.empty())
-            params.tsv_name = params.base_name + "_main.tsv";
-    
+        params.tsv_name = params.base_name + "_main.tsv";
     
     if (die) {
-		    std::cerr << "Try " << PROGRAM << " --help for more information.\n";
-		    exit(EXIT_FAILURE);
+		std::cerr << "Try " << PROGRAM << " --help for more information.\n";
+		exit(EXIT_FAILURE);
 	}  
 
     printf("%s\n", "Finished reading user inputs...entering runArcs()...");
