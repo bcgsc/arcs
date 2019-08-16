@@ -12,6 +12,9 @@
 #include <cassert>
 #include <string>
 #include <utility>
+#include "kseq.h"
+#include <omp.h>
+#include <zlib.h>
 
 #define PROGRAM "arcs"
 
@@ -26,29 +29,38 @@ PROGRAM " " PACKAGE_VERSION "\n"
 
 static const char USAGE_MESSAGE[] =
 PROGRAM " " PACKAGE_VERSION "\n"
-"Usage: arcs [OPTION]... ALIGNMENTS...\n"
 "\n"
-"ALIGNMENTS may be a SAM or BAM file.\n"
-"The output of the aligner may be piped directly into ARCS by setting\n"
-"ALIGNMENTS to /dev/stdin, in which case it must be in SAM format.\n"
+"Usage: arcs [Options] <list of alignment files>  or\n"
+"       arcs [Options] --arks -f <contig sequence file> <list of linked read files>\n"
 "\n"
-"Paired reads must occur consecutively (interleaved) in the SAM/BAM file.\n"
-"The output of the aligner may either not be sorted,\n"
-"or may be sorted by read name using samtools sort -n.\n"
-"The SAM/BAM file must not be sorted by coordinate position.\n"
+"Requirements for ARCS (default method):\n"
+"       ARCS utilizes linked read alignments for scaffolding (https://doi.org/10.1093/bioinformatics/btx675)"
+"       Alignment files are REQUIRED either as positional arguments or in a supplied file of BAM paths (with -a).\n"
 "\n"
-"The barcode may be found in either the BX:Z:BARCODE SAM tag,\n"
-"or in the read (query) name following an underscore, READNAME_BARCODE.\n"
-"In the latter case the barcode must be compsed entirely of nucleotides.\n"
+"       Alignments may be in SAM or BAM file.\n"
+"       The output of the aligner may be piped directly into ARCS by setting\n"
+"       alignments to /dev/stdin, in which case it must be in SAM format.\n"
 "\n"
-"The contig sequence lengths must either be present in the SAM header\n"
-"or provided by the -f option.\n"
+"       Paired reads must occur consecutively (interleaved) in the SAM/BAM file.\n"
+"       The output of the aligner may either not be sorted,\n"
+"       or may be sorted by read name using samtools sort -n.\n"
+"       The SAM/BAM file must not be sorted by coordinate position.\n"
 "\n"
-" Options:\n"
+"       The barcode may be found in either the BX:Z:BARCODE SAM tag,\n"
+"       or in the read (query) name following an underscore, READNAME_BARCODE.\n"
+"       In the latter case the barcode must be composed entirely of nucleotides.\n"
 "\n"
-"   -f, --file=FILE       FASTA file of contig sequences to scaffold [optional]\n"
-"   -a, --fofName=FILE    text file listing input SAM/BAM filenames\n"
-"   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
+"Requirements for ARKS method:\n"
+"       ARKS scaffolds draft genomes using linked read kmers (https://doi.org/10.1186/s12859-018-2243-x).\n"
+"       Contig sequences are REQUIRED by the -f option.\n"
+"       linked read files are REQUIRED either as positional arguments or in a supplied file of linked read file paths. Pay attention to have only linked read files in the file of file names.\n"
+"\n"
+"       The barcode multiplicity file is optional and can be provided by -u option in either .tsv or .csv format.\n"
+"\n"
+"Common Options:\n"
+"   -a, --fofName=FILE    text file listing input filenames\n"
+"   -u, --multfile        tsv or csv file listing barcode multiplicities [optional]\n"
+"   -f, --file=FILE       FASTA file of contig sequences to scaffold\n"
 "   -c, --min_reads=N     min aligned read pairs per barcode mapping [5]\n"
 "   -l, --min_links=N     min shared barcodes between contigs [0]\n"
 "   -z, --min_size=N      min contig length [500]\n"
@@ -60,12 +72,16 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "   -m, --index_multiplicity=RANGE  barcode multiplicity range [50-10000]\n"
 "   -d, --max_degree=N    max node degree in scaffold graph [0]\n"
 "   -e, --end_length=N    contig head/tail length for masking alignments [30000]\n"
-"   -r, --error_percent=N p-value for head/tail assignment and link orientation\n"
-"                         (lower is more stringent) [0.05]\n"
+"   -r, --error_percent=N p-value for head/tail assignment and link orientation (lower is more stringent) [0.05]\n"
 "   -v, --run_verbose     verbose logging\n"
+"Options specific to ARCS:\n"
+"   -s, --seq_id=N        min sequence identity for read alignments [98]\n"
+"Options specific to ARKS:\n"
+"   -k  --k_value         size of a k-mer [30]\n"
+"   -j  --j_index         minimum fraction of read kmers matching a contigId [0.55]\n"
+"   -t  --threads         number of threads [1]\n"
 "\n"
-" Distance Estimation Options:\n"
-"\n"
+" Distance Estimation Options (Common):\n"
 "   -B, --bin_size=N        estimate distance using N closest Jaccard scores [20]\n"
 "   -D, --dist_est          enable distance estimation\n"
 "       --no_dist_est       disable distance estimation [default]\n"
@@ -74,7 +90,7 @@ PROGRAM " " PACKAGE_VERSION "\n"
 "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
 "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:v";
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:";
 
 enum {
     OPT_HELP = 1,
@@ -87,18 +103,18 @@ enum {
     OPT_DIST_TSV,
     OPT_NO_DIST_EST,
     OPT_DIST_MEDIAN,
-    OPT_DIST_UPPER
+    OPT_DIST_UPPER,
+    OPT_ARKS_METHOD
 };
 
 static const struct option longopts[] = {
     {"file", required_argument, NULL, 'f'},
     {"fofName", required_argument, NULL, 'a'},
     {"bin_size", required_argument, NULL, 'B'},
-    {"bx", no_argument, NULL, OPT_BX }, // ignored
+    {"bx", no_argument, NULL, OPT_BX },
     {"samples_tsv", required_argument, NULL, OPT_SAMPLES_TSV},
     {"dist_tsv", required_argument, NULL, OPT_DIST_TSV},
     {"seq_id", required_argument, NULL, 's'},
-    {"min_reads", required_argument, NULL, 'c'},
     {"min_reads", required_argument, NULL, 'c'},
     {"dist_est", no_argument, NULL, 'D'},
     {"no_dist_est", no_argument, NULL, OPT_NO_DIST_EST},
@@ -118,6 +134,11 @@ static const struct option longopts[] = {
     {"run_verbose", required_argument, NULL, 'v'},
     {"version", no_argument, NULL, OPT_VERSION},
     {"help", no_argument, NULL, OPT_HELP},
+    {"threads", required_argument, NULL, 't'},
+    {"multfile", required_argument, NULL, 'u'},
+    {"k_value", required_argument, NULL, 'k'},
+    {"j_index", required_argument, NULL, 'j'},
+    {"arks", no_argument, NULL, OPT_ARKS_METHOD},
     { NULL, 0, NULL, 0 }
 };
 
@@ -139,6 +160,17 @@ typedef ContigGraph<DirectedGraph<Length, DistanceEst>> DistGraph;
 /** A dictionary of contig names. */
 Dictionary g_contigNames;
 unsigned g_nextContigName;
+
+//** Some useful counters for user. */
+unsigned int s_numkmersmapped = 0, s_numkmercollisions = 0, s_numkmersremdup = 0,
+		s_numbadkmers = 0, s_uniquedraftkmers = 0;
+
+unsigned int s_totalnumckmers = 0, s_ckmersasdups = 0, s_numckmersfound = 0,
+		s_numckmersrec = 0, s_numbadckmers = 0;
+
+unsigned int s_numreadspassingjaccard = 0, s_numreadsfailjaccard = 0;
+
+KSEQ_INIT(gzFile, gzread)
 
 /**
  * One end of a scaffold.
@@ -166,6 +198,53 @@ static inline bool checkFlag(int flag)
  */
 bool checkChar(char c) {
     return (c == 'M' || c == '=' || c == 'X' || c == 'I');
+}
+
+//for multiple fastq chromium files     --- added from arks
+vector<string> convertInputString(const string &inputString) {
+	vector<string> currentInfoFile;
+	string temp;
+	stringstream converter(inputString);
+	while (converter >> temp) {
+		currentInfoFile.push_back(temp);
+	}
+	return currentInfoFile;
+}
+
+/* Calculate the jaccard index */
+static inline double calcJacIndex(int smallCount, int overallCount) {
+	return (double) smallCount / (double) overallCount;
+}
+
+/* Strip the trailing "/1" or "/2" from a FASTA ID, if such exists */
+static inline void stripReadNum(std::string& readName)
+{
+	size_t pos = readName.rfind("/");
+	if (pos == std::string::npos)
+		return;
+	if (pos == 0 || pos == readName.length() - 1)
+		return;
+	if (!std::isdigit(readName.at(pos + 1)))
+		return;
+	readName.resize(pos);
+}
+
+/* Track memory usage */
+int memory_usage() {
+	int mem = 0;
+	ifstream proc("/proc/self/status");
+	string s;
+	while (getline(proc, s), !proc.fail()) {
+		if (s.substr(0, 5) == "VmRSS") {
+			stringstream convert(
+			        s.substr(s.find_last_of('\t'), s.find_last_of('k') - 1));
+			if (!(convert >> mem)) {
+				return 0;
+			}
+			return mem;
+		}
+	}
+	return mem;
 }
 
 /*
@@ -207,10 +286,231 @@ double calcSequenceIdentity(const std::string& line, const std::string& cigar, c
 
     return si;
 }
+/* Returns true if the contig sequence contains ATGC or IUPAC codes */
+static inline bool checkContigSequence(std::string seq) {
+	for (int i = 0; i < static_cast<int>(seq.length()); i++) {
+		char c = toupper(seq[i]);
+		if (c != 'A' && c != 'T' && c != 'G' && c != 'C' && c != 'N' && c != 'M'
+				&& c != 'R' && c != 'W' && c != 'S' && c != 'Y' && c != 'K'
+				&& c != 'V' && c != 'H' && c != 'D' && c != 'B') {
+			std::cout << c << std::endl;
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/* Returns true if files in vector are in same format.
+ * If they are all in same format pass-by-reference parameter allAlignment=1 tells they are all in alignment format 
+ * and allAlignment=0 if they are all in read file format.*/
+bool checkSameFormat(std::vector<std::string> fileNames, bool &allAlignment){
+    int prevType = 0;       // 0:unknown  1:alignment file type 2:read file type
+    int curType = 0;
+    size_t npos = std::string::npos;
+
+    for (const auto& fileName : fileNames){
+        curType = 0;
+        if((fileName.find(".sam") != npos) || (fileName.find(".bam") != npos))
+            curType = 1;
+        if((fileName.find(".fastq") != npos) || (fileName.find(".fastq.gz") != npos) || (fileName.find(".fq") != npos) || (fileName.find(".fq.gz") != npos))
+            curType = 2;
+        if(!curType){
+            std::cout << "Unknown type file is observed!" << std::endl;
+            return false;
+        }
+        if(!(!prevType || prevType == curType)){
+            return false;
+        }
+        prevType = curType;
+    }
+    allAlignment = (curType == 1);
+    return true;
+}
+
+
+/* Returns true if seqence only contains ATGC or N
+ * 	Allows only if 0.98 of the read is not ambiguous (aka not N)
+ */
+static inline bool checkReadSequence(std::string seq) {
+
+	double ambiguity = 0;
+
+	for (int i = 0; i < static_cast<int>(seq.length()); i++) {
+		char c = toupper(seq[i]);
+		if (c != 'A' && c != 'T' && c != 'G' && c != 'C') {
+			if (c == 'N') {
+				ambiguity++;
+			} else {
+				return false;
+			}
+		}
+	}
+
+	double ar = ambiguity / (double) seq.length();
+
+	if (ar > 0.02)
+		return false;
+
+	return true;
+}
+
+/* Create indexMultMap from Barcode Multiplicity File */
+void createIndexMultMap(std::string multfile, std::unordered_map<std::string, int> &indexMultMap) {
+
+	size_t numreadstotal=0;
+	size_t numreadskept=0;
+	size_t numbarcodes=0;
+
+	/* Decide if it is a tsv or csv file */
+	bool tsv = false;
+	std::size_t found = multfile.find(".tsv");
+	if (found!=std::string::npos)
+		tsv = true;
+
+	std::ifstream multfile_stream;
+	multfile_stream.open(multfile.c_str());
+	if (!multfile_stream) {
+		std::cerr << "Could not open " << multfile << ". --fatal.\n";
+		exit (EXIT_FAILURE);
+	}
+
+	std::string line;
+	while(getline(multfile_stream, line)) {
+
+		std::string barcode;
+		std::string multiplicity_string;
+		size_t multiplicity;
+
+		if (tsv) {
+			std::stringstream sst(line);
+			sst >> barcode >> multiplicity_string;
+			numbarcodes++;
+			multiplicity = std::stoi(multiplicity_string);
+		} else {
+			std::istringstream iss(line);
+			getline(iss, barcode, ',');
+			iss >> multiplicity_string;
+			numbarcodes++;
+			multiplicity = std::stoi(multiplicity_string);
+		}
+
+		numreadstotal += multiplicity;
+
+		if (!barcode.empty()) {
+			numreadskept += multiplicity;
+			indexMultMap[barcode] = multiplicity;
+		} else {
+			std::cout << "Please check your multiplicity file." << std::endl;
+		}
+		assert(multfile_stream);
+	}
+	multfile_stream.close();
+
+	if (params.verbose) {
+		std::cout << "Saw " << numbarcodes << "  distinct barcodes." << std::endl;
+	}
+}
+
+/* Returns the size of the array for storing contigs */
+size_t initContigArray(std::string contigfile) {
+
+	size_t count = 0;
+	gzFile fp;
+
+	int l;
+	const char* filename = contigfile.c_str();
+	fp = gzopen(filename, "r");
+	kseq_t * seq = kseq_init(fp);
+
+	while ((l = kseq_read(seq)) >= 0) {
+		std::string sequence = seq->seq.s;
+		unsigned sequence_length = sequence.length();
+		if (checkContigSequence(sequence) && static_cast<int>(sequence_length) >= params.min_size)
+			count++;
+	}
+	kseq_destroy(seq);
+	gzclose(fp);
+	
+	if (params.verbose) {
+		cerr << "Number of contigs:" << count << "\nSize of Contig Array:"
+			<< (count * 2) + 1 << endl;
+	}
+
+	/* Return size for both ends of scaffolds and a null contig. */
+	return (count * 2) + 1;
+}
+/* Reads barcodes from reads and keeps a barcode multiplicity file. */
+void readBarcodes(vector<string> inputFiles, 
+	std::unordered_map<std::string, int> &indexMultMap) {
+
+	size_t added_barcode = 0;
+	int seq_read = 0;
+	std::string chromFile;
+
+	for (auto p = inputFiles.begin(); p != inputFiles.end(); ++p) {
+		chromFile = *p;
+		if (params.verbose)
+			std::cout << "Reading chrom " << chromFile << std::endl;
+
+        bool stop = false;
+        int l;
+        std::string comment;
+        std::string barcode;
+        std::size_t foundTag;
+		std::size_t foundEnd;
+        
+		gzFile fp2;
+        char *filename = new char[chromFile.length() + 1];
+        strcpy(filename, chromFile.c_str());
+        
+		fp2 = gzopen(filename, "r");
+		if (fp2 == Z_NULL) {
+			cerr << "File " << filename << " cannot be opened." << endl;
+			exit(1);
+		} else {
+			cerr << "File " << filename << " opened." << endl;
+		}
+		kseq_t * seq2 = kseq_init(fp2);
+
+        	while(!stop){
+        		l = kseq_read(seq2);
+        		if(l > 0){
+        			seq_read++;
+        			if (!seq2->comment.l) {
+					    continue;
+				    }
+				    comment = seq2->comment.s;
+                	barcode.clear();
+                	foundTag = comment.find("BX:Z:");
+                	if(foundTag != std::string::npos){
+				        // End is space if there is another tag, newline otherwise
+	        			foundEnd = comment.find(' ', foundTag);
+            			if(foundEnd != std::string::npos){
+					        barcode = comment.substr(foundTag + 5, foundEnd - foundTag - 5);
+				        }else {
+					        barcode = comment.substr(foundTag + 5);
+				        }
+				        indexMultMap[barcode]++;  
+				        added_barcode++;
+			        }
+				    if (params.verbose && added_barcode % 100000000 == 0){
+					    std::cout << added_barcode << " read with valid barcode" << std::endl;
+				    }
+			    }else{
+				    stop = true;
+			    }
+		    }
+		delete [] filename;
+	}
+	if (params.verbose) {
+		std::cout << "Saw " << indexMultMap.size() << " distinct barcode." << std::endl;
+	}
+}
 
 
 /* Get all scaffold sizes from FASTA file */
-void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
+void getScaffSizes(std::string file, ARCS::ContigToLength& contigToLength) {
 
     int counter = 0;
     FastaReader in(file.c_str(), FastaReader::FOLD_CASE);
@@ -218,7 +518,7 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
         counter++;
         std::string  scafName = rec.id;
         int size = rec.seq.length();
-        scaffSizes.push_back(std::make_pair(rec.id, size));
+        contigToLength[rec.id] = size;
     }
 
     if (params.verbose)
@@ -231,7 +531,7 @@ void getScaffSizes(std::string file, ARCS::ScaffSizeList& scaffSizes) {
  * contig number index algins with and counts.
  */
 void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
-        ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& sMap)
+        ARCS::ContigToLength& contigToLengthMap)
 {
     /* Open BAM file */
     std::ifstream bamName_stream;
@@ -255,7 +555,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
     size_t countUnpaired = 0;
 
     // Whether to add SAM SQ headers to sMap.
-    const bool addSAMSequenceLengths = sMap.empty();
+    const bool addSAMSequenceLengths = contigToLengthMap.empty();
 
     /* Read each line of the BAM file */
     while (getline(bamName_stream, line)) {
@@ -273,12 +573,11 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                     exit(EXIT_FAILURE);
                 }
                 if (addSAMSequenceLengths) {
-                    ARCS::ScaffSizeMap::value_type sq_ln(name, size);
-                    scaffSizeList.push_back(sq_ln);
-                    sMap.insert(sq_ln);
+                    ARCS::ContigToLength::value_type sq_ln(name, size);
+                    contigToLengthMap.insert(sq_ln);
                 } else {
-                    auto it = sMap.find(name);
-                    if (it == sMap.end()) {
+                    auto it = contigToLengthMap.find(name);  
+                    if (it == contigToLengthMap.end()) { 
                         std::cerr << "error: unexpected sequence: " << name << " of size " << size;
                         exit(EXIT_FAILURE);
                     } else if (it->second != (int)size) {
@@ -348,7 +647,7 @@ void readBAM(const std::string bamName, ARCS::IndexMap& imap, std::unordered_map
                      */
                     if (!readyToAddIndex.empty() && !readyToAddRefName.empty() && readyToAddRefName.compare("*") != 0 && readyToAddPos != -1) {
 
-                        int size = sMap[readyToAddRefName];
+                        int size = contigToLengthMap[readyToAddRefName];   
                         if (size >= params.min_size) {
 
                            /*
@@ -432,8 +731,8 @@ static std::vector<std::string> readFof(const std::string& fofName)
       return filenames;
     std::ifstream fin(fofName);
     assert_good(fin, fofName);
-    for (std::string bamName; getline(fin, bamName);)
-        filenames.push_back(bamName);
+    for (std::string singleFileName; getline(fin, singleFileName);)
+        filenames.push_back(singleFileName);
     assert_eof(fin, fofName);
     if (filenames.empty()) {
         cerr << PROGRAM ": error: " << fofName << " is empty" << std::endl;
@@ -448,13 +747,13 @@ static std::vector<std::string> readFof(const std::string& fofName)
  * Read the BAM files.
  */
 void readBAMS(const std::vector<std::string> bamNames, ARCS::IndexMap& imap, std::unordered_map<std::string, int>& indexMultMap,
-        ARCS::ScaffSizeList& scaffSizeList, ARCS::ScaffSizeMap& scaffSizeMap)
+        ARCS::ContigToLength& contigToLengthMap)
 {
     assert(!bamNames.empty());
     for (const auto& bamName : bamNames) {
         if (params.verbose)
             std::cout << "Reading alignments: " << bamName << std::endl;
-        readBAM(bamName, imap, indexMultMap, scaffSizeList, scaffSizeMap);
+        readBAM(bamName, imap, indexMultMap, contigToLengthMap);
     }
 }
 
@@ -502,6 +801,476 @@ std::pair<bool, bool> headOrTail(int head, int tail) {
     } else {
         return std::pair<bool, bool> (false, false);
     }
+}
+
+
+
+/* Shreds end sequence into kmers and inputs them one by one into the ContigKMap
+ * 	std::pair<std::string, bool> 				specifies contigID and head/tail
+ * 	std::string						the end sequence of the contig
+ *	int							k-value specified by user
+ *	ARKS::ContigKMap					ContigKMap for storage of kmers
+ */
+int mapKmers(std::string seqToKmerize, int k,
+		ARCS::ContigKMap &kmap, ReadsProcessor &proc, int conreci) {
+
+	int seqsize = seqToKmerize.length();
+
+	// Checks if length of the subsequence is smaller than the k size
+	// 	If the contig end is shorter than the k-value, then we ignore.
+	if (seqsize < k) {
+		std::string errmsg =
+				"Warning: ends of contig is shorter than k-value for contigID (no k-mers added): ";
+		std::cout << errmsg << conreci << std::endl;
+
+		return 0;
+	} else {
+		int numKmers = 0;
+
+		int i = 0;
+		while (i <= seqsize - k) {
+			const unsigned char* temp = proc.prepSeq(seqToKmerize, i); // prepSeq returns NULL if it contains an N
+			// Ignore a NULL kmer
+			if (temp != NULL) {
+				std::string kmerseq = proc.getStr(temp);
+
+				numKmers++;
+
+				//Critical section to prevent multiple thread from accessing datastructure
+				//only needed since we are writing to datastructure
+				//ideally would want CAS operation but without special a datastructure this is difficult
+				bool exists;
+				int alreadyconreci;
+
+				exists = kmap.find(kmerseq) != kmap.end();
+
+				alreadyconreci = kmap[kmerseq];
+
+				if (exists) {
+					if (alreadyconreci != conreci) {
+						s_numkmersremdup++;
+						if (alreadyconreci != 0) {
+							s_uniquedraftkmers--;
+							kmap[kmerseq] = 0;
+						}
+					}
+					s_numkmercollisions++;
+				} else {
+					kmap[kmerseq] = conreci;
+					s_uniquedraftkmers++;
+					s_numkmersmapped++;
+				}
+				i++;
+			} else {
+				i += k;
+				s_numbadkmers++;
+			}
+		}
+		return numKmers;
+	}
+}
+
+/* Returns best corresponding contig from read through kmers
+ * 	ARKS::ContigKMap			tells me what kmers correspond to which contig
+ *	std::string				read sequence
+ *	int					size of k-mer
+ *	int 					k_shift
+ *      double j_index				Jaccard Index (default 0.5)
+ *	ReadsProcessor				kmerizer
+ */
+int bestContig (ARCS::ContigKMap &kmap, std::string readseq, int k,
+		double j_index, ReadsProcessor &proc) {
+
+	// to keep track of what contig+H/T that the k-mer from barcode matches to
+	// 	int					Index that corresponds to the contig in the contigRecord
+	// 	count					# kmers found here
+	std::map<int, int> ktrack;
+
+	// k-merize readsequence
+	int corrbestConReci = 0;
+	int seqlen = readseq.length();
+
+	int totalnumkmers = 0;
+	int kmerdups = 0;
+	int kmerfound = 0;
+	int kmerstore = 0;
+
+
+	int i = 0;
+
+	while (i <= seqlen - k) {
+		const unsigned char* temp = proc.prepSeq(readseq, i);
+#pragma omp atomic    
+		totalnumkmers++;
+		if (temp != NULL) {
+			const std::string ckmerseq = proc.getStr(temp);
+#pragma omp atomic    
+			s_totalnumckmers++;
+
+			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker
+			if (kmap.find(ckmerseq) != kmap.end()) {
+				
+                int corrConReci = kmap[ckmerseq];
+				if (corrConReci != 0) {
+					ktrack[corrConReci]++;
+#pragma omp atomic    
+					kmerstore++;
+#pragma omp atomic    
+					s_numckmersrec++;
+				} else {
+#pragma omp atomic    
+					s_ckmersasdups++;
+#pragma omp atomic    
+					kmerdups++;
+				}
+#pragma omp atomic    
+				kmerfound++;
+#pragma omp atomic    
+				s_numckmersfound++;
+
+			}
+		} else {
+#pragma omp atomic    
+			s_numbadckmers++;
+		}
+		i++;
+	}
+	
+    double maxjaccardindex = 0;
+	// for the read, find the contig that it is most compatible with based on the jaccard index
+	for (auto it = ktrack.begin(); it != ktrack.end(); ++it) {
+		double currjaccardindex = calcJacIndex(it->second, totalnumkmers);
+		if (maxjaccardindex < currjaccardindex) {
+			maxjaccardindex = currjaccardindex;
+			corrbestConReci = it->first;
+		}
+	}
+
+	if (maxjaccardindex > j_index) {
+		s_numreadspassingjaccard++;
+		return corrbestConReci;
+	} else {
+
+		s_numreadsfailjaccard++;
+		return 0;
+	}
+}
+
+/* Get the k-mers from the paired ends of the contigs and store them in map.
+ * 	std::string file					FASTA (or later FASTQ) file
+ *	std::sparse_hash_map<k-mer, pair<contidID, bool>> 	ContigKMap
+ *	int k							k-value (specified by user)
+ */
+void getContigKmers(std::string contigfile, ARCS::ContigKMap &kmap,
+	std::vector<ARCS::CI> &contigRecord, ARCS::ContigToLength& contigToLength)
+{
+	int totalNumContigs = 0;
+	int skippedContigs = 0;
+	int validContigs = 0;
+	int totalKmers = 0;
+
+	ARCS::CI collisionmarker("null contig", false);
+	size_t conreci = 0; // 0 is the null contig so we will later increment before adding
+	contigRecord[conreci] = collisionmarker;
+
+	gzFile fp;
+
+	int l;
+	const char* filename = contigfile.c_str();
+	fp = gzopen(filename, "r");
+	kseq_t * seq = kseq_init(fp);
+
+	int16_t k_proc = params.k_value;
+	ReadsProcessor proc(k_proc);
+
+	while ((l = kseq_read(seq)) >= 0) {
+		totalNumContigs++;
+		bool good = false;
+		std::string contigID = "", sequence = "";
+		size_t tempConreci1 = 0;
+		size_t tempConreci2 = 0;
+
+		contigID = seq->name.s;
+		sequence = seq->seq.s;
+		if (static_cast<int>(sequence.length()) >= params.min_size) {
+			tempConreci1 = ++conreci;
+			tempConreci2 = ++conreci;
+			good = true;
+		}
+
+		if (good) {
+			// If the sequence is above minimum contig length, then will extract kmers from both ends
+			// If not will ignore the contig
+			int sequence_length = sequence.length();
+
+			// record contig length for later use (distance estimation)
+			contigToLength[contigID] = sequence_length;
+
+			// If contig length is less than 2 x end_length, then we split the sequence
+			// in half to decide head/tail (aka we changed the end_length)
+			int cutOff = params.end_length;
+			if (cutOff == 0 || sequence_length <= cutOff * 2)
+				cutOff = sequence_length / 2;
+
+			// Arbitrarily assign head or tail to ends of the contig
+			ARCS::CI headside(contigID, true);
+			ARCS::CI tailside(contigID, false);
+
+			//get ends of the sequence and put k-mers into the map
+			contigRecord[tempConreci1] = headside;		// in contigRecord head/tail of contig are kept as different contigs.
+			std::string seqend;
+			seqend = sequence.substr(0, cutOff);
+			int num = mapKmers(seqend, params.k_value, 
+					kmap, proc, tempConreci1);
+
+				totalKmers += num;
+
+				contigRecord[tempConreci2] = tailside;
+				seqend = sequence.substr(sequence_length - cutOff,
+						sequence_length);
+				num = mapKmers(seqend, params.k_value, kmap,
+						proc, tempConreci2);
+
+				totalKmers += num;
+				validContigs++;
+		} else {
+			skippedContigs++;
+		}
+		if (params.verbose) {
+			if (totalNumContigs % 1000 == 0) {
+				printf("Finished %d Contigs...\n", totalNumContigs);
+			}
+		}
+	}
+	kseq_destroy(seq);
+	gzclose(fp);
+
+	if (params.verbose) {
+		printf(
+				"%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n%s %u\n",
+				"Total number of contigs in draft genome: ", totalNumContigs,
+				"Total valid contigs: ", validContigs,
+				"Total skipped contigs: ", skippedContigs,
+				"Total number of Kmers: ", totalKmers, "Number Null Kmers: ",
+				s_numbadkmers, "Number Kmers Recorded: ", s_numkmersmapped,
+				"Number Kmer Collisions: ", s_numkmercollisions,
+				"Number Times Kmers Removed (since duplicate in different contig): ",
+				s_numkmersremdup, "Number of unique kmers (only one contig): ",
+				s_uniquedraftkmers);
+	}
+}
+
+/* Read through longranger basic chromium output fastq file */
+void chromiumRead(std::string chromiumfile, ARCS::ContigKMap& kmap, ARCS::IndexMap& imap,
+			const std::unordered_map<std::string, int> &indexMultMap,
+			const std::vector<ARCS::CI> &contigRecord) {
+
+	int stored_readpairs = 0;
+	int skipped_unpaired = 0;
+	int skipped_invalidreadpair = 0;
+	int skipped_nogoodcontig = 0;
+	int invalidbarcode = 0;
+	int emptybarcode=0; 
+
+	size_t count = 0;
+	bool stop = false;
+
+	//each thread gets a proc;
+	vector<ReadsProcessor*> procs(params.threads);
+
+	for (unsigned i = 0; i < params.threads; ++i) {
+		procs[i] = new ReadsProcessor(params.k_value);
+	}
+    
+	gzFile fp2;
+	const char* filename = chromiumfile.c_str();
+	fp2 = gzopen(filename, "r");
+	if (fp2 == Z_NULL) {
+		cerr << "File " << filename << " cannot be opened." << endl;
+		exit(1);
+	} else {
+		cerr << "File " << filename << " opened." << endl;
+	}
+	kseq_t * seq2 = kseq_init(fp2);
+
+#pragma omp parallel
+	while (!stop) {
+		int l;
+		std::string read1_name = "";
+		std::string read2_name = "";
+		std::string barcode1;
+		std::string barcode2;
+		std::string cread1 = "";
+		std::string cread2 = "";
+		std::string comment1 = "";
+		std::string comment2 = "";
+	    std::size_t foundTag;
+	    std::size_t foundEnd;
+		bool paired = false;
+		int corrConReci1 = 0;
+		int corrConReci2 = 0;
+#pragma omp critical(checkread1or2)
+		{
+			l = kseq_read(seq2);
+			if (l >= 0) {
+				read1_name = seq2->name.s;
+				if (seq2->comment.l) {
+					comment1 = seq2->comment.s;
+				}
+				cread1 = seq2->seq.s;
+				l = kseq_read(seq2);
+				if (l >= 0) {
+					read2_name = seq2->name.s;
+   					if (seq2->comment.l) {
+					    comment2 = seq2->comment.s;
+					}
+					cread2 = seq2->seq.s;
+				} else {
+					stop = true;
+				}
+			} else {
+				stop = true;
+			}
+			stripReadNum(read1_name);
+			stripReadNum(read2_name);
+			if (read1_name == read2_name) {
+				paired = true;
+			} else {
+				std::cout << "File contains unpaired reads: " << read1_name << " " << read2_name << std::endl;
+				skipped_unpaired++;
+			}
+			count += 2;
+			if (params.verbose) {
+				if (count % 10000000 == 0) {
+					std::cout << "Processed " << count << " read pairs." << std::endl;
+				}
+			}
+		}
+
+		if (!stop) {
+			barcode1.clear();
+	    	//Find position of BX:Z:
+			foundTag = comment1.find("BX:Z:");
+	    		if(foundTag != std::string::npos){
+				// End is space if there is another tag, newline otherwise
+		            foundEnd = comment1.find(' ', foundTag);
+				// Get substring from end of BX:Z: to space or end of string
+                	if(foundEnd != std::string::npos){
+		    			barcode1 = comment1.substr(foundTag + 5, foundEnd - foundTag - 5);
+				    }
+				    else {
+		    			barcode1 = comment1.substr(foundTag + 5);
+				    }
+	    		}
+			
+			barcode2.clear();
+	    		//Find position of BX:Z:
+			foundTag = comment2.find("BX:Z:");
+	    		if(foundTag != std::string::npos){
+				// End is space if there is another tag, newline otherwise
+				foundEnd = comment2.find(' ', foundTag);
+				// Get substring from end of BX:Z: to space or end of string
+		                if(foundEnd != std::string::npos){
+		    			barcode2 = comment2.substr(foundTag + 5, foundEnd - foundTag - 5);
+				}else {
+		    			barcode2 = comment2.substr(foundTag + 5);
+				}
+	    		}
+
+			bool validbarcode = false; 
+			if (barcode1.empty() || barcode2.empty()) {
+				emptybarcode++; 
+			} else {					
+				validbarcode = indexMultMap.find(barcode1) != indexMultMap.end();			
+				if (!validbarcode) {
+#pragma omp atomic    
+					invalidbarcode++;
+				}
+			}
+
+			if (paired && validbarcode && !barcode1.empty() && !barcode2.empty() && (barcode1==barcode2)) {
+				const int indexMult = indexMultMap.at(barcode1);
+				bool goodmult = indexMult > params.min_mult || indexMult < params.max_mult;
+				if (goodmult && checkReadSequence(cread1) && checkReadSequence(cread2)) {
+					corrConReci1 = bestContig(kmap, cread1, params.k_value, params.j_index, *procs[omp_get_thread_num()]);
+					corrConReci2 = bestContig(kmap, cread2, params.k_value, params.j_index, *procs[omp_get_thread_num()]);
+                } else {
+#pragma omp atomic
+					skipped_invalidreadpair++;
+				}
+				// we only store barcode info in index map if read pairs have same contig + orientation
+				// and if the corrContigId is not NULL (because it is above accuracy threshold)
+				if (corrConReci1 != 0 && corrConReci1 == corrConReci2) {
+					const ARCS::CI corrContigId = contigRecord[corrConReci1];
+#pragma omp critical(imap)
+					{
+						imap[barcode1][corrContigId]++;
+					}
+
+#pragma omp atomic
+					stored_readpairs++;
+				} else {
+#pragma omp atomic
+					skipped_nogoodcontig++;
+				}
+			}
+		}
+	}
+	kseq_destroy(seq2);
+	gzclose(fp2);
+
+	// clean up
+	for (unsigned i = 0; i < params.threads; ++i) {
+		delete procs[i];
+	}
+
+    /* If barcode hits only one end of a contig, set the other one 0. */
+	std::string barcode = "";
+	std::string contigname = "";
+	bool orientation = false;
+
+    for (auto it = imap.begin(); it != imap.end(); ++it) {
+		barcode = it->first;
+		ARCS::ScafMap smap = it->second;
+		for (auto j = smap.begin(); j != smap.end(); ++j) {
+			contigname = j->first.first;
+			orientation = j->first.second;
+			if(imap[barcode].count(std::make_pair(contigname, !orientation)) == 0){
+			    imap[barcode][std::make_pair(contigname, !orientation)] = 0;
+			}
+		}
+	}
+
+	if (params.verbose) {
+		printf(
+				"Stored read pairs: %u\nSkipped invalid read pairs: %u\nSkipped unpaired reads: %u\nSkipped reads pairs without a good contig: %u\n",
+				stored_readpairs, skipped_invalidreadpair, skipped_unpaired,
+				skipped_nogoodcontig);
+		printf(
+				"Total valid kmers: %u\nNumber invalid kmers: %u\nNumber of kmers found in ContigKmap: %u\nNumber of kmers recorded in Ktrack: %u\nNumber of kmers found in ContigKmap but duplicate: %u\nNumber of reads passing jaccard threshold: %u\nNumber of reads failing jaccard threshold: %u\n",
+				s_totalnumckmers, s_numbadckmers, s_numckmersfound, s_numckmersrec,
+				s_ckmersasdups, s_numreadspassingjaccard, s_numreadsfailjaccard);
+		if (emptybarcode>0) 
+			printf("WARNING:: Your chromium read file has %d readpairs that have an empty barcode.", emptybarcode); 
+		if (invalidbarcode > 0)
+			printf("WARNING:: Your chromium read file has %d read pairs that have barcodes not in the barcode multiplicity file.", invalidbarcode);
+
+	}
+}
+
+void readChroms(vector<string> inputFiles, ARCS::ContigKMap &kmap,
+		ARCS::IndexMap &imap,
+		const std::unordered_map<std::string, int> &indexMultMap,
+		const std::vector<ARCS::CI> &contigRecord) {
+
+	std::string chromFile;
+
+	for (auto p = inputFiles.begin(); p != inputFiles.end(); ++p) {
+		chromFile = *p;
+		if (params.verbose)
+			std::cout << "Reading chrom " << chromFile << std::endl;
+		chromiumRead(chromFile, kmap, imap, indexMultMap, contigRecord);
+	}
 }
 
 /*
@@ -706,9 +1475,9 @@ void writePostRemovalGraph(ARCS::Graph& g, const std::string graphFile) {
 /*
  * Construct an ABySS distance estimate graph from a boost graph.
  */
-void createAbyssGraph(const ARCS::ScaffSizeList& scaffSizes, const ARCS::Graph& gin, DistGraph& gout) {
+void createAbyssGraph(const ARCS::ContigToLength& contigToLength, const ARCS::Graph& gin, DistGraph& gout) {
     // Add the vertices.
-    for (const auto& it : scaffSizes) {
+    for (const auto& it : contigToLength) {
         vertex_property<DistGraph>::type vp;
         vp.length = it.second;
         const auto u = add_vertex(vp, gout);
@@ -764,10 +1533,12 @@ void writeAbyssGraph(const std::string& path, const DistGraph& g) {
  * - Reads: the number of reads
  */
 void writeBarcodeCountsTSV(
-        const std::string& tsvFile,
+        std::string& tsvFile,
         const std::unordered_map<std::string, int>& indexMultMap)
 {
     assert(!tsvFile.empty());
+    if(tsvFile.find(".tsv") == std::string::npos)
+	    tsvFile += ".tsv";
 
     // Sort the barcodes by their counts and then their sequence.
     typedef std::vector<std::pair<std::string, unsigned>> Sorted;
@@ -778,8 +1549,6 @@ void writeBarcodeCountsTSV(
             });
 
     std::ofstream f(tsvFile);
-    assert_good(f, tsvFile);
-    f << "Barcode\tReads\n";
     assert_good(f, tsvFile);
     for (auto x : sorted)
         f << x.first << '\t' << x.second << '\n';
@@ -903,29 +1672,41 @@ static inline void calcDistanceEstimates(
 
 /** Run ARCS. */
 void runArcs(const std::vector<std::string>& filenames) {
+    
+    std::string methodName = "ARCS";
+    if(params.arks)
+	methodName = "ARKS";
 
     std::cout << "Running: " << PROGRAM << " " << PACKAGE_VERSION
+        << "\n" << methodName << " method"
         << "\n pid " << ::getpid()
-        // Options
+    // Options
         << "\n -c " << params.min_reads
         << "\n -d " << params.max_degree
         << "\n -e " << params.end_length
         << "\n -l " << params.min_links
         << "\n -m " << params.min_mult << '-' << params.max_mult
         << "\n -r " << params.error_percent
-        << "\n -s " << params.seq_id
         << "\n -v " << params.verbose
         << "\n -z " << params.min_size
-        << "\n --gap=" << params.gap
-        // Output files
-        << "\n -b " << maybeNA(params.base_name)
+        << "\n --gap=" << params.gap;
+	if(!params.arks)	//ARCS specific options
+        std:: cout << "\n -s " << params.seq_id;
+	else			//ARKS specific options
+        std::cout << "\n -k " << params.k_value
+        	<< "\n -j " << params.j_index
+        	<< "\n -t " << params.threads;
+    // Output files
+    std::cout << "\n -b " << maybeNA(params.base_name)
         << "\n -g " << maybeNA(params.dist_graph_name)
         << "\n --barcode-counts=" << maybeNA(params.barcode_counts_name)
         << "\n --tsv=" << maybeNA(params.tsv_name)
-        // Input files
+    // Input files
         << "\n -a " << maybeNA(params.fofName)
         << "\n -f " << maybeNA(params.file)
+        << "\n -u " << maybeNA(params.multfile)
         << '\n';
+
     for (const auto& filename : filenames)
         std::cout << ' ' << filename << '\n';
     std::cout.flush();
@@ -933,82 +1714,132 @@ void runArcs(const std::vector<std::string>& filenames) {
     ARCS::IndexMap imap;
     ARCS::PairMap pmap;
     ARCS::Graph g;
-
+    std::unordered_map<std::string, int> indexMultMap;
+    
+    ARCS::ContigKMap kmap;
+    kmap.set_deleted_key("");
     std::time_t rawtime;
 
-    ARCS::ScaffSizeList scaffSizeList;
-    ARCS::ScaffSizeMap scaffSizeMap;
-    if (!params.file.empty()) {
+    ARCS::ContigToLength contigToLength;
+    ARCS::ContigToLengthIt contigToLengthIt;
+    
+    std::vector<ARCS::CI> contigRecord;
+
+    if (!params.arks)
+    {
+        /* If scaffold file is specified in arcs method read file for getting scaffold sizes. */
+         if (!params.file.empty()) {
+            time(&rawtime);
+            std::cout << "\n=> Getting scaffold sizes... " << ctime(&rawtime);
+            getScaffSizes(params.file, contigToLength);
+        }
+
+        /* Read alignment files. */
         time(&rawtime);
-        std::cout << "\n=> Getting scaffold sizes... " << ctime(&rawtime);
-        getScaffSizes(params.file, scaffSizeList);
-        scaffSizeMap.insert(scaffSizeList.begin(), scaffSizeList.end());
-    }
+        std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
+        readBAMS(filenames, imap, indexMultMap, contigToLength);
+    }else{
 
-    std::unordered_map<std::string, int> indexMultMap;
-    time(&rawtime);
-    std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
-    std::vector<std::string> bamFiles = readFof(params.fofName);
-    std::copy(filenames.begin(), filenames.end(), std::back_inserter(bamFiles));
-    readBAMS(bamFiles, imap, indexMultMap, scaffSizeList, scaffSizeMap);
-
-    size_t barcodeCount = countBarcodes(imap, indexMultMap);
-
-    if (!params.barcode_counts_name.empty()) {
+        /* If barcode multiplicity file specified read it, otherwise read the reads to gather barcode multiplicity info.
+        This step is done before reading the sequences to prevent kmerization of reads with barcodes out of multiplicity range. */
         time(&rawtime);
-        std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime) << "\n";
-        writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
-    }
+        std::cout << "\n=>Preprocessing: Gathering barcode multiplicity information..." << ctime(&rawtime);
+        if(!params.multfile.empty()){
+            createIndexMultMap(params.multfile, indexMultMap);  // reading file
+        }
+        else{
+            std::cout << "Multiplicity information is being formed from reads as no barcode multiplicity file provided." << std::endl;
+            readBarcodes(filenames, indexMultMap);  // reading reads
+        }
 
+        /* Get the size of contigArray the prevent repetitive memory allocation. */
+        time(&rawtime);
+        std::cout << "\n=>Preprocessing: Gathering draft information..." << ctime(&rawtime) << "\n";
+        size_t size = initContigArray(params.file); 
+        contigRecord.resize(size);
+
+        /* Kmerization of contig ends */
+    	time(&rawtime);
+    	std::cout << "\n=>Storing Kmers from Contig ends... " << ctime(&rawtime) << std::endl;
+    	getContigKmers(params.file, kmap, contigRecord, contigToLength);
+
+        /* Kmerization of reads with barcodes in the multiplicity range. */
+        time(&rawtime);
+  	    std::cout << "\n=>Reading Chromium FASTQ file(s)... " << ctime(&rawtime) << std::endl;
+        readChroms(filenames, kmap, imap, indexMultMap, contigRecord);
+    }
+    std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
+
+    /* Pair each scaffold according to the links(barcodes) hitting them. */
     time(&rawtime);
     std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
     pairContigs(imap, pmap, indexMultMap);
 
+    /* Create graph with nodes=scaffolds edges=number of links between the scaffolds.*/
     time(&rawtime);
     std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
     createGraph(pmap, g);
 
+    /* If user specified, calculate distance and write to output files. */
     if (params.dist_est) {
         std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
-        calcDistanceEstimates(imap, indexMultMap, scaffSizeMap, g);
-    }
-
-    if (!params.base_name.empty()) {
-        time(&rawtime);
-        std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
-        std::string graphFile = params.base_name + "_original.gv";
-        writePostRemovalGraph(g, graphFile);
-    }
-
-    if (!params.dist_graph_name.empty()) {
-        time(&rawtime);
-        std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
-        DistGraph gdist;
-        createAbyssGraph(scaffSizeList, g, gdist);
-
-        time(&rawtime);
-        std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
-        writeAbyssGraph(params.dist_graph_name, gdist);
-    }
-
-    if (!params.tsv_name.empty()) {
-        time(&rawtime);
-        std::cout << "\n=> Writing TSV file... " << ctime(&rawtime) << "\n";
-        writeTSV(params.tsv_name, imap, pmap, barcodeCount);
+        calcDistanceEstimates(imap, indexMultMap, contigToLength, g);
     }
 
     time(&rawtime);
-    std::cout << "\n=> Done. " << ctime(&rawtime);
+    std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
+    std::string graphFile = params.base_name + "_original.gv";
+    writePostRemovalGraph(g, graphFile);
+
+    time(&rawtime);
+    std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
+    DistGraph gdist;
+    createAbyssGraph(contigToLength, g, gdist);
+
+    time(&rawtime);
+    std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
+    writeAbyssGraph(params.dist_graph_name, gdist);
+
+    /* If specified write a detail TSV file of scaffolds and their links. */
+    if (!params.tsv_name.empty()) {
+        size_t barcodeCount = countBarcodes(imap, indexMultMap);
+        time(&rawtime);
+        std::cout << "\n=> Writing TSV file... " << ctime(&rawtime);
+        writeTSV(params.tsv_name, imap, pmap, barcodeCount);
+    }
+
+    /* If specified write barcode multiplicity file in TSV format. */
+    if (!params.barcode_counts_name.empty()) {
+        time(&rawtime);
+        std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime);
+        writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
+    }
+
+    time(&rawtime);
+    std::cout << "\n=> Done.\n" << ctime(&rawtime);
+
 }
 
 int main(int argc, char** argv)
 {
+    
+    printf("Reading user inputs...\n");
+    bool arcsOnly = false;
+    bool arksOnly = false;
     opt::trimMasked = false;
-
     bool die = false;
+    
     for (int c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
+            case 'u':
+		        arg >> params.multfile; break;
+            case 'k':
+		        arg >> params.k_value; arksOnly = true; break;
+            case 'j':
+		        arg >> params.j_index; arksOnly = true; break;
+            case 't':
+		        arg >> params.threads; arksOnly = true; break;
             case '?':
                 die = true; break;
             case 'f':
@@ -1018,7 +1849,7 @@ int main(int argc, char** argv)
             case 'B':
                 arg >> params.dist_bin_size; break;
             case 's':
-                arg >> params.seq_id; break;
+                arg >> params.seq_id; arcsOnly = true; break;
             case 'c':
                 arg >> params.min_reads; break;
             case 'D':
@@ -1032,7 +1863,7 @@ int main(int argc, char** argv)
             case 'g':
                 arg >> params.dist_graph_name; break;
             case OPT_TSV:
-                arg >> params.tsv_name; break;
+                arg >> params.tsv_name; break; 
             case OPT_GAP:
                 arg >> params.gap; break;
             case OPT_BARCODE_COUNTS:
@@ -1047,7 +1878,9 @@ int main(int argc, char** argv)
                 params.dist_mode = ARCS::DIST_MEDIAN; break;
             case OPT_DIST_UPPER:
                 params.dist_mode = ARCS::DIST_UPPER; break;
-            case 'm': {
+            case OPT_ARKS_METHOD:
+                params.arks = true; break;
+            case 'm': {                          
                 std::string firstStr, secondStr;
                 std::getline(arg, firstStr, '-');
                 std::getline(arg, secondStr);
@@ -1057,14 +1890,14 @@ int main(int argc, char** argv)
                 }
                 break;
             case 'd':
-                arg >> params.max_degree; break;
+                arg >> params.max_degree; break; 
             case 'e':
-                arg >> params.end_length; break;
+                arg >> params.end_length; break; 
             case 'r':
                 arg >> params.error_percent; break;
             case 'v':
                 ++params.verbose; break;
-            case OPT_HELP:
+            case OPT_HELP:              
                 std::cout << USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
             case OPT_VERSION:
@@ -1077,49 +1910,101 @@ int main(int argc, char** argv)
             exit(EXIT_FAILURE);
         }
     }
-
-    // Set base name if not previously set.
-    if (params.base_name.empty() && !params.file.empty()) {
-        std::ostringstream filename;
-        filename << params.file << ".scaff"
-            << "_s" << params.seq_id
-            << "_c" << params.min_reads
-            << "_l" << params.min_links
-            << "_d" << params.max_degree
-            << "_e" << params.end_length
-            << "_r" << params.error_percent;
-        params.base_name = filename.str();
-    }
-
-    // Set dist graph name unless specified.
-    if (params.dist_graph_name.empty() && !params.base_name.empty())
-        params.dist_graph_name = params.base_name + ".dist.gv";
-
-    if (params.base_name.empty()
-            && params.dist_graph_name.empty()
-            && params.tsv_name.empty()) {
-        cerr << PROGRAM ": error: specify an output file using one or more of -b, -g, or --tsv\n";
+    
+    /* Check if user specified an option contradicting with the method choosen. */
+    if((params.arks && arcsOnly) || (!params.arks && arksOnly)){
+        cerr << PROGRAM ": error: You specified an option that does not match with method choosen.\nCheck --help for method specific options.\n";
         die = true;
     }
 
-    std::vector<std::string> filenames(argv + optind, argv + argc);
+    /* Get files from command line or fof. */
+    std::vector<std::string> filenames(argv + optind, argv + argc);  
     if (params.fofName.empty() && filenames.empty()) {
-        cerr << PROGRAM ": error: specify input SAM/BAM file(s) or a list of files with -a option\n";
+        cerr << PROGRAM ": error: specify input (SAM/BAM file(s) or chromium reads) or a list of files with -a option\n";
         die = true;
     }
-
-    if (die) {
-        std::cerr << "Try " PROGRAM " --help for more information.\n";
-        exit(EXIT_FAILURE);
-    }
+    /* Check if user specified inputs in stdin to pass some upcoming checks. */
+    bool stdIn = false;
+    if(!filenames.empty())
+        stdIn = (filenames[0] == "/dev/stdin");
 
     if (!params.file.empty())
-        assert_readable(params.file);
+            assert_readable(params.file);
     if (!params.fofName.empty())
-      assert_readable(params.fofName);
+        assert_readable(params.fofName);
     for (const auto& filename : filenames)
-      assert_readable(filename);
+        assert_readable(filename);
 
+    std::vector<std::string> fofFiles = readFof(params.fofName);  
+    std::copy(fofFiles.begin(), fofFiles.end(), std::back_inserter(filenames));
+    
+    bool alignmentFiles;        // T/F <-> alignment file/read file
+
+    /* Check if files are in same type. */
+    if(!stdIn && !checkSameFormat(filenames, alignmentFiles)){
+        std::cerr << "Input files must be all alignment or all read files." << params.file << ". Exiting... \n";
+        die = true;
+    }
+    /* Check if file type and method matches. */
+    if(!stdIn && !(alignmentFiles ^ params.arks)){
+        std::cerr << "File type must be compatible with the method. (BAM/SAM for ARCS) or (Read file for ARKS (--arks))" << ". Exiting... \n";
+        die = true;
+    }
+
+    /* Ensure scaffold file is specified if it's in arks mode. */
+    std::ifstream g(params.file.c_str()); 
+    if (!g.good() && params.arks) {
+	    std::cerr << "Cannot find [-f] scaffold file which is required for --arks" << params.file << ". Exiting... \n";
+	    die = true;
+    }
+
+    /* Set base name according to method choosen. */
+    if(params.arks){
+	omp_set_num_threads(params.threads);   
+
+	/* Setting base name if not previously set */
+	if (params.base_name.empty()) {
+		std::ostringstream filename;
+		
+		filename << params.file << ".scaff" << "_arks" 
+        	<< "_c" << params.min_reads 
+        	<< "_k" << params.k_value 
+        	<< "_j" << params.j_index 
+        	<< "_l" << params.min_links 
+        	<< "_d" << params.max_degree 
+        	<< "_e" << params.end_length 
+        	<< "_r" << params.error_percent;
+		params.base_name = filename.str();
+	}
+    }else{
+        // Set base name if not previously set.
+        if (params.base_name.empty()) {
+            std::ostringstream filename;
+            filename << params.file << ".scaff" << "_arcs"
+		    << "_s" << params.seq_id
+		    << "_c" << params.min_reads
+		    << "_l" << params.min_links
+		    << "_d" << params.max_degree
+		    << "_e" << params.end_length
+		    << "_r" << params.error_percent;
+		    params.base_name = filename.str();
+        }
+    }
+
+    //Set distance graph name unless specified.
+    if (params.dist_graph_name.empty())
+        params.dist_graph_name = params.base_name + ".dist.gv";
+
+    //Set tsv name unless specified.
+    if (params.tsv_name.empty())
+        params.tsv_name = params.base_name + "_main.tsv";
+    
+    if (die) {
+		std::cerr << "Try " << PROGRAM << " --help for more information.\n";
+		exit(EXIT_FAILURE);
+	}  
+
+    printf("%s\n", "Finished reading user inputs...entering runArcs()...");
     runArcs(filenames);
 
     return 0;

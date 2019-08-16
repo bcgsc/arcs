@@ -10,6 +10,7 @@
 #include <cassert>
 #include <iostream>
 #include <cstring>
+#include <sstream>
 
 //@todo: decide on endian convention for kmers, currently assuming little endian for ease of bitshifts
 
@@ -341,18 +342,36 @@ const string ReadsProcessor::getBases(const unsigned char* c)
 	return bases;
 }
 
+/*
+ * Converts unsigned char * to string given window size specified by this
+ * object
+ */
+const string ReadsProcessor::getStr(const unsigned char* c) {
+	return string(reinterpret_cast<const char*>(c), m_kmerSizeInBytes);
+}
+
+/*
+ * Converts unsigned char * to string given window size specified by this
+ * object
+ */
+const string ReadsProcessor::getBinary(const unsigned char* c) {
+	std::stringstream ss;
+	for (unsigned i = 0; i < m_kmerSizeInBytes; i++) {
+		for (unsigned j = 0; j < 8; j++) {
+			ss << !!((c[i] << j) & 0x80);
+		}
+	}
+	return ss.str();
+}
+
 //TODO: find some way of returning position where sequence k-mer is missing
 //TODO: NOT THREAD SAFE
 /* Prepares DNA sequence for insertion into bloom filter by:
- * - Turning all lower-case sequences to upper-case
+ * - Treats lower and upper case the same
  * - Also looks into reverse compliment version and returns consistently
  *   that which is smaller (convention used A<C<G<T, i.e. alphabetical)
- * - Converts input to empty string if any character other than ATCG is found
- * 		-use if(*currentSeq != 0)
- * - If sequence is palamdromic a char with only the first half recorded is used
- *   because that is all that is needed to uniquely identify the sequence
+ * - Returns NULL if k-mer not found
  * - m_kmerSize must be greater than 3 otherwise undefined behavior will occur
- * requires a start position
  */
 const unsigned char* ReadsProcessor::prepSeq(string const &sequence,
 		size_t position)

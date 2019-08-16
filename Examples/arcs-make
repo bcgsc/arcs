@@ -3,10 +3,10 @@
 # Written by Jeffrey Tse
 #Default Parameters
 
-
 # Input Names 
 draft=draft
 reads=reads
+
 # tigmint Parameters
 minsize=2000
 as=0.65
@@ -17,10 +17,8 @@ trim=0
 span=20
 window=1000
 
-# bwa Parameters
-t=8
-
-# ARCS Parameters
+# ARCS ARKS Common Parameters
+barcodeMultiplicityFile=barcodeMultiplicityArcs
 c=5
 m=50-10000
 z=500
@@ -32,11 +30,19 @@ dist_upper=false
 d=0
 gap=100
 B=20
+
+# ARCS Specific Paramters
+s=98
+
+# ARKS Specific Parameters
+j=0.55
+k=30
+t=8
+
 # LINKS Parameters
 l=5
 a=0.3
 bin=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
-
 
 SHELL=bash -e -o pipefail
 ifeq ($(shell zsh -e -o pipefail -c 'true' 2>/dev/null; echo $$?), 0)
@@ -46,7 +52,6 @@ SHELL=zsh -e -o pipefail
 export REPORTTIME=1
 export TIMEFMT=time user=%U system=%S elapsed=%E cpu=%P memory=%M job=%J
 endif
-
 
 # Record run time and memory usage in a file using GNU time.
 ifdef time
@@ -58,9 +63,10 @@ endif
 endif
 
 
-.PHONY: all version help tigmint arcs arcs-tigmint
+.PHONY: all version help clean tigmint arcs arcs-tigmint arcs-with-tigmint arks arks-tigmint arks-with-tigmint
 .DELETE_ON_ERROR:
-.PRECIOUS: %_c$c_m$m_s$s_r$r_e$e_z$z.tigpair_checkpoint.tsv %.sorted.bam %.renamed.fa.bwt %_bamfiles.fof %_c$c_m$m_s$s_r$r_e$e_z$z_original.gv
+.SECONDARY: 
+
 
 all: help 
 # Help
@@ -68,11 +74,13 @@ help:
 	@echo "Usage: ./arcs-make [COMMAND] [OPTION=VALUE]..."
 	@echo "    Commands:"
 	@echo ""
-	@echo "	arcs            run arcs only, skipping tigmint"
-	@echo "	arcs-tigmint    run tigmint, and run arcs with output of tigmint"
+	@echo "	arcs		run arcs in default mode only, skipping tigmint"
+	@echo "	arcs-tigmint	run tigmint, and run arcs in default method with output of tigmint"
+	@echo "	arks		run arcs in kmer mode only, skipping tigmint"
+	@echo "	arks-tigmint	run tigmint, and run arcs in default method with output of tigmint"
 	@echo "	help            display this help page"
 	@echo "	version         display the software version"
-	@echo " clean           remove intermediate files"
+	@echo "	clean           remove intermediate files"
 	@echo ""
 	@echo "    General Options:"
 	@echo ""
@@ -82,7 +90,7 @@ help:
 	@echo ""
 	@echo "    bwa Options:"
 	@echo ""
-	@echo "	t         number of threads used [8]"
+	@echo "	t		number of threads used [8]"
 	@echo ""
 	@echo "    Tigmint Options:"
 	@echo ""
@@ -95,19 +103,27 @@ help:
 	@echo "	span            min number of spanning molecules to be considered assembled [20]"
 	@echo "	window          window size for checking spanning molecules [1000]"
 	@echo ""                    
-	@echo "    ARCS Options:"
+	@echo "    Common Options:"
 	@echo ""
 	@echo "	c               minimum aligned read pairs per barcode mapping [5]"
-	@echo "	m               barcode multiplicty range [50-10000]"
+	@echo "	m               barcode multiplicity range [50-10000]"
 	@echo "	z               minimum contig length [500]"
-	@echo "	s               minimum sequence identity [98]"
 	@echo "	r               p-value for head/tail assigment and link orientation [0.05]"
 	@echo "	e               contig head/tail length for masking aligments [30000]"
 	@echo "	D               enable distance estimation [false]"
 	@echo "	dist_upper      use upper bound distance over median distance [false]"
 	@echo "	B               estimate distance using N closest Jaccard scores [20]"
 	@echo "	d               max node degree in scaffold graph [0]"
-	@echo "	gap             fixed gap size for dist.gv file [100]" 
+	@echo "	gap             fixed gap size for dist.gv file [100]"
+	@echo "	barcode-counts	name of output barcode multiplicity TSV file [barcodeMultiplicityArcs]"
+	@echo ""	
+	@echo "	ARCS Specific Options:"
+	@echo "	s		minimum sequence identity [98]"
+	@echo ""
+	@echo "	ARKS Specific Options:"
+	@echo "	j		minimum fraction of read kmers matching a contigId [0.55]"
+	@echo "	k 		size of a k-mer [30]"
+	@echo "	t		number of threads [8]"
 	@echo ""
 	@echo "    LINKS Options:"
 	@echo ""
@@ -116,13 +132,11 @@ help:
 	@echo ""
 	@echo "Example: To run tigmint and arcs with myDraft.fa, myReads.fq.gz, and a custom multiplicty range, run:"
 	@echo "	./arcs-make arcs-tigmint draft=myDraft reads=myReads m=[User defined multiplicty range]"
-	@echo "To ensure that the pipeline runs correctly, make sure that the following tools are in your PATH: bwa, tigmint, samtools, arcs (>= v1.0.2), LINKS (>= v1.8.6)"
-# Version
-version:
-	@echo "arcs-make 1.1"
+	@echo "To ensure that the pipeline runs correctly, make sure that the following tools are in your PATH: bwa, tigmint, samtools, arcs (>= v new version), LINKS (>= v1.8.6)"
 
 clean:
 	rm -f *.amb *.ann *.bwt *.pac *.sa *.dist.gv *.fai *.bed *.molecule.tsv *.sortbx.bam
+	@echo "Clean Done"
 
 #Preprocessing
 
@@ -137,6 +151,7 @@ clean:
 
 #Run Tigmint
 arcs-tigmint: tigmint arcs-with-tigmint
+arks-tigmint: tigmint arks-with-tigmint
 
 # Main
 tigmint: $(draft).tigmint.fa
@@ -147,6 +162,8 @@ $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
 #Run ARCS
 arcs: $(draft)_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 arcs-with-tigmint: $(draft).tigmint_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
+arks: $(draft)_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
+arks-with-tigmint: $(draft).tigmint_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 
 # Convert Scaffold Names into Numerical Numbers
 %.renamed.fa: %.fa
@@ -167,19 +184,34 @@ arcs-with-tigmint: $(draft).tigmint_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 # Run ARCS Program
 %_c$c_m$m_s$s_r$r_e$e_z$z_original.gv: %.renamed.fa %_bamfiles.fof
 ifneq ($D, true)
-	$(gtime) arcs --bx -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@)
+	$(gtime) arcs -f $< -a $(word 2,$^) -v -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcodeMultiplicityFile).tsv
 else ifneq ($(dist_upper), true)
-	$(gtime) arcs -D -B $B --bx -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) 
+	$(gtime) arcs -D -B $B -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcodeMultiplicityFile).tsv
 else
-	$(gtime) arcs -D -B $B --dist_upper --bx -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) 
+	$(gtime) arcs -D -B $B --dist_upper -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcodeMultiplicityFile).tsv
+endif
+
+# kmer
+%_c$c_m$m_k$k_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).fq.gz
+ifneq ($D, true)
+	$(gtime) arcs --arks -v -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcodeMultiplicityFile).tsv
+
+else ifneq ($(dist_upper), true)
+	$(gtime) arcs --arks -v -D -B $B -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcodeMultiplicityFile).tsv
+else
+	$(gtime) arcs --arks -v -D -B $B --dist_upper -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcodeMultiplicityFile).tsv
 endif
 
 # Generate TSV from ARCS
+# default
 %_c$c_m$m_s$s_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_s$s_r$r_e$e_z$z_original.gv %.renamed.fa
 	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^) 
-
+# kmer
+%_c$c_m$m_k$k_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_k$k_r$r_e$e_z$z_original.gv %.renamed.fa
+	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^)
+	
 # Adds a and l paramters to the filename
-%_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv: %_c$c_m$m_s$s_r$r_e$e_z$z.tigpair_checkpoint.tsv
+%_z$z_l$l_a$a.tigpair_checkpoint.tsv: %_z$z.tigpair_checkpoint.tsv
 	ln -s $^ $@
 
 # Make an Empty fof File
@@ -187,5 +219,9 @@ empty.fof:
 	touch $@
 
 # Run LINKS
+# default
 %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
-	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z 
+	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+# kmer
+%_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
+	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z

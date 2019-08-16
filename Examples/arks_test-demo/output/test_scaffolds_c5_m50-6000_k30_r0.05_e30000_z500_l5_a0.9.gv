@@ -1,0 +1,11 @@
+graph LINKS{
+	label="LINKS [v1.8.6] test_scaffolds_c5_m50-6000_k30_r0.05_e30000_z500_l5_a0.9 Tue Apr 23 08:40:22 PDT 2019;"
+	rankdir=LR;
+	node [shape = circle];
+	1 [style=filled, fillcolor=deepskyblue, color=deepskyblue]
+	2 [style=filled, fillcolor=deepskyblue, color=deepskyblue]
+	1 -- 2 [ label = "1_12.5kb - 2_72.9kb l=15 g=100 type=11", penwidth=2.0, color=deepskyblue ]
+	2 [style=filled, fillcolor=deepskyblue, color=deepskyblue]
+	3 [style=filled, fillcolor=deepskyblue, color=deepskyblue]
+	2 -- 3 [ label = "2_72.9kb - 3_70.8kb l=28 g=100 type=11", penwidth=2.0, color=deepskyblue ]
+}
