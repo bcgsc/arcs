@@ -30,7 +30,7 @@ If your boost library headers are not in your PATH you can specify their locatio
 
 ### ARCS+LINKS Pipeline 
 
-ARCS requires two input files:
+ARCS+LINKS pipeline requires two input files:
 * Draft assembly fasta file
 * Interleaved linked reads file (Barcode sequence expected in the BX tag of the read header or in the form "@readname_barcode" ; Run [Long Ranger basic](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/what-is-long-ranger) on raw chromium reads to produce this interleaved file)
 
@@ -48,8 +48,24 @@ When using the `-D`/`--dist_est` ARCS option to estimate gap sizes, the user is 
 
 An example bash script on how to run the ARCS+LINKS pipeline can be found at: Examples/pipeline_example.sh
 
-you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt
-and compare your output to the files provided at: Examples/arcs_test-demo/output/ 
+you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt   
+for ARKS: Examples/arks_test-demo/README.txt
+
+compare your output to the files provided at: Examples/arcs_test-demo/output/   
+for ARKS: Examples/arks_test-demo/README.txt
+
+### Running ARKS in ARCS
+
+ARKS is another scaffolding tool developed by our group designed based on kmerization paradigm. ARKS is integrated into ARCS(v1.x.x) for better usability.
+
+For running the pipeline with ARKS, Makefile should target `arks` with `./arcs-make arks`. For more info check `./arcs-make help`.
+
+To run `./arcs` executable with ARKS, run `./arcs --arks`. For more info check `./arcs --help`.
+
+### Citing ARKS
+
+Paper :
+https://doi.org/10.1186/s12859-018-2243-x
 
 ### Citing ARCS
 
