@@ -2,13 +2,14 @@
 
 # ARCS
 
-Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data.
+Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data. With version 1.x.x ARCS and ARKS consolidated under same project for better usability. [ARCS](https://doi.org/10.1101/100750) uses read alignments to contigs and [ARKS](https://doi.org/10.1186/s12859-018-2243-x) uses k-mer matching between reads and contigs to find the shared barcode information between contigs. By default this project will run ARCS unless user specifies `--arks` in command while executing.
 
 ### Dependencies
 * Boost (tested on 1.61)
 * GCC (tested on 4.4.7)
 * Autotools (if cloning directly from repository) 
 * LINKS (tested on 1.8)
+* Google Sparse Hash
 
 ### Compilation:
 If cloning directly from the repository run:
@@ -28,9 +29,9 @@ If your boost library headers are not in your PATH you can specify their locatio
 ./configure –-with-boost=/boost/path --prefix=/ARCS/PATH && make install
 ```
 
-### ARCS+LINKS Pipeline 
+### ARCS+LINKS Pipeline
 
-ARCS+LINKS pipeline requires two input files:
+The ARCS+LINKS pipeline requires two input files:
 * Draft assembly fasta file
 * Interleaved linked reads file (Barcode sequence expected in the BX tag of the read header or in the form "@readname_barcode" ; Run [Long Ranger basic](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/what-is-long-ranger) on raw chromium reads to produce this interleaved file)
 
@@ -48,19 +49,29 @@ When using the `-D`/`--dist_est` ARCS option to estimate gap sizes, the user is 
 
 An example bash script on how to run the ARCS+LINKS pipeline can be found at: Examples/pipeline_example.sh
 
-you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt
-for ARKS: Examples/arks_test-demo/README.txt
+### Running ARCS in default mode
 
-and compare your output to the files provided at: Examples/arcs_test-demo/output/ 
-for ARKS: Examples/arks_test-demo/README.txt
+Default mode used read alignments to contigs.
 
-### Running ARKS in ARCS
+For running the pipeline default mode, Makefile should target `arcs` with `./arcs-make arcs`. For more info check `./arcs-make help`.
+
+To run `./arcs` executable in default mode, run `./arcs` without additional flag. For argument requiriments check `./arcs --help`.
+
+### Running ARCS in '--arks' mode
 
 ARKS is another scaffolding tool developed by our group designed based on kmerization paradigm. ARKS is integrated into ARCS(v1.x.x) for better usability.
 
 For running the pipeline with ARKS, Makefile should target `arks` with `./arcs-make arks`. For more info check `./arcs-make help`.
 
 To run `./arcs` executable with ARKS, run `./arcs --arks`. For more info check `./arcs --help`.
+
+### Demo
+
+you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt
+for ARKS: Examples/arks_test-demo/README.txt
+
+and compare your output to the files provided at: Examples/arcs_test-demo/output/ 
+for ARKS: Examples/arks_test-demo/README.txt
 
 ### Citing ARKS
 
