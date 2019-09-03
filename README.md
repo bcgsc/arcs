@@ -48,10 +48,10 @@ When using the `-D`/`--dist_est` ARCS option to estimate gap sizes, the user is 
 
 An example bash script on how to run the ARCS+LINKS pipeline can be found at: Examples/pipeline_example.sh
 
-you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt   
+you can test your installation by following instructions at: Examples/arcs_test-demo/README.txt
 for ARKS: Examples/arks_test-demo/README.txt
 
-compare your output to the files provided at: Examples/arcs_test-demo/output/   
+and compare your output to the files provided at: Examples/arcs_test-demo/output/ 
 for ARKS: Examples/arks_test-demo/README.txt
 
 ### Running ARKS in ARCS
