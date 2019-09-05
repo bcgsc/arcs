@@ -73,6 +73,7 @@ To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions o
 You can test your installation by running one of our supplied demos:
 * ARCS: `Examples/arcs_test-demo`
 * ARKS: `Examples/arks_test-demo`
+
 For both, you can compare your output to the files provided in the `output` folders within the above directories.
 
 ### Citing ARKS
