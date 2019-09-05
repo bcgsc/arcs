@@ -66,7 +66,7 @@ To run the `arcs` executable in default mode, run `arcs <alignments>`. For descr
 
 To run the pipeline in ARKS mode, run `Examples/arcs-make arks`. For more info check `Examples/arcs-make help`.
 
-To run the `arcs` executable in ARKS mode, run `./arcs --arks`. For descriptions of all arguments, run `./arcs --help`.
+To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions of all arguments, run `./arcs --help`.
 
 ## Demo
 
