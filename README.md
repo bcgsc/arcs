@@ -60,13 +60,13 @@ The default mode uses alignments of linked reads to contigs to scaffold the inpu
 
 To run the pipeline in default mode, run `Examples/arcs-make arcs`. For more info check `Examples/arcs-make help`.
 
-To run the `./arcs` executable in default mode, run `arcs <alignments>`. For descriptions of all arguments, run `arcs --help`.
+To run the `arcs` executable in default mode, run `arcs <alignments>`. For descriptions of all arguments, run `arcs --help`.
 
 ### Running ARCS in '--arks' mode
 
 To run the pipeline in ARKS mode, run `Examples/arcs-make arks`. For more info check `Examples/arcs-make help`.
 
-To run the `./arcs` executable in ARKS mode, run `./arcs --arks`. For descriptions of all arguments, run `./arcs --help`.
+To run the `arcs` executable in ARKS mode, run `./arcs --arks`. For descriptions of all arguments, run `./arcs --help`.
 
 ## Demo
 
