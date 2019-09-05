@@ -5,7 +5,7 @@
 Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data. 
 ARCS can be run in 2 modes:
 * [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs 
-* [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping associate linked reads to input contigs
+* [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping associate to linked reads to input contigs
 
 Because ARKS is not dependent on read alignments, it is generally much faster than ARCS. However, ARCS is recommended for use with very fragmented assemblies and/or large genomes.
 
