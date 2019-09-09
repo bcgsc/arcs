@@ -138,6 +138,9 @@ clean:
 	rm -f *.amb *.ann *.bwt *.pac *.sa *.dist.gv *.fai *.bed *.molecule.tsv *.sortbx.bam
 	@echo "Clean Done"
 
+version:
+	@echo "arcs-make version x.y"
+
 #Preprocessing
 
 # Create a .fa file that is soft linked to .fasta 
