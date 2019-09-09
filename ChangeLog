@@ -1,3 +1,14 @@
+2019-09-09  Lauren Coombe <lcoombe@bcgsc.ca>
+
+	* Release version 1.1.0
+	* Integrates 'ARKS' code (https://github.com/bcgsc/arks) into ARCS
+	  * Now, can run ARCS in either default mode (using linked read
+	  alignments) or ARKS mode (using exact k-mer mapping)
+	  * added `--arks` mode to run in ARKS mode
+	  * Updated `arcs-make` to specify in which mode to run the
+	  scaffolding with linked reads
+	* Bug fix to calculation of barcode multiplicity
+
 2019-05-13  Rene Warren <rwarren@bcgsc.ca>
 
 	* Big fixes
