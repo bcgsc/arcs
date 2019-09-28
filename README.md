@@ -95,7 +95,7 @@ https://github.com/warrenlr/LINKS
 
 ### License  
 
-ARCS Copyright (c) 2016 British Columbia Cancer Agency Branch.  All rights reserved.
+ARCS Copyright (c) 2016-2019 British Columbia Cancer Agency Branch.  All rights reserved.
 
 ARCS is released under the GNU General Public License v3
 
