@@ -97,7 +97,8 @@ static const char USAGE_MESSAGE[] =
             "       --dist_median       use median distance in ABySS dist.gv [default]\n"
             "       --dist_upper        use upper bound distance in ABySS dist.gv\n"
             "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
-            "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
+            "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n"
+            "   -P, --pair              output scaffolds pairing tsv\n";
 
 static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:";
 
@@ -149,6 +150,7 @@ static const struct option longopts[] = {
 	{ "k_value", required_argument, NULL, 'k' },
 	{ "j_index", required_argument, NULL, 'j' },
 	{ "arks", no_argument, NULL, OPT_ARKS_METHOD },
+	{ "pair", no_argument, NULL, 'P' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -1520,6 +1522,24 @@ createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g)
 }
 
 /*
+ * Write out the PairMap in a .tsv file.
+ */
+void
+writePairMap(const std::string& pairFile_dot, ARCS::PairMap& pmap)
+{
+	std::ofstream out(pairFile_dot.c_str());
+	assert(out);
+
+	for (auto& it : pmap) {
+		out << it.first.first << "\t" << it.first.second << "\t" << it.second[0] << "\t"
+		    << it.second[1] << "\t" << it.second[2] << "\t" << it.second[3] << std::endl;
+	}
+
+	assert(out);
+	out.close();
+}
+
+/*
  * Write out the boost graph in a .dot file.
  */
 void
@@ -1811,28 +1831,34 @@ runArcs(const std::vector<std::string>& filenames)
 	          << "\n --barcode-counts=" << maybeNA(params.barcode_counts_name) << "\n --tsv="
 	          << maybeNA(params.tsv_name)
 	          // Input files
-	          << "\n -a " << maybeNA(params.fofName) << "\n -f " << maybeNA(params.file) << "\n -u "
-	          << maybeNA(params.multfile) << '\n';
+	          << "\n -a " << maybeNA(params.fofName) << "\n -f "
+	          << maybhttps
+	  : // www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8NA(params.file)
+	          << "\n -u "
+	          << maybhttps
+	  : // www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8NA(params.multfile)
+	          << '\n';
 
-	for (const auto& filename : filenames)
-		std::cout << ' ' << filename << '\n';
-	std::cout.flush();
+	for (const auto& filenahttps://www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8e : filenames)
+        std::cout << ' ' <<https://www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8filename << '\n';
+    std::cout.flush();
 
-	ARCS::IndexMap imap;
-	ARCS::PairMap pmap;
-	ARCS::Graph g;
-	std::unordered_map<std::string, int> indexMultMap;
+    ARCS::IndexMap imap;
+    ARCS::PairMap pmap;
+    ARCS::Graph g;
+    std::unordered_map<std::string, int> indexMultMap;
+    
+    ARCS::ContigKMap kmap;
+    kmap.set_deleted_key("");
+    std::time_t rawtime;
 
-	ARCS::ContigKMap kmap;
-	kmap.set_deleted_key("");
-	std::time_t rawtime;
+    ARCS::ContigToLength contigToLength;
+    ARCS::ContigToLengthIt contigToLengthIt;
+    
+    std::vector<ARCS::CI> contigRecord;
 
-	ARCS::ContigToLength contigToLength;
-	ARCS::ContigToLengthIt contigToLengthIt;
-
-	std::vector<ARCS::CI> contigRecord;
-
-	if (!params.arks) {
+    if (!params.arks)
+    {
 		/* If scaffold file is specified in arcs method read file for getting scaffold sizes. */
 		if (!params.file.empty()) {
 			time(&rawtime);
@@ -1844,8 +1870,7 @@ runArcs(const std::vector<std::string>& filenames)
 		time(&rawtime);
 		std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
 		readBAMS(filenames, imap, indexMultMap, contigToLength);
-	} else {
-
+    }else{
 		/* If barcode multiplicity file specified read it, otherwise read the reads to gather
 		barcode multiplicity info. This step is done before reading the sequences to prevent
 		kmerization of reads with barcodes out of multiplicity range. */
@@ -1876,46 +1901,63 @@ runArcs(const std::vector<std::string>& filenames)
 		time(&rawtime);
 		std::cout << "\n=>Reading Chromium FASTQ file(s)... " << ctime(&rawtime) << std::endl;
 		readChroms(filenames, kmap, imap, indexMultMap, contigRecord);
-	}
-	std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
+    }
+    std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
 
-	/* Pair each scaffold according to the links(barcodes) hitting them. */
-	time(&rawtime);
-	std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
-	pairContigs(imap, pmap, indexMultMap);
+    /* Pair each scaffold according to the links(barcodes) hitting them. */
+    time(&rawtime);
+    std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
+    pairContigs(imap, pmap, indexMultMap);
 
-	/* Create graph with nodes=scaffolds edges=number of links between the scaffolds.*/
-	time(&rawtime);
-	std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
-	createGraph(pmap, g);
 
-	/* If user specified, calculate distance and write to output files. */
-	if (params.dist_est) {
+    if (params.output_pair) {
+		std::string pairFile = params.base_name + "_pair.tsv";
+		std::cout << "\n=> Outputting Pairing information... " << ctime(&rawtime);
+		writePairMap(pairFile, pmap);
+    }
+
+    /* Create graph with nodes=scaffolds edges=number of links between the scaffolds.*/
+    time(&rawtime);
+    std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
+    createGraph(pmap, g);
+
+    /* If user specified, calculate distance and write to output files. */
+    if (params.dist_est) {
 		std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
 		calcDistanceEstimates(imap, indexMultMap, contigToLength, g);
-	}
+    }
 
-	time(&rawtime);
-	std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
-	std::string graphFile = params.base_name + "_original.gv";
-	writePostRemovalGraph(g, graphFile);
+    time(&rawtime);
+    std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
+    std::string graphFile = params.base_name + "_original.gv";
+    writePostRemovalGraph(g, graphFile);
 
-	time(&rawtime);
-	std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
-	DistGraph gdist;
-	createAbyssGraph(contigToLength, g, gdist);
+    time(&rawtime);
+    std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
+    DistGraph gdist;
+    createAbyssGraph(contigToLength, g, gdist);
 
-	time(&rawtime);
-	std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
-	writeAbyssGraph(params.dist_graph_name, gdist);
+    time(&rawtime);
+    std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
+    writeAbyssGraph(params.dist_graph_name, gdist);
 
-	/* If specified write a detail TSV file of scaffolds and their links. */
-	if (!params.tsv_name.empty()) {
+    /* If specified write a detail TSV file of scaffolds and their links. */
+    if (!params.tsv_name.empty()) {
 		size_t barcodeCount = countBarcodes(imap, indexMultMap);
 		time(&rawtime);
 		std::cout << "\n=> Writing TSV file... " << ctime(&rawtime);
 		writeTSV(params.tsv_name, imap, pmap, barcodeCount);
-	}
+    }
+
+    /* If specified write barcode multiplicity file in TSV format. */
+    if (!params.barcode_counts_name.empty()) {
+		time(&rawtime);
+		std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime);
+		writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
+    }
+
+    time(&rawtime);
+    std::cout << "\n=> Done.\n" << ctime(&rawtime);
 
 	/* If specified write barcode multiplicity file in TSV format. */
 	if (!params.barcode_counts_name.empty()) {
@@ -1974,6 +2016,9 @@ main(int argc, char** argv)
 			break;
 		case 'c':
 			arg >> params.min_reads;
+			break;
+		case 'P':
+			params.output_pair = true;
 			break;
 		case 'D':
 			params.dist_est = true;
@@ -2118,34 +2163,66 @@ main(int argc, char** argv)
 			         << params.end_length << "_r" << params.error_percent;
 			params.base_name = filename.str();
 		}
-	} else {
-		// Set base name if not previously set.
-		if (params.base_name.empty()) {
-			std::ostringstream filename;
-			filename << params.file << ".scaff"
-			         << "_arcs"
-			         << "_s" << params.seq_id << "_c" << params.min_reads << "_l"
-			         << params.min_links << "_d" << params.max_degree << "_e" << params.end_length
-			         << "_r" << params.error_percent;
-			params.base_name = filename.str();
+		/* Check if file type and method matches. */
+		if (!stdIn && !(alignmentFiles ^ params.arks)) {
+			std::cerr
+			    << "File type must be compatible with the method. (BAM/SAM for ARCS) or (Read "
+			       "file for ARKS (--arks))"
+			    << ". Exiting... \n";
+			die = true;
 		}
+
+		/* Ensure scaffold file is specified if it's in arks mode. */
+		std::ifstream g(params.file.c_str());
+		if (!g.good() && params.arks) {
+			std::cerr << "Cannot find [-f] scaffold file which is required for --arks"
+			          << params.file << ". Exiting... \n";
+			die = true;
+		}
+
+		/* Set base name according to method choosen. */
+		if (params.arks) {
+			omp_set_num_threads(params.threads);
+
+			/* Setting base name if not previously set */
+			if (params.base_name.empty()) {
+				std::ostringstream filename;
+
+				filename << params.file << ".scaff"
+				         << "_arks"
+				         << "_c" << params.min_reads << "_k" << params.k_value << "_j"
+				         << params.j_index << "_l" << params.min_links << "_d" << params.max_degree
+				         << "_e" << params.end_length << "_r" << params.error_percent;
+				params.base_name = filename.str();
+			}
+		} else {
+			// Set base name if not previously set.
+			if (params.base_name.empty()) {
+				std::ostringstream filename;
+				filename << params.file << ".scaff"
+				         << "_arcs"
+				         << "_s" << params.seq_id << "_c" << params.min_reads << "_l"
+				         << params.min_links << "_d" << params.max_degree << "_e"
+				         << params.end_length << "_r" << params.error_percent;
+				params.base_name = filename.str();
+			}
+		}
+
+		// Set distance graph name unless specified.
+		if (params.dist_graph_name.empty())
+			params.dist_graph_name = params.base_name + ".dist.gv";
+
+		// Set tsv name unless specified.
+		if (params.tsv_name.empty())
+			params.tsv_name = params.base_name + "_main.tsv";
+
+		if (die) {
+			std::cerr << "Try " << PROGRAM << " --help for more information.\n";
+			exit(EXIT_FAILURE);
+		}
+
+		printf("%s\n", "Finished reading user inputs...entering runArcs()...");
+		runArcs(filenames);
+
+		return 0;
 	}
-
-	// Set distance graph name unless specified.
-	if (params.dist_graph_name.empty())
-		params.dist_graph_name = params.base_name + ".dist.gv";
-
-	// Set tsv name unless specified.
-	if (params.tsv_name.empty())
-		params.tsv_name = params.base_name + "_main.tsv";
-
-	if (die) {
-		std::cerr << "Try " << PROGRAM << " --help for more information.\n";
-		exit(EXIT_FAILURE);
-	}
-
-	printf("%s\n", "Finished reading user inputs...entering runArcs()...");
-	runArcs(filenames);
-
-	return 0;
-}

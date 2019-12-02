@@ -48,6 +48,8 @@ struct ArcsParams
 	int min_reads;
 	/** enable/disable distance estimation on graph edges */
 	bool dist_est;
+	/** output pairing information */
+	bool output_pair;
 	/** bin size when computing distance estimates */
 	unsigned dist_bin_size;
 	/** output path for intra-contig distance/barcode samples (TSV) */
