@@ -13,4 +13,4 @@ jobs:
       make
     displayName: Compile ARCS
   - script: make distcheck
-    displayName: Compile ARCS with makedist distribution
+    displayName: Compile ARCS with make distcheck
