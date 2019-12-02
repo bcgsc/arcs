@@ -4,13 +4,13 @@ jobs:
     vmImage: Ubuntu 16.04
   steps:
   - script: |
-    sudo apt-get update -qq
-    sudo apt-get install -qq libboost-dev libsparsehash-dev
+      sudo apt-get update -qq
+      sudo apt-get install -qq libboost-dev libsparsehash-dev
     displayName: Install C++ modules
   - script: |
-    ./autogen.sh
-    ./configure
-    make
+      ./autogen.sh
+      ./configure
+      make
     displayName: Compile ARCS
   - script: make distcheck
     displayName: Compile ARCS with makedist distribution
