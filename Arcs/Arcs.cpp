@@ -1909,7 +1909,6 @@ runArcs(const std::vector<std::string>& filenames)
     std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
     pairContigs(imap, pmap, indexMultMap);
 
-
     if (params.output_pair) {
 		std::string pairFile = params.base_name + "_pair.tsv";
 		std::cout << "\n=> Outputting Pairing information... " << ctime(&rawtime);
