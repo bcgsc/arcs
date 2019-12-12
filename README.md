@@ -1,3 +1,7 @@
+[![Release](https://img.shields.io/github/release/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/releases)
+[![Downloads](https://img.shields.io/github/downloads/bcgsc/arcs/total?logo=github)](https://github.com/bcgsc/arcs/releases/download/v1.1.0/arcs-1.1.0.tar.gz)
+[![Issues](https://img.shields.io/github/issues/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/issues)
+
 ![Logo](https://github.com/bcgsc/arcs/blob/master/arcs-logo.png)
 
 # ARCS
@@ -93,6 +97,12 @@ TGTCTTCCTGGACAGCTGACATCCCTTTTGTTTTTCTGTTTGCTCAGATGCTGTCTCTTATACACATCTTAGGAAGACAA
 +
 FFFFFFFGFGFFGFDFGFFFFFFFFFFFGFFF@FFFFFFFFFFFF@FFFFFFFFFGGFFEFEFFFF?FFFFGFFFGFFFFFFFGFFEFGFGGFGFFFGFF
 ```
+
+### About ARCS/ARKS
+
+Thank you for your [![Stars](https://img.shields.io/github/stars/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/stargazers) and for using, developing and promoting this free software!
+
+If you use ARCS/ARKS in your research, please cite:
 
 ### Citing ARKS
 
