@@ -111,7 +111,7 @@ ARKS: chromosome-scale scaffolding of human genome drafts with linked read kmers
 Coombe L, Zhang J, Vandervalk BP, Chu J, Jackman SD, Birol I, Warren RL.
 BMC Bioinformatics. 2018 Jun 20;19(1):234. doi: 10.1186/s12859-018-2243-x.
 </pre>
-[![link](https://img.shields.io/badge/ARKS-manuscript-blue)](https://doi.org/10.1186/s12859-018-2243-x)
+[![link](https://img.shields.io/badge/ARKS-manuscript-brightgreen)](https://doi.org/10.1186/s12859-018-2243-x)
 
 ### Citing ARCS
 
@@ -120,7 +120,7 @@ ARCS: scaffolding genome drafts with linked reads.
 Yeo S, Coombe L, Warren RL, Chu J, Birol I.
 Bioinformatics. 2018 Mar 1;34(5):725-731. doi: 10.1093/bioinformatics/btx675.
 </pre>
-[![link](https://img.shields.io/badge/ARCS-manuscript-blue)](https://doi.org/10.1101/100750)
+[![link](https://img.shields.io/badge/ARCS-manuscript-brightgreen)](https://doi.org/10.1101/100750)
 
 **NOTE: The supplementary data and scripts have been moved to http://www.bcgsc.ca/downloads/supplementary/ARCS/**
 
@@ -131,7 +131,7 @@ LINKS: Scalable, alignment-free scaffolding of draft genomes with long reads.
 Warren RL, Yang C, Vandervalk BP, Behsaz B, Lagman A, Jones SJ, Birol I.
 Gigascience. 2015 Aug 4;4:35. doi: 10.1186/s13742-015-0076-3. eCollection 2015.
 </pre>
-[![link](https://img.shields.io/badge/LINKS-manuscript-blue)](https://gigascience.biomedcentral.com/articles/10.1186/s13742-015-0076-3)
+[![link](https://img.shields.io/badge/LINKS-manuscript-brightgreen)](https://gigascience.biomedcentral.com/articles/10.1186/s13742-015-0076-3)
 [![link](https://img.shields.io/badge/LINKS-github-yellow)](https://github.com/warrenlr/LINKS)
 
 http://www.bcgsc.ca/platform/bioinfo/software/links
