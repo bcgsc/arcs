@@ -111,7 +111,7 @@ ARKS: chromosome-scale scaffolding of human genome drafts with linked read kmers
 Coombe L, Zhang J, Vandervalk BP, Chu J, Jackman SD, Birol I, Warren RL.
 BMC Bioinformatics. 2018 Jun 20;19(1):234. doi: 10.1186/s12859-018-2243-x.
 </pre>
-https://doi.org/10.1186/s12859-018-2243-x
+[![link](https://img.shields.io/badge/ARKS-manuscript-blue)](https://doi.org/10.1186/s12859-018-2243-x)
 
 ### Citing ARCS
 
@@ -120,7 +120,7 @@ ARCS: scaffolding genome drafts with linked reads.
 Yeo S, Coombe L, Warren RL, Chu J, Birol I.
 Bioinformatics. 2018 Mar 1;34(5):725-731. doi: 10.1093/bioinformatics/btx675.
 </pre>
-https://doi.org/10.1101/100750
+[![link](https://img.shields.io/badge/ARCS-manuscript-blue)](https://doi.org/10.1101/100750)
 
 **NOTE: The supplementary data and scripts have been moved to http://www.bcgsc.ca/downloads/supplementary/ARCS/**
 
