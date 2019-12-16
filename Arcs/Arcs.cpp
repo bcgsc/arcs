@@ -100,7 +100,7 @@ static const char USAGE_MESSAGE[] =
             "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n"
             "   -P, --pair              output scaffolds pairing tsv\n";
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:";
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:P:";
 
 enum
 {
