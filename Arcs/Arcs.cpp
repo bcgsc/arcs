@@ -1831,34 +1831,28 @@ runArcs(const std::vector<std::string>& filenames)
 	          << "\n --barcode-counts=" << maybeNA(params.barcode_counts_name) << "\n --tsv="
 	          << maybeNA(params.tsv_name)
 	          // Input files
-	          << "\n -a " << maybeNA(params.fofName) << "\n -f "
-	          << maybhttps
-	  : // www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8NA(params.file)
-	          << "\n -u "
-	          << maybhttps
-	  : // www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8NA(params.multfile)
-	          << '\n';
+	          << "\n -a " << maybeNA(params.fofName) << "\n -f " << maybNA(params.file) << "\n -u "
+	          << maybNA(params.multfile) << '\n';
 
-	for (const auto& filenahttps://www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8e : filenames)
-        std::cout << ' ' <<https://www.google.com/search?q=sudo+apt+install+libtoo&oq=sudo+apt+install+libtoo&aqs=chrome..69i57j0l7.3791j0j4&sourceid=chrome&ie=UTF-8filename << '\n';
-    std::cout.flush();
+	for (const auto& filename : filenames)
+		std::cout << ' ' << filename << '\n';
+	std::cout.flush();
 
-    ARCS::IndexMap imap;
-    ARCS::PairMap pmap;
-    ARCS::Graph g;
-    std::unordered_map<std::string, int> indexMultMap;
-    
-    ARCS::ContigKMap kmap;
-    kmap.set_deleted_key("");
-    std::time_t rawtime;
+	ARCS::IndexMap imap;
+	ARCS::PairMap pmap;
+	ARCS::Graph g;
+	std::unordered_map<std::string, int> indexMultMap;
 
-    ARCS::ContigToLength contigToLength;
-    ARCS::ContigToLengthIt contigToLengthIt;
-    
-    std::vector<ARCS::CI> contigRecord;
+	ARCS::ContigKMap kmap;
+	kmap.set_deleted_key("");
+	std::time_t rawtime;
 
-    if (!params.arks)
-    {
+	ARCS::ContigToLength contigToLength;
+	ARCS::ContigToLengthIt contigToLengthIt;
+
+	std::vector<ARCS::CI> contigRecord;
+
+	if (!params.arks) {
 		/* If scaffold file is specified in arcs method read file for getting scaffold sizes. */
 		if (!params.file.empty()) {
 			time(&rawtime);
@@ -1870,7 +1864,7 @@ runArcs(const std::vector<std::string>& filenames)
 		time(&rawtime);
 		std::cout << "\n=> Reading alignment files... " << ctime(&rawtime);
 		readBAMS(filenames, imap, indexMultMap, contigToLength);
-    }else{
+	} else {
 		/* If barcode multiplicity file specified read it, otherwise read the reads to gather
 		barcode multiplicity info. This step is done before reading the sequences to prevent
 		kmerization of reads with barcodes out of multiplicity range. */
@@ -1901,62 +1895,62 @@ runArcs(const std::vector<std::string>& filenames)
 		time(&rawtime);
 		std::cout << "\n=>Reading Chromium FASTQ file(s)... " << ctime(&rawtime) << std::endl;
 		readChroms(filenames, kmap, imap, indexMultMap, contigRecord);
-    }
-    std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
+	}
+	std::cout << "Cumulative memory usage: " << memory_usage() << std::endl;
 
-    /* Pair each scaffold according to the links(barcodes) hitting them. */
-    time(&rawtime);
-    std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
-    pairContigs(imap, pmap, indexMultMap);
+	/* Pair each scaffold according to the links(barcodes) hitting them. */
+	time(&rawtime);
+	std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
+	pairContigs(imap, pmap, indexMultMap);
 
-    if (params.output_pair) {
+	if (params.output_pair) {
 		std::string pairFile = params.base_name + "_pair.tsv";
 		std::cout << "\n=> Outputting Pairing information... " << ctime(&rawtime);
 		writePairMap(pairFile, pmap);
-    }
+	}
 
-    /* Create graph with nodes=scaffolds edges=number of links between the scaffolds.*/
-    time(&rawtime);
-    std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
-    createGraph(pmap, g);
+	/* Create graph with nodes=scaffolds edges=number of links between the scaffolds.*/
+	time(&rawtime);
+	std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
+	createGraph(pmap, g);
 
-    /* If user specified, calculate distance and write to output files. */
-    if (params.dist_est) {
+	/* If user specified, calculate distance and write to output files. */
+	if (params.dist_est) {
 		std::cout << "\n=> Calculating distance estimates... " << ctime(&rawtime);
 		calcDistanceEstimates(imap, indexMultMap, contigToLength, g);
-    }
+	}
 
-    time(&rawtime);
-    std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
-    std::string graphFile = params.base_name + "_original.gv";
-    writePostRemovalGraph(g, graphFile);
+	time(&rawtime);
+	std::cout << "\n=> Writing graph file... " << ctime(&rawtime) << "\n";
+	std::string graphFile = params.base_name + "_original.gv";
+	writePostRemovalGraph(g, graphFile);
 
-    time(&rawtime);
-    std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
-    DistGraph gdist;
-    createAbyssGraph(contigToLength, g, gdist);
+	time(&rawtime);
+	std::cout << "\n=> Creating the ABySS graph... " << ctime(&rawtime);
+	DistGraph gdist;
+	createAbyssGraph(contigToLength, g, gdist);
 
-    time(&rawtime);
-    std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
-    writeAbyssGraph(params.dist_graph_name, gdist);
+	time(&rawtime);
+	std::cout << "\n=> Writing the ABySS graph file... " << ctime(&rawtime) << "\n";
+	writeAbyssGraph(params.dist_graph_name, gdist);
 
-    /* If specified write a detail TSV file of scaffolds and their links. */
-    if (!params.tsv_name.empty()) {
+	/* If specified write a detail TSV file of scaffolds and their links. */
+	if (!params.tsv_name.empty()) {
 		size_t barcodeCount = countBarcodes(imap, indexMultMap);
 		time(&rawtime);
 		std::cout << "\n=> Writing TSV file... " << ctime(&rawtime);
 		writeTSV(params.tsv_name, imap, pmap, barcodeCount);
-    }
+	}
 
-    /* If specified write barcode multiplicity file in TSV format. */
-    if (!params.barcode_counts_name.empty()) {
+	/* If specified write barcode multiplicity file in TSV format. */
+	if (!params.barcode_counts_name.empty()) {
 		time(&rawtime);
 		std::cout << "\n=> Writing reads per barcode TSV file... " << ctime(&rawtime);
 		writeBarcodeCountsTSV(params.barcode_counts_name, indexMultMap);
-    }
+	}
 
-    time(&rawtime);
-    std::cout << "\n=> Done.\n" << ctime(&rawtime);
+	time(&rawtime);
+	std::cout << "\n=> Done.\n" << ctime(&rawtime);
 
 	/* If specified write barcode multiplicity file in TSV format. */
 	if (!params.barcode_counts_name.empty()) {
