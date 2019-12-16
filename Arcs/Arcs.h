@@ -46,6 +46,8 @@ struct ArcsParams
 	std::string fofName;
 	int seq_id;
 	int min_reads;
+	/** output pairing information */
+	bool output_pair;
 	/** enable/disable distance estimation on graph edges */
 	bool dist_est;
 	/** bin size when computing distance estimates */
