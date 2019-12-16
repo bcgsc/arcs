@@ -97,8 +97,8 @@ static const char USAGE_MESSAGE[] =
             "       --dist_median       use median distance in ABySS dist.gv [default]\n"
             "       --dist_upper        use upper bound distance in ABySS dist.gv\n"
             "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
-            "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
-"   -P, --pair              output scaffolds pairing tsv\n";
+            "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n"
+            "   -P, --pair              output scaffolds pairing tsv\n";
 
 static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:P";
 
