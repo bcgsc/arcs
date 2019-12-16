@@ -20,5 +20,6 @@ jobs:
       sudo apt-get update
       sudo apt-get install -y --no-install-recommends clang-format-8
       sudo ln -s clang-format-8 /usr/bin/clang-format
+    displayName: Install clang-format
   - script: make -C Arcs clang-format
     displayName: Run clang-format
