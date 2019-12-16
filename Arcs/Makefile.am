@@ -19,6 +19,6 @@ arcs_SOURCES = \
 	kseq.h
 
 clang-format:
-	for i in *.cpp *.h; do clang-format -style=file $$i >$$i.fixed; done
-	for i in *.cpp *.h; do diff -su $$i $$i.fixed && rm -f $$i.fixed; done
+	for i in Arcs.cpp Arcs.h DistanceEst.h; do clang-format -style=file $$i >$$i.fixed; done
+	for i in Arcs.cpp Arcs.h DistanceEst.h; do diff -su $$i $$i.fixed && rm -f $$i.fixed; done
 	if ls *.fixed; then exit 1; fi
