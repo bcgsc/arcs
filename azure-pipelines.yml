@@ -22,4 +22,4 @@ jobs:
       sudo ln -s clang-format-8 /usr/bin/clang-format
     displayName: Install clang-format
   - script: make -C Arcs clang-format
-  displayName: Run clang-format
+    displayName: Run clang-format
