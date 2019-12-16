@@ -14,3 +14,12 @@ jobs:
     displayName: Compile ARCS
   - script: make distcheck
     displayName: Compile ARCS with make distcheck
+  - script: |
+      curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main"
+      sudo apt-get update
+      sudo apt-get install -y --no-install-recommends clang-format-8
+      sudo ln -s clang-format-8 /usr/bin/clang-format
+    displayName: Install clang-format
+  - script: make -C Arcs clang-format
+    displayName: Run clang-format
