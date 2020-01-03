@@ -97,9 +97,12 @@ static const char USAGE_MESSAGE[] =
             "       --dist_median       use median distance in ABySS dist.gv [default]\n"
             "       --dist_upper        use upper bound distance in ABySS dist.gv\n"
             "       --dist_tsv=FILE     write min/max distance estimates to FILE\n"
-            "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n";
+            "       --samples_tsv=FILE  write intra-contig distance/barcode samples to FILE\n"
+            "   -P, --pair              output scaffolds pairing TSV with number of barcode links "
+            "(no p-value threshold)"
+            "supporting each of the 4 possible orientation\n";
 
-static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:";
+static const char shortopts[] = "f:a:B:s:c:Dl:z:b:g:m:d:e:r:vt:u:j:k:P";
 
 enum
 {
@@ -149,6 +152,7 @@ static const struct option longopts[] = {
 	{ "k_value", required_argument, NULL, 'k' },
 	{ "j_index", required_argument, NULL, 'j' },
 	{ "arks", no_argument, NULL, OPT_ARKS_METHOD },
+	{ "pair", no_argument, NULL, 'P' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -1520,6 +1524,24 @@ createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g)
 }
 
 /*
+ * Write out the PairMap in a .tsv file.
+ */
+void
+writePairMap(const std::string& pairFile_dot, ARCS::PairMap& pmap)
+{
+	std::ofstream out(pairFile_dot.c_str());
+	assert(out);
+
+	for (auto& it : pmap) {
+		out << it.first.first << "\t" << it.first.second << "\t" << it.second[0] << "\t"
+		    << it.second[1] << "\t" << it.second[2] << "\t" << it.second[3] << std::endl;
+	}
+
+	assert(out);
+	out.close();
+}
+
+/*
  * Write out the boost graph in a .dot file.
  */
 void
@@ -1884,6 +1906,12 @@ runArcs(const std::vector<std::string>& filenames)
 	std::cout << "\n=> Pairing scaffolds... " << ctime(&rawtime);
 	pairContigs(imap, pmap, indexMultMap);
 
+	if (params.output_pair) {
+		std::string pairFile = params.base_name + "_pair.tsv";
+		std::cout << "\n=> Outputting Pairing information... " << ctime(&rawtime);
+		writePairMap(pairFile, pmap);
+	}
+
 	/* Create graph with nodes=scaffolds edges=number of links between the scaffolds.*/
 	time(&rawtime);
 	std::cout << "\n=> Creating the graph... " << ctime(&rawtime);
@@ -1974,6 +2002,9 @@ main(int argc, char** argv)
 			break;
 		case 'c':
 			arg >> params.min_reads;
+			break;
+		case 'P':
+			params.output_pair = true;
 			break;
 		case 'D':
 			params.dist_est = true;
