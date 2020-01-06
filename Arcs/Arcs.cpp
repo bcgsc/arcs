@@ -1493,8 +1493,10 @@ createGraph(const ARCS::PairMap& pmap, ARCS::Graph& g)
 				second = count[i];
 		}
 
+		unsigned sum = max + second;
+
 		/* Only insert edge if orientation with max links is dominant */
-		if (checkSignificance(max, second)) {
+		if (checkSignificance(max, sum)) {
 
 			/* If scaf1 is not a node in the graph, add it */
 			if (vmap.count(scaf1) == 0) {
