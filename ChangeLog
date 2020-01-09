@@ -1,3 +1,11 @@
+2020-01-08  Lauren Coombe <lcoombe@bcgsc.ca>
+
+	* Release version 1.1.1
+	* Users can now set the --pair parameter to output a tsv file with the
+	number of links supporting each orientation (hh, ht, th, tt) of each
+	scaffold pair
+	* Bug fix to binomial test
+
 2019-09-09  Lauren Coombe <lcoombe@bcgsc.ca>
 
 	* Release version 1.1.0

@@ -139,7 +139,7 @@ clean:
 	@echo "Clean Done"
 
 version:
-	@echo "arcs-make v1.1.0"
+	@echo "arcs-make v1.1.1"
 
 #Preprocessing
 
