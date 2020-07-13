@@ -48,8 +48,8 @@ if test $ac_cv_header_boost_graph_graphviz_hpp != yes; then
 	be downloaded from here: http://www.boost.org/users/download/
 	The following commands will download and install Boost:
 	cd $srcdir
-	wget http://downloads.sourceforge.net/project/boost/boost/$boost_ver/$boost_ver_dir.tar.bz2
-	tar jxf $boost_ver_dir.tar.bz2
+	wget http://downloads.sourceforge.net/project/boost/boost/$boost_ver/boost_$boost_ver_dir.tar.bz2
+	tar jxf boost_$boost_ver_dir.tar.bz2
 	cd -])
 fi
 
