@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Cut long reads and assign barcodes to the sub PE reads.
 Usage: gunzip -c reads.f*.gz | python long-to-linked.py -l frag_len | gzip > reads.cutlength.fa.gz

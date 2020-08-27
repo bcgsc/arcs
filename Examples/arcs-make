@@ -187,7 +187,7 @@ $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
 
 #Pre-processing long reads; cut into shorter segments
 %.cut$(cut).fa.gz: $(long_reads)
-	$(gtime) sh -c 'gunzip -c $< | python $(bin)../Examples/long-to-linked-pe.py -l$(cut) | $(gzip) > $@'
+	$(gtime) sh -c 'gunzip -c $< | $(bin)../Examples/long-to-linked-pe -l$(cut) | $(gzip) > $@'
 
 
 #Run ARCS
