@@ -1,0 +1,5 @@
+graph G {
+0 [id=1];
+1 [id=2];
+0--1 [label=1, weight=3];
+}
