@@ -1,4 +1,5 @@
 #This correspondence test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.assembly_correspondence.tsv file lists the scaffold ID and contig ID used by LINKS (reported in the .scaffolds file), with the original contig name in the provided assembly file (-f test_scaffolds.renamed.fa)
 LINKS_scaffold_ID	LINKS_contig_ID	original_name	orientation(f=forward/r=reverse)	number_of_links	links_ratio	gap_or_overlap(-)
-scaffold1	2	2	f	3	0	100
-scaffold1	1	1	f	NA	NA	NA
+scaffold1	1	1	f	5	0	100
+scaffold1	2	2	r	4	0	100
+scaffold1	3	3	r	NA	NA	NA
