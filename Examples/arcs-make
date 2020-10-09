@@ -209,15 +209,9 @@ arks-with-tigmint: $(draft).tigmint_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 %.sorted.bam: %.renamed.fa $(reads).fq.gz %.renamed.fa.bwt
 	$(gtime) sh -c 'bwa mem -t$t -C -p $< $(reads).fq.gz | samtools view -Sb - | samtools sort -@$t -n - -o $@' 
 
-#  Use minimap2 to align long read fragments to draft assembly, sort it, then identify proper pairs
-%.cut$(cut).sorted.bam: %.renamed.fa $(reads).cut$(cut).fa.gz
-	$(gtime) sh -c 'minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fa.gz | abyss-fixmate-ssq --all --qname | samtools view -Sb - | samtools sort -@$t -n - -o $@'
 	
 # Create an fof File Containing the bam File
 %_bamfiles.fof: %.sorted.bam
-	echo $^ > $@
-# long
-%_cut$(cut)_bamfiles.fof: %.cut$(cut).sorted.bam
 	echo $^ > $@
 
 # Run ARCS Program
@@ -231,13 +225,19 @@ else
 endif
 
 # long
-%_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_original.gv: %.renamed.fa %_cut$(cut)_bamfiles.fof
+%_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).cut$(cut).fa.gz
 ifneq ($D, true)
-	$(gtime) arcs -f $< -a $(word 2,$^) -v -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fa.gz | abyss-fixmate-ssq --all --qname | \
+		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
+		arcs -f $< -v -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
 else ifneq ($(dist_upper), true)
-	$(gtime) arcs -D -B $B -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fa.gz | abyss-fixmate-ssq --all --qname | \
+		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
+		arcs -D -B $B -v -f $< -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
 else
-	$(gtime) arcs -D -B $B --dist_upper -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fa.gz | abyss-fixmate-ssq --all --qname | \
+		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
+		arcs -D -B $B --dist_upper -v -f $<  -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
 endif
 
 # kmer
