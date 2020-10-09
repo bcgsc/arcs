@@ -8,9 +8,9 @@
 # ARCS
 
 Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data. 
-ARCS can be run in 2 modes:
+ARCS can be run in 3 modes:
 * [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs
-* `arcs-long` uses alignment of long reads to the input contigs (only available when running the ARCS+LINKS pipeline) 
+* ARCS-long (`arcs-long`) uses alignments of long reads to the input contigs (only available when running the ARCS+LINKS pipeline) 
 * [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping to associate linked reads to input contigs
 
 Because ARKS is not dependent on read alignments, it is generally much faster than ARCS. However, ARCS is recommended for use with very fragmented assemblies and/or large genomes.
@@ -79,7 +79,7 @@ To run the `arcs` executable in default mode, run `arcs <alignments>`. For descr
 
 ### Running ARCS in '--arcs-long' mode
 
-The `arcs-long` mode uses alignments of long reads to scaffold the input contigs.
+The arcs-long mode uses alignments of long reads to scaffold the input contigs.
 
 To run the pipeline in arcs-long mode, run `Examples/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a minimum contig length of 1000bp:
 ```
@@ -112,7 +112,7 @@ To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions o
 
 You can test your installation by running one of our supplied demos:
 * ARCS: `Examples/arcs_test-demo`
-* `arcs-long`: `Examples/arcs-long_test-demo`
+* ARCS-long: `Examples/arcs-long_test-demo`
 * ARKS: `Examples/arks_test-demo`
 
 For both, you can compare your output to the files provided in the `output` folders within the above directories.
