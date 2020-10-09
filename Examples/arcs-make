@@ -142,6 +142,7 @@ help:
 	@echo ""	
 	@echo "	ARCS Specific Options:"
 	@echo "	s		minimum sequence identity [98]"
+	@echo " cut		cut length for long reads (for arcs-long only) [250]
 	@echo ""
 	@echo "	ARKS Specific Options:"
 	@echo "	j		minimum fraction of read kmers matching a contigId [0.55]"
