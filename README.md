@@ -9,7 +9,8 @@
 
 Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data. 
 ARCS can be run in 2 modes:
-* [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs 
+* [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs
+* `arcs-long` uses alignment of long reads to the input contigs (only available when running the ARCS+LINKS pipeline) 
 * [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping to associate linked reads to input contigs
 
 Because ARKS is not dependent on read alignments, it is generally much faster than ARCS. However, ARCS is recommended for use with very fragmented assemblies and/or large genomes.
@@ -20,6 +21,7 @@ Because ARKS is not dependent on read alignments, it is generally much faster th
 * Autotools (if cloning directly from repository) 
 * LINKS (tested on 1.8)
 * Google SparseHash
+* ABySS (if using long reads) (tested on 2.2.5)
 
 ### Compilation:
 If cloning directly from the repository run:
@@ -43,9 +45,12 @@ If your boost library headers are not in your PATH you can specify their locatio
 
 The ARCS+LINKS pipeline requires two input files:
 * Draft assembly fasta file
-* Interleaved linked reads file (Barcode sequence expected in the BX tag of the read header or in the form "@readname_barcode" ; Run [Long Ranger basic](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/what-is-long-ranger) on raw chromium reads to produce this interleaved file)
+* Reads file in fasta format `*.fa.gz` (or fastq format `*.fq.gz` if using long reads)
+  * For linked reads, ARCS expects an interleaved linked reads file (Barcode sequence expected in the BX tag of the read header or in the form "@readname_barcode" ; Run [Long Ranger basic](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/what-is-long-ranger) on raw chromium reads to produce this interleaved file)
 
 The Makefile located here: Examples/arcs-make will run the full ARCS pipeline. It will also optionally run the misassembly corrector [Tigmint](https://github.com/bcgsc/tigmint) prior to scaffolding with ARCS.
+
+If using long reads, there's a pre-processing step in which the reads are segmented and assigned barcodes prior to scaffolding with ARCS.
 
 There are three steps to the pipeline:
 
@@ -72,6 +77,26 @@ For more info check `Examples/arcs-make help`.
 
 To run the `arcs` executable in default mode, run `arcs <alignments>`. For descriptions of all arguments, run `arcs --help`.
 
+### Running ARCS in '--arcs-long' mode
+
+The `arcs-long` mode uses alignments of long reads to scaffold the input contigs.
+
+To run the pipeline in arcs-long mode, run `Examples/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a minimum contig length of 1000bp:
+```
+arcs-make arcs-long draft=my_scaffolds reads=my_reads z=1000
+```
+
+For more info check `Examples/arcs-make help`.
+
+**Parameters**: To account for the higher error rates in long reads vs long reads, we suggest starting with the following values: 
+* `m=8-10000`
+* `s=70`
+* `c=4`
+* `l=4`
+* `a=0.3`
+
+Note that lowering `c`, `l` and increasing `a` may increase contiguity, but will likely increase the number of misassemblies as well.
+
 ### Running ARCS in '--arks' mode
 
 
@@ -87,6 +112,7 @@ To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions o
 
 You can test your installation by running one of our supplied demos:
 * ARCS: `Examples/arcs_test-demo`
+* `arcs-long`: `Examples/arcs-long_test-demo`
 * ARKS: `Examples/arks_test-demo`
 
 For both, you can compare your output to the files provided in the `output` folders within the above directories.
