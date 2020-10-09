@@ -63,13 +63,23 @@ An example bash script on how to run the ARCS+LINKS pipeline can be found at: Ex
 
 The default mode uses alignments of linked reads to contigs to scaffold the input contigs.
 
-To run the pipeline in default mode, run `Examples/arcs-make arcs`. For more info check `Examples/arcs-make help`.
+To run the pipeline in default mode, run `Examples/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a minimum contig length of 1000bp:
+```
+arcs-make arcs draft=my_scaffolds reads=my_reads z=1000
+```
+
+For more info check `Examples/arcs-make help`.
 
 To run the `arcs` executable in default mode, run `arcs <alignments>`. For descriptions of all arguments, run `arcs --help`.
 
 ### Running ARCS in '--arks' mode
 
-To run the pipeline in ARKS mode, run `Examples/arcs-make arks`. For more info check `Examples/arcs-make help`.
+
+To run the pipeline in ARKS mode, run `Examples/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a kmer size of 60:
+```
+arcs-make arks draft=my_scaffolds reads=my_reads k=60
+```
+For more info check `Examples/arcs-make help`.
 
 To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions of all arguments, run `arcs --help`.
 
