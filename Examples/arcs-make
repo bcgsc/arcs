@@ -231,7 +231,8 @@ ifneq ($D, true)
 	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fa.gz | abyss-fixmate-ssq --all --qname | \
 		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
 		arcs -f $< -v -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
-else ifneq ($(dist_upper), true)
+else
+ifneq ($(dist_upper), true)
 	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fa.gz | abyss-fixmate-ssq --all --qname | \
 		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
 		arcs -D -B $B -v -f $< -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
@@ -281,4 +282,3 @@ empty.fof:
 # kmer
 %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
-
