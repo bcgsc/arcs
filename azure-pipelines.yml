@@ -12,6 +12,13 @@ jobs:
       ./configure
       make
     displayName: Compile ARCS
+  - script: pip3 install pylint .
+    displayName: Install Python packages
+  - script: |
+      cd Examples
+      pylint long-to-linked-pe makeTSVfile.py
+      cd ../
+    displayName: Run pylint
   - script: make distcheck
     displayName: Compile ARCS with make distcheck
   - script: |
