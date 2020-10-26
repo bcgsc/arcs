@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-## Create a tigpair_checkpoint file from ARCS output that LINKS can utilize
-import sys
+"""
+Create a tigpair_checkpoint file from ARCS output that LINKS can utilize
+"""
 import re
 import argparse
 
@@ -8,6 +9,7 @@ index2scaff_name = {}
 links_numbering = {}
 
 def readGraphFile(infile):
+    """Read ARCS graph file output (.gv)"""
     with open(infile, 'r') as f:
         for line in f:
             test = re.match(r"(\d+)\s+\[id=\"?([^\]\"]+)\"?\]", line.rstrip())
@@ -18,6 +20,7 @@ def readGraphFile(infile):
                     index2scaff_name[index] = scaff_name
 
 def makeLinksNumbering(scaffolds_fasta):
+    """"""
     counter = 0
     with open(scaffolds_fasta, 'r') as f:
         for line in f:
@@ -28,65 +31,66 @@ def makeLinksNumbering(scaffolds_fasta):
 
 
 def writeTSVFile(infile, outfile):
-    with open(infile, 'r') as f:
-        with open(outfile, 'w') as w:
-            for line in f:
+    """Create tigpair_checkpoint file"""
+    with open(infile, 'r') as fin:
+        with open(outfile, 'w') as fout:
+            for line in fin:
                 test = re.search(r"(\d+)--(\d+)\s+\[label=(\d+), weight=(\d+)", line.rstrip())
                 if test:
-                    scaffA = index2scaff_name[test.group(1)]
-                    scaffB = index2scaff_name[test.group(2)]
+                    scaffa = index2scaff_name[test.group(1)]
+                    scaffb = index2scaff_name[test.group(2)]
                     label = int(test.group(3))
                     links = int(test.group(4))
 
-                    if scaffA > scaffB:
-                        scaffA, scaffB = scaffB, scaffA
+                    if scaffa > scaffb:
+                        scaffa, scaffb = scaffb, scaffa
 
-                    outScaffA = ""
-                    outScaffB = ""
-                    rOutScaffA = ""
-                    rOutScaffB = ""
-                    outScaffA = outScaffB = rOutScaffA = rOutScaffB = ""
+                    out_scaffa = ""
+                    out_scaffb = ""
+                    rout_scaffa = ""
+                    rout_scaffb = ""
+                    out_scaffa = out_scaffb = rout_scaffa = rout_scaffb = ""
 
                     # HH : rA->B or rB->A
                     if label == 0:
-                        outScaffA = "r" + links_numbering[scaffA]
-                        outScaffB = "f" + links_numbering[scaffB]
+                        out_scaffa = "r" + links_numbering[scaffa]
+                        out_scaffb = "f" + links_numbering[scaffb]
 
-                        rOutScaffB = "r" + links_numbering[scaffB]
-                        rOutScaffA = "f" + links_numbering[scaffA]
+                        rout_scaffb = "r" + links_numbering[scaffb]
+                        rout_scaffa = "f" + links_numbering[scaffa]
                     # HT : rA->rB or B->A
                     elif label == 1:
-                        outScaffA = "r" + links_numbering[scaffA]
-                        outScaffB = "r" + links_numbering[scaffB]
+                        out_scaffa = "r" + links_numbering[scaffa]
+                        out_scaffb = "r" + links_numbering[scaffb]
 
-                        rOutScaffB = "f" + links_numbering[scaffB]
-                        rOutScaffA = "f" + links_numbering[scaffA]
+                        rout_scaffb = "f" + links_numbering[scaffb]
+                        rout_scaffa = "f" + links_numbering[scaffa]
                     # TH : A->B or rB->rA
                     elif label == 2:
-                        outScaffA = "f" + links_numbering[scaffA]
-                        outScaffB = "f" + links_numbering[scaffB]
+                        out_scaffa = "f" + links_numbering[scaffa]
+                        out_scaffb = "f" + links_numbering[scaffb]
 
-                        rOutScaffB = "r" + links_numbering[scaffB]
-                        rOutScaffA = "r" + links_numbering[scaffA]
+                        rout_scaffb = "r" + links_numbering[scaffb]
+                        rout_scaffa = "r" + links_numbering[scaffa]
                     # TT : A->rB or B->rA
                     elif label == 3:
-                        outScaffA = "f" + links_numbering[scaffA]
-                        outScaffB = "r" + links_numbering[scaffB]
+                        out_scaffa = "f" + links_numbering[scaffa]
+                        out_scaffb = "r" + links_numbering[scaffb]
 
-                        rOutScaffB = "f" + links_numbering[scaffB]
-                        rOutScaffA = "r" + links_numbering[scaffA]
+                        rout_scaffb = "f" + links_numbering[scaffb]
+                        rout_scaffa = "r" + links_numbering[scaffa]
 
                     match = re.search(r"d=(\d+)", line.rstrip())
                     if match:
                         dist = int(match.group(1))
-                        estDist = True
+                        est_dist = True
                     else:
                         dist = 100
-                        estDist = False
+                        est_dist = False
 
                     if dist < 0:
                         dist_category = -1
-                    elif dist == 100 and estDist is False:
+                    elif dist == 100 and est_dist is False:
                         dist_category = 10
                     elif dist < 500:
                         dist_category = 500
@@ -100,20 +104,25 @@ def writeTSVFile(infile, outfile):
 
                     gap = links * dist
 
-                    string = str(dist_category) + "\t"  + outScaffA + "\t" + outScaffB + "\t" + str(links) + "\t" + str(gap) + "\n"
-                    w.write(string)
+                    string = str(dist_category) + "\t" + out_scaffa + "\t" + \
+                             out_scaffb + "\t" + str(links) + "\t" + str(gap) + "\n"
+                    fout.write(string)
 
-                    stringR = str(dist_category) + "\t" + rOutScaffB + "\t" + rOutScaffA + "\t" + str(links) + "\t" + str(gap) + "\n"
-                    w.write(stringR)
+                    stringr = str(dist_category) + "\t" + rout_scaffb + "\t" + \
+                              rout_scaffa + "\t" + str(links) + "\t" + str(gap) + "\n"
+                    fout.write(stringr)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Create a XXX.tigpair_checkpoint.tsv file from ARCS graph output that LINKS can utilize')
+    parser = argparse.ArgumentParser(description='Create a XXX.tigpair_checkpoint.tsv file from ARCS graph output '
+                                                 'that LINKS can utilize')
     parser.add_argument('graph_file', help='ARCS graph file output (.gv)', type=str)
-    parser.add_argument('out_file', help='Output file name. Must be named XXX.tigpair_checkpoint.tsv, where XXX is same as base name (-b) given to LINKS.', type=str)
+    parser.add_argument('out_file', help='Output file name. Must be named XXX.tigpair_checkpoint.tsv, where XXX '
+                                         'is same as base name (-b) given to LINKS.', type=str)
     parser.add_argument('fasta_file', help='FASTA file of sequences to scaffold', type=str)
     args = parser.parse_args()
 
     readGraphFile(args.graph_file)
     makeLinksNumbering(args.fasta_file)
     writeTSVFile(args.graph_file, args.out_file)
+
 
