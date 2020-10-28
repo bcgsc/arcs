@@ -12,8 +12,14 @@ jobs:
       ./configure
       make
     displayName: Compile ARCS
-  - script: pip3 install pylint .
+  - script: |
+      sudo HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install python
+      sudo /home/linuxbrew/.linuxbrew/bin/pip3 install --upgrade setuptools \
+      -U pip --no-cache-dir \
+      pylint .
     displayName: Install Python packages
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
   - script: |
       cd Examples
       pylint long-to-linked-pe makeTSVfile.py
