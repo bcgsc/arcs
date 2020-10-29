@@ -7,7 +7,7 @@
 
 # ARCS
 
-Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data. 
+Scaffolding genome sequence assemblies using linked or long read sequencing data. 
 ARCS can be run in 2 modes:
 * [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs 
 * [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping to associate linked reads to input contigs
