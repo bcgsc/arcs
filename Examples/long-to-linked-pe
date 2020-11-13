@@ -57,7 +57,7 @@ def readfq(fin):  # this is a generator function
                 break
 
 
-def convert_long_to_linked(in_reads, read_len):
+def convert_long_to_linked(in_reads, read_len, fastq):
     """Convert long reads to pseudo-linked reads"""
     barcode = 0
     frag_len = 2 * read_len
@@ -73,15 +73,34 @@ def convert_long_to_linked(in_reads, read_len):
         read_frags = [seq[i:frag_len + i]
                       for i in range(0, len(seq), frag_len)]
 
-        fid = 0
-        for frag in read_frags:
-            fid += 1
-            read1 = frag[:read_len]
-            read2 = reverse_complement(frag[-read_len:])
+        if not fastq:
+            fid = 0
+            for frag in read_frags:
+                fid += 1
+                read1 = frag[:read_len]
+                read2 = reverse_complement(frag[-read_len:])
 
-            # Write R1 and R2
-            print(">" + current_id.format(fid) + "\n" + read1)
-            print(">" + current_id.format(fid) + "\n" + read2)
+                # Write R1 and R2
+                print(">" + current_id.format(fid) + "\n" + read1)
+                print(">" + current_id.format(fid) + "\n" + read2)
+        else:
+            if not qual:
+                qual = "#" * len(seq)
+
+            # Split quality scores into corresponding fragments of size frag_len
+            qual_frags = [qual[i:frag_len + i] for i in range(0, len(qual), frag_len)]
+
+            fid = 0
+            for read_frag, qual_frag in zip(read_frags, qual_frags):
+                fid += 1
+                read1 = read_frag[:read_len]
+                read2 = reverse_complement(read_frag[-read_len:])
+                qual1 = qual_frag[:read_len]
+                qual2 = qual_frag[-read_len:][::-1]  # Reverse q2
+
+                # Write R1 and R2
+                print("@" + current_id.format(fid) + "\n" + read1 + "\n" + "+" + "\n" + qual1)
+                print("@" + current_id.format(fid) + "\n" + read2 + "\n" + "+" + "\n" + qual2)
 
 
 def main():
@@ -99,12 +118,19 @@ def main():
         type=int,
         help="Read length",
         required=True)
+    parser.add_argument(
+        "--fastq",
+        help="Output fastq file",
+        action='store_true',
+        default=False)
 
     args = parser.parse_args()
     in_reads = args.input
     read_len = args.length
-    convert_long_to_linked(in_reads, read_len)
+    fastq = args.fastq
+    convert_long_to_linked(in_reads, read_len, fastq)
 
 
 if __name__ == '__main__':
     main()
+
