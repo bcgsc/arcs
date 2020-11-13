@@ -101,6 +101,7 @@ help:
 	@echo "	arcs-long	run arcs in default mode only, using long instead of linked reads, skipping tigmint"
 	@echo "	arks		run arcs in kmer mode only, skipping tigmint"
 	@echo "	arks-tigmint	run tigmint, and run arcs in kmer mode with the output of tigmint"
+	@echo " arks-long   run arcs in kmer mode only, using long instead of linked reads, skipping tigmint"
 	@echo "	help            display this help page"
 	@echo "	version         display the software version"
 	@echo "	clean           remove intermediate files"
@@ -189,6 +190,8 @@ $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
 #Pre-processing long reads; cut into shorter segments
 %.cut$(cut).fa.gz: $(long_reads)
 	$(gtime) sh -c 'gunzip -c $< | $(bin)../Examples/long-to-linked-pe -l$(cut) | $(gzip) > $@'
+%.cut$(cut).fq.gz: $(long_reads)
+	$(gtime) sh -c 'gunzip -c $< | $(bin)../Examples/long-to-linked-pe -l$(cut) --fastq | $(gzip) > $@'
 
 
 #Run ARCS
@@ -197,6 +200,7 @@ arcs-with-tigmint: $(draft).tigmint_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 arcs-long: $(draft)_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 arks: $(draft)_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 arks-with-tigmint: $(draft).tigmint_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
+arks-long: $(draft)_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 
 # Convert Scaffold Names into Numerical Numbers
 %.renamed.fa: %.fa
@@ -252,6 +256,17 @@ else
 	$(gtime) arcs --arks -v -D -B $B --dist_upper -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
 endif
 
+# long kmer
+%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).cut$(cut).fq.gz
+ifneq ($D, true)
+	$(gtime) arcs --arks -v -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+
+else ifneq ($(dist_upper), true)
+	$(gtime) arcs --arks -v -D -B $B -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+else
+	$(gtime) arcs --arks -v -D -B $B --dist_upper -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+endif
+
 # Generate TSV from ARCS
 # default
 %_c$c_m$m_s$s_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_s$s_r$r_e$e_z$z_original.gv %.renamed.fa
@@ -261,6 +276,9 @@ endif
 	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^) 
 # kmer
 %_c$c_m$m_k$k_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_k$k_r$r_e$e_z$z_original.gv %.renamed.fa
+	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^)
+# long kmer
+%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_original.gv %.renamed.fa
 	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^)
 	
 # Adds a and l paramters to the filename
@@ -281,3 +299,7 @@ empty.fof:
 # kmer
 %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+# long kmer
+%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
+	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+
