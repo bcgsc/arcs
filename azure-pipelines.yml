@@ -1,7 +1,7 @@
 jobs:
 - job: Test
-  pool:
-    vmImage: Ubuntu 16.04
+  container:
+    image: "linuxbrew/brew"
   steps:
   - script: |
       sudo apt-get update -qq
