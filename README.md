@@ -10,8 +10,9 @@
 Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data. 
 ARCS can be run in 3 modes:
 * [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs
-* ARCS-long (`arcs-long`) uses alignments of long reads to the input contigs (only available when running in default mode) 
+* ARCS-long (`arcs-long`) uses alignments of long reads to the input contigs 
 * [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping to associate linked reads to input contigs
+* ARKS-long (`arks-long`) uses exact k-mer mapping to associate long reads to input contigs
 
 Because ARKS is not dependent on read alignments, it is generally much faster than ARCS. However, ARCS is recommended for use with very fragmented assemblies and/or large genomes.
 
@@ -97,7 +98,6 @@ Note that lowering `c`, `l` and increasing `a` may increase contiguity, but will
 
 ### Running ARCS in '--arks' mode
 
-
 To run the pipeline in ARKS mode, run `Examples/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a kmer size of 60:
 ```
 arcs-make arks draft=my_scaffolds reads=my_reads k=60
@@ -106,14 +106,32 @@ For more info check `Examples/arcs-make help`.
 
 To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions of all arguments, run `arcs --help`.
 
+### Running ARCS in '--arks-long' mode
+
+The arks-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Scaffolding is performed based on exact k-mer mapping of pseudo-linked reads to the input contigs.
+
+To run the pipeline in arks-long mode, run `Examples/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a kmer size of 20:
+```
+arcs-make arks-long draft=my_scaffolds reads=my_reads k=20
+```
+
+**Parameters**: To account for the higher error rates in long reads vs linked reads, we suggest starting with the following values: 
+* `m=8-10000`
+* `j=0.05`
+* `k=20`
+* `c=4`
+* `l=4`
+* `a=0.3`
+
 ## Demo
 
 You can test your installation by running one of our supplied demos:
 * ARCS: `Examples/arcs_test-demo`
 * ARCS-long: `Examples/arcs-long_test-demo`
 * ARKS: `Examples/arks_test-demo`
+* ARKS-long: `Examples/arks-long_test-demo`
 
-For both, you can compare your output to the files provided in the `output` folders within the above directories.
+You can compare your output to the files provided in the `output` folders within the above directories.
 
 ## Using stLFR linked reads
 
