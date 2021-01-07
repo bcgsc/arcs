@@ -25,7 +25,7 @@ jobs:
       pylint long-to-linked-pe makeTSVfile.py
       cd ../
     displayName: Run pylint
-  - script: make distcheck
+  - script: make distcheck CXXFLAGS='-Wno-error=deprecated-copy'
     displayName: Compile ARCS with make distcheck
   - script: |
       curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
