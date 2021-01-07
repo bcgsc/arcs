@@ -1,13 +1,12 @@
 jobs:
 - job: Test
-  pool:
-    vmImage: Ubuntu 16.04
   container:
     image: "linuxbrew/brew"
   steps:
   - script: |
       sudo apt-get update -qq
       sudo apt-get install -qq libboost-dev libsparsehash-dev
+      sudo apt-get install -qq automake
     displayName: Install C++ modules
   - script: |
       ./autogen.sh
