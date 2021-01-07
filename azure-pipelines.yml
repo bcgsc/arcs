@@ -5,13 +5,12 @@ jobs:
   steps:
   - script: |
       sudo apt-get update -qq
-      sudo apt-get install -qq libboost-dev libsparsehash-dev
-      sudo apt-get install -qq automake
+      sudo apt-get install -qq libboost-dev libsparsehash-dev automake
     displayName: Install C++ modules
   - script: |
       ./autogen.sh
       ./configure
-      make
+      make CXXFLAGS='-Wno-error=deprecated-copy'
     displayName: Compile ARCS
   - script: |
       sudo HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install python
