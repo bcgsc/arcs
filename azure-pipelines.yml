@@ -10,7 +10,7 @@ jobs:
   - script: |
       ./autogen.sh
       ./configure
-      make CXXFLAGS='-Wno-error=deprecated-copy'
+      make
     displayName: Compile ARCS
   - script: |
       sudo HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install python
@@ -25,7 +25,7 @@ jobs:
       pylint long-to-linked-pe makeTSVfile.py
       cd ../
     displayName: Run pylint
-  - script: make distcheck CXXFLAGS='-Wno-error=deprecated-copy'
+  - script: make distcheck
     displayName: Compile ARCS with make distcheck
   - script: |
       curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
