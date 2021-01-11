@@ -7,7 +7,7 @@
 
 # ARCS
 
-Scaffolding genome sequence assemblies using 10X Genomics GemCode/Chromium data. 
+Scaffolding genome sequence assemblies using linked or long read sequencing data. 
 ARCS can be run in 3 modes:
 * [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs
 * ARCS-long (`arcs-long`) uses alignments of long reads to the input contigs 
@@ -190,7 +190,7 @@ Gigascience. 2015 Aug 4;4:35. doi: 10.1186/s13742-015-0076-3. eCollection 2015.
 
 ### License  
 
-ARCS Copyright (c) 2016-2020 British Columbia Cancer Agency Branch.  All rights reserved.
+ARCS Copyright (c) 2016-2021 British Columbia Cancer Agency Branch.  All rights reserved.
 
 ARCS is released under the GNU General Public License v3
 
