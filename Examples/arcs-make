@@ -140,10 +140,10 @@ help:
 	@echo "	d               max node degree in scaffold graph [0]"
 	@echo "	gap             fixed gap size for dist.gv file [100]"
 	@echo "	barcode_counts	name of output barcode multiplicity TSV file [barcodeMultiplicityArcs]"
+	@echo "	cut		cut length for long reads (for arcs-long and arks-long only) [250]"
 	@echo ""	
 	@echo "	ARCS Specific Options:"
 	@echo "	s		minimum sequence identity [98]"
-	@echo " cut		cut length for long reads (for arcs-long only) [250]"
 	@echo ""
 	@echo "	ARKS Specific Options:"
 	@echo "	j		minimum fraction of read kmers matching a contigId [0.55]"
@@ -187,7 +187,7 @@ tigmint: $(draft).tigmint.fa
 $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
 	$(gtime) tigmint tigmint draft=$(draft) reads=$(reads) minsize=$(minsize) as=$(as) nm=$(nm) dist=$(dist) mapq=$(mapq) trim=$(trim) span=$(span) window=$(window) t=$t 
 
-#Pre-processing long reads; cut into shorter segments
+#Pre-processing long reads; cut into shorter segments (pseudo-linked reads)
 %.cut$(cut).fq.gz: $(long_reads)
 	$(gtime) sh -c 'gunzip -c $< | $(bin)../Examples/long-to-linked-pe -l$(cut) --fastq | $(gzip) > $@'
 
