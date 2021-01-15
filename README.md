@@ -8,7 +8,7 @@
 # ARCS
 
 Scaffolding genome sequence assemblies using linked or long read sequencing data. 
-ARCS can be run in 3 modes:
+ARCS can be run in 4 modes:
 * [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs
 * ARCS-long (`arcs-long`) uses alignments of long reads to the input contigs 
 * [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping to associate linked reads to input contigs
@@ -110,9 +110,9 @@ To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions o
 
 The arks-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Scaffolding is performed based on exact k-mer mapping of pseudo-linked reads to the input contigs.
 
-To run the pipeline in arks-long mode, run `Examples/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a kmer size of 20:
+To run the pipeline in arks-long mode, run `Examples/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a kmer size of 20 and `j` of 0.05:
 ```
-arcs-make arks-long draft=my_scaffolds reads=my_reads k=20
+arcs-make arks-long draft=my_scaffolds reads=my_reads k=20 j=0.05
 ```
 
 **Parameters**: To account for the higher error rates in long reads vs linked reads, we suggest starting with the following values: 
