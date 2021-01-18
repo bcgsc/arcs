@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+"""
+Cut long reads and assign barcodes to the sub PE reads.
+Usage: gunzip -c reads.f*.gz | python long-to-linked.py -l frag_len | gzip > reads.cutlength.fa.gz
+
+"""
+
+from __future__ import print_function
+import argparse
+import sys
+
+if sys.version_info[0] < 3:
+    from string import maketrans
+    complements_trans = maketrans('ACGTacgt', 'TGCATGCA')
+else:
+    complements_trans = str.maketrans('ACGTacgt', 'TGCATGCA')
+
+
+def reverse_complement(seq):
+    """Returns reverse complement of the sequence"""
+    return seq[::-1].translate(complements_trans)
+
+
+# From https://github.com/lh3/readfq
+def readfq(fin):  # this is a generator function
+    """Read fasta/fastq file"""
+    last = None  # this is a buffer keeping the last unprocessed line
+    while True:  # mimic closure; is it a bad idea?
+        if not last:  # the first record or a record following a fastq
+            for line in fin:  # search for the start of the next record
+                if line[0] in '>@':  # fasta/q header line
+                    last = line[:-1]  # save this line
+                    break
+        if not last:
+            break
+        name, seqs, last = last[1:].partition(" ")[0], [], None
+        for line in fin:  # read the sequence
+            if line[0] in '@+>':
+                last = line[:-1]
+                break
+            seqs.append(line[:-1])
+        if not last or last[0] != '+':  # this is a fasta record
+            yield name, ''.join(seqs), None  # yield a fasta record
+            if not last:
+                break
+        else:  # this is a fastq record
+            seq, leng, seqs = ''.join(seqs), 0, []
+            for line in fin:  # read the quality
+                seqs.append(line[:-1])
+                leng += len(line) - 1
+                if leng >= len(seq):  # have read enough quality
+                    last = None
+                    yield name, seq, ''.join(seqs)  # yield a fastq record
+                    break
+            if last:  # reach EOF before reading enough quality
+                yield name, seq, None  # yield a fasta record instead
+                break
+
+
+def convert_long_to_linked(in_reads, read_len, fastq):
+    """Convert long reads to pseudo-linked reads"""
+    barcode = 0
+    frag_len = 2 * read_len
+    for name, seq, qual in readfq(in_reads):
+        barcode += 1
+        current_id = name.strip() + "_f{} BX:Z:" + str(barcode)
+        seq = seq.strip()
+
+        if len(seq) < frag_len:
+            continue
+
+        # Split ONT read into fragments of size frag_len
+        read_frags = [seq[i:frag_len + i]
+                      for i in range(0, len(seq), frag_len)]
+
+        if not fastq:
+            fid = 0
+            for frag in read_frags:
+                fid += 1
+                read1 = frag[:read_len]
+                read2 = reverse_complement(frag[-read_len:])
+
+                # Write R1 and R2
+                print(">" + current_id.format(fid) + "\n" + read1)
+                print(">" + current_id.format(fid) + "\n" + read2)
+        else:
+            if not qual:
+                qual = "#" * len(seq)
+
+            # Split quality scores into corresponding fragments of size frag_len
+            qual_frags = [qual[i:frag_len + i] for i in range(0, len(qual), frag_len)]
+
+            fid = 0
+            for read_frag, qual_frag in zip(read_frags, qual_frags):
+                fid += 1
+                read1 = read_frag[:read_len]
+                read2 = reverse_complement(read_frag[-read_len:])
+                qual1 = qual_frag[:read_len]
+                qual2 = qual_frag[-read_len:][::-1]  # Reverse q2
+
+                # Write R1 and R2
+                print("@" + current_id.format(fid) + "\n" + read1 + "\n" + "+" + "\n" + qual1)
+                print("@" + current_id.format(fid) + "\n" + read2 + "\n" + "+" + "\n" + qual2)
+
+
+def main():
+    """Cut long reads into pseudo-linked reads and print to stdout"""
+    parser = argparse.ArgumentParser(
+        description="Split long reads into pseudo-linked reads.")
+    parser.add_argument(
+        "input",
+        type=argparse.FileType('r'),
+        default=sys.stdin,
+        nargs='?')
+    parser.add_argument(
+        "-l",
+        "--length",
+        type=int,
+        help="Read length",
+        required=True)
+    parser.add_argument(
+        "--fastq",
+        help="Output fastq file",
+        action='store_true',
+        default=False)
+
+    args = parser.parse_args()
+    in_reads = args.input
+    read_len = args.length
+    fastq = args.fastq
+    convert_long_to_linked(in_reads, read_len, fastq)
+
+
+if __name__ == '__main__':
+    main()
+

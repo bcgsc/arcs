@@ -1,0 +1,52 @@
+
+Running: /gsc/btl/linuxbrew/bin/LINKS [v1.8.7]
+-f test_scaffolds.renamed.fa
+-s empty.fof
+-m 
+-d 4000
+-k 15
+-e 0.1
+-l 3
+-a 0.9
+-t 2
+-o 0
+-z 500
+-b test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9
+-r 
+-p 0.001
+-x 0
+
+----------------- Verifying files -----------------
+
+Checking sequence target file test_scaffolds.renamed.fa...ok
+
+
+Scaffolding mid-point files:
+test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.tigpair_checkpoint.tsv
+test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.simplepair_checkpoint.tsv
+detected; LINKS will skip contig pairing and use info from files instead : Sat Aug 29 18:19:42 PDT 2020
+
+Reading sequences from test_scaffolds.renamed.fa : Sat Aug 29 18:19:42 PDT 2020
+
+done.
+Reading sequence pairs from test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.tigpair_checkpoint.tsv : Sat Aug 29 18:19:42 PDT 2020
+
+done.
+Building scaffolds : Sat Aug 29 18:19:42 PDT 2020
+
+done.
+Building .gv graph : Sat Aug 29 18:19:42 PDT 2020
+
+
+=>Scaffolding ended : Sat Aug 29 18:19:42 PDT 2020
+Scaffolds layout in: test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.scaffolds
+Scaffold graph in: test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.gv
+
+
+=>Making FASTA file : Sat Aug 29 18:19:42 PDT 2020
+Scaffolds FASTA in : test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.scaffolds.fa
+
+
+=>Wrote correspondence file tracking LINKScontigID <=> OriginalContigNames : test_scaffolds_c3_m8-10000_cut250_s70_r0.05_e30000_z500_l3_a0.9.assembly_correspondence.tsv
+
+Scaffolding executed normally Sat Aug 29 18:19:42 PDT 2020

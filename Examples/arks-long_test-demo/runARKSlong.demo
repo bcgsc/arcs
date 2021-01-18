@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo Running ARCS makefile
+../arcs-make arks-long draft=test_scaffolds reads=test_reads m=8-10000 j=0.05 k=20 a=0.9 l=3 c=3

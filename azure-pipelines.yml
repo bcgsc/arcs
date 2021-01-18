@@ -1,17 +1,30 @@
 jobs:
 - job: Test
-  pool:
-    vmImage: Ubuntu 16.04
+  container:
+    image: "linuxbrew/brew"
   steps:
   - script: |
       sudo apt-get update -qq
-      sudo apt-get install -qq libboost-dev libsparsehash-dev
+      sudo apt-get install -qq libboost-dev libsparsehash-dev automake
     displayName: Install C++ modules
   - script: |
       ./autogen.sh
       ./configure
       make
     displayName: Compile ARCS
+  - script: |
+      sudo HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install python
+      sudo /home/linuxbrew/.linuxbrew/bin/pip3 install --upgrade setuptools \
+      -U pip --no-cache-dir \
+      pylint .
+    displayName: Install Python packages
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+  - script: |
+      cd Examples
+      pylint long-to-linked-pe makeTSVfile.py
+      cd ../
+    displayName: Run pylint
   - script: make distcheck
     displayName: Compile ARCS with make distcheck
   - script: |

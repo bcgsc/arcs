@@ -7,6 +7,16 @@
 draft=draft
 reads=reads
 
+# Find the complete long read file name
+fastq=$(shell test -f $(reads).fq.gz && echo "true")
+fasta=$(shell test -f $(reads).fa.gz && echo "true")
+ifeq ($(fastq), true)
+long_reads=$(reads).fq.gz
+endif
+ifeq ($(fasta), true)
+long_reads=$(reads).fa.gz
+endif
+
 # tigmint Parameters
 minsize=2000
 as=0.65
@@ -31,8 +41,9 @@ d=0
 gap=100
 B=20
 
-# ARCS Specific Paramters
+# ARCS Specific Parameters
 s=98
+cut=250
 
 # ARKS Specific Parameters
 j=0.55
@@ -51,6 +62,17 @@ SHELL=zsh -e -o pipefail
 # Report run time and memory usage with zsh.
 export REPORTTIME=1
 export TIMEFMT=time user=%U system=%S elapsed=%E cpu=%P memory=%M job=%J
+endif
+
+# Use pigz or bgzip for parallel compression if available.
+ifneq ($(shell command -v pigz),)
+gzip=pigz -p$t
+else
+ifneq ($(shell command -v bgzip),)
+gzip=bgzip -@$t
+else
+gzip=gzip
+endif
 endif
 
 # Record run time and memory usage in a file using GNU time.
@@ -76,8 +98,10 @@ help:
 	@echo ""
 	@echo "	arcs		run arcs in default mode only, skipping tigmint"
 	@echo "	arcs-tigmint	run tigmint, and run arcs in default mode with the output of tigmint"
+	@echo "	arcs-long	run arcs in default mode only, using long instead of linked reads, skipping tigmint"
 	@echo "	arks		run arcs in kmer mode only, skipping tigmint"
 	@echo "	arks-tigmint	run tigmint, and run arcs in kmer mode with the output of tigmint"
+	@echo "	arks-long   	run arcs in kmer mode only, using long instead of linked reads, skipping tigmint"
 	@echo "	help            display this help page"
 	@echo "	version         display the software version"
 	@echo "	clean           remove intermediate files"
@@ -116,6 +140,7 @@ help:
 	@echo "	d               max node degree in scaffold graph [0]"
 	@echo "	gap             fixed gap size for dist.gv file [100]"
 	@echo "	barcode_counts	name of output barcode multiplicity TSV file [barcodeMultiplicityArcs]"
+	@echo "	cut		cut length for long reads (for arcs-long and arks-long only) [250]"
 	@echo ""	
 	@echo "	ARCS Specific Options:"
 	@echo "	s		minimum sequence identity [98]"
@@ -162,11 +187,18 @@ tigmint: $(draft).tigmint.fa
 $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
 	$(gtime) tigmint tigmint draft=$(draft) reads=$(reads) minsize=$(minsize) as=$(as) nm=$(nm) dist=$(dist) mapq=$(mapq) trim=$(trim) span=$(span) window=$(window) t=$t 
 
+#Pre-processing long reads; cut into shorter segments (pseudo-linked reads)
+%.cut$(cut).fq.gz: $(long_reads)
+	$(gtime) sh -c 'gunzip -c $< | $(bin)../Examples/long-to-linked-pe -l$(cut) --fastq | $(gzip) > $@'
+
+
 #Run ARCS
 arcs: $(draft)_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 arcs-with-tigmint: $(draft).tigmint_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
+arcs-long: $(draft)_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 arks: $(draft)_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 arks-with-tigmint: $(draft).tigmint_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
+arks-long: $(draft)_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 
 # Convert Scaffold Names into Numerical Numbers
 %.renamed.fa: %.fa
@@ -179,7 +211,8 @@ arks-with-tigmint: $(draft).tigmint_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa
 # Use bwa mem to Align Reads to Draft Assembly and Sort it
 %.sorted.bam: %.renamed.fa $(reads).fq.gz %.renamed.fa.bwt
 	$(gtime) sh -c 'bwa mem -t$t -C -p $< $(reads).fq.gz | samtools view -Sb - | samtools sort -@$t -n - -o $@' 
-    
+
+	
 # Create an fof File Containing the bam File
 %_bamfiles.fof: %.sorted.bam
 	echo $^ > $@
@@ -194,8 +227,35 @@ else
 	$(gtime) arcs -D -B $B --dist_upper -v -f $< -a $(word 2,$^) -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv
 endif
 
+# long
+%_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).cut$(cut).fq.gz
+ifneq ($D, true)
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
+		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
+		arcs -f $< -v -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
+else ifneq ($(dist_upper), true)
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
+		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
+		arcs -D -B $B -v -f $< -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
+else
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
+		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
+		arcs -D -B $B --dist_upper -v -f $<  -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
+endif
+
 # kmer
 %_c$c_m$m_k$k_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).fq.gz
+ifneq ($D, true)
+	$(gtime) arcs --arks -v -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+
+else ifneq ($(dist_upper), true)
+	$(gtime) arcs --arks -v -D -B $B -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+else
+	$(gtime) arcs --arks -v -D -B $B --dist_upper -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+endif
+
+# long kmer
+%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).cut$(cut).fq.gz
 ifneq ($D, true)
 	$(gtime) arcs --arks -v -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
 
@@ -209,8 +269,14 @@ endif
 # default
 %_c$c_m$m_s$s_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_s$s_r$r_e$e_z$z_original.gv %.renamed.fa
 	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^) 
+# long
+%_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_original.gv %.renamed.fa
+	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^) 
 # kmer
 %_c$c_m$m_k$k_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_k$k_r$r_e$e_z$z_original.gv %.renamed.fa
+	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^)
+# long kmer
+%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z.tigpair_checkpoint.tsv: %_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_original.gv %.renamed.fa
 	python $(bin)../Examples/makeTSVfile.py $< $@ $(word 2,$^)
 	
 # Adds a and l paramters to the filename
@@ -225,6 +291,13 @@ empty.fof:
 # default
 %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+# long
+%_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
+	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
 # kmer
 %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+# long kmer
+%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
+	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+
