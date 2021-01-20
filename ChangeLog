@@ -1,3 +1,12 @@
+2021-01-19  Theodora Lo <tlo@bcgsc.ca>
+
+	* Release version 1.2.0
+	* Users can now also use long reads to scaffold draft assemblies
+	* Added `--arcs-long` and `--arks-long` modes to `arcs-make` so
+	users can run the ARCS+LINKS pipeline using long reads as input
+	  * `long-to-linked-pe` segments and assigns barcodes to the long
+	  reads prior to running ARCS and LINKS
+
 2020-01-08  Lauren Coombe <lcoombe@bcgsc.ca>
 
 	* Release version 1.1.1
