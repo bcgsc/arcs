@@ -1,3 +1,8 @@
+2021-01-29  Theodora Lo <tlo@bcgsc.ca>
+	
+	* Release version 1.2.1
+	* Added `arcs-make` to `tar.gz`
+
 2021-01-19  Theodora Lo <tlo@bcgsc.ca>
 
 	* Release version 1.2.0
