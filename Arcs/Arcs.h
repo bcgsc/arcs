@@ -137,24 +137,24 @@ typedef typename ContigToLength::const_iterator ContigToLengthIt;
 
 // simple hash adapter for types without pointers
 template<typename T>
-struct CityHasher
+struct nthash_identity
 {
-	size_t operator()(const T& t) const { return CityHash64(t, sizeof(t)); }
+        size_t operator()(const T& t) const { return t; }
 };
 
-// specialization for strings
+// specialization for ints
 template<>
-struct CityHasher<std::string>
+struct nthash_identity<uint64_t>
 {
-	size_t operator()(const string t) const { return CityHash64(t.c_str(), t.size()); }
+        size_t operator()(const uint64_t key) const { return key; }
 };
 
-struct eqstr
+struct eqint
 {
-	bool operator()(std::string s1, std::string s2) const { return (s1 == s2); }
+        bool operator()(uint64_t i1, uint64_t i2) const { return (i1 == i2); }
 };
 
-typedef google::sparse_hash_map<std::string, int, CityHasher<std::string>, eqstr> ContigKMap;
+typedef google::sparse_hash_map<const uint64_t, int, nthash_identity<uint64_t>, eqint> ContigKMap;
 
 struct VertexProperties
 {
@@ -230,3 +230,4 @@ typedef boost::graph_traits<ARCS::Graph>::vertex_descriptor VertexDes;
 }
 
 #endif
+

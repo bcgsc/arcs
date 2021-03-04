@@ -9,6 +9,7 @@
 #include "Graph/DotIO.h"
 #include "config.h"
 #include "kseq.h"
+#include "btllib/include/btllib/nthash.hpp"
 #include <algorithm>
 #include <cassert>
 #include <omp.h>
@@ -882,14 +883,16 @@ mapKmers(std::string seqToKmerize, int k, ARCS::ContigKMap& kmap, ReadsProcessor
 		return 0;
 	} else {
 		int numKmers = 0;
+		unsigned h = 1;
+		btllib::NtHash nthash(seqToKmerize, k, h);
 
-		int i = 0;
-		while (i <= seqsize - k) {
+		size_t i;
+		for (i = 0; nthash.roll(); ++i) {
 			const unsigned char* temp =
 			    proc.prepSeq(seqToKmerize, i); // prepSeq returns NULL if it contains an N
 			// Ignore a NULL kmer
 			if (temp != NULL) {
-				std::string kmerseq = proc.getStr(temp);
+				uint64_t kmerhash = nthash.hashes()[0];
 
 				numKmers++;
 
@@ -900,27 +903,25 @@ mapKmers(std::string seqToKmerize, int k, ARCS::ContigKMap& kmap, ReadsProcessor
 				bool exists;
 				int alreadyconreci;
 
-				exists = kmap.find(kmerseq) != kmap.end();
+				exists = kmap.find(kmerhash) != kmap.end();
 
-				alreadyconreci = kmap[kmerseq];
+				alreadyconreci = kmap[kmerhash];
 
 				if (exists) {
-					if (alreadyconreci != conreci) {
-						s_numkmersremdup++;
-						if (alreadyconreci != 0) {
-							s_uniquedraftkmers--;
-							kmap[kmerseq] = 0;
-						}
-					}
-					s_numkmercollisions++;
-				} else {
-					kmap[kmerseq] = conreci;
-					s_uniquedraftkmers++;
-					s_numkmersmapped++;
-				}
-				i++;
+            		if (alreadyconreci != conreci) {
+                		s_numkmersremdup++;
+                		if (alreadyconreci != 0) {
+                    		s_uniquedraftkmers--;
+                    		kmap[kmerhash] = 0;
+                		}
+            		}
+            		s_numkmercollisions++;
+        		} else {
+            		kmap[kmerhash] = conreci;
+            		s_uniquedraftkmers++;
+            		s_numkmersmapped++;
+        		}
 			} else {
-				i += k;
 				s_numbadkmers++;
 			}
 		}
@@ -947,28 +948,29 @@ bestContig(ARCS::ContigKMap& kmap, std::string readseq, int k, double j_index, R
 
 	// k-merize readsequence
 	int corrbestConReci = 0;
-	int seqlen = readseq.length();
 
 	int totalnumkmers = 0;
 	int kmerdups = 0;
 	int kmerfound = 0;
 	int kmerstore = 0;
 
-	int i = 0;
+	unsigned h = 1;
+	btllib::NtHash nthash(readseq, k, h);
 
-	while (i <= seqlen - k) {
+	size_t i;
+	for (i = 0; nthash.roll(); ++i) {
 		const unsigned char* temp = proc.prepSeq(readseq, i);
 #pragma omp atomic
 		totalnumkmers++;
 		if (temp != NULL) {
-			const std::string ckmerseq = proc.getStr(temp);
+			uint64_t ckmerhash = nthash.hashes()[0];
 #pragma omp atomic
 			s_totalnumckmers++;
 
 			// search for kmer in ContigKmerMap and only record if it is not the collisionmaker
-			if (kmap.find(ckmerseq) != kmap.end()) {
+			if (kmap.find(ckmerhash) != kmap.end()) {
 
-				int corrConReci = kmap[ckmerseq];
+				int corrConReci = kmap[ckmerhash];
 				if (corrConReci != 0) {
 					ktrack[corrConReci]++;
 #pragma omp atomic
@@ -990,7 +992,6 @@ bestContig(ARCS::ContigKMap& kmap, std::string readseq, int k, double j_index, R
 #pragma omp atomic
 			s_numbadckmers++;
 		}
-		i++;
 	}
 
 	double maxjaccardindex = 0;
@@ -1848,7 +1849,7 @@ runArcs(const std::vector<std::string>& filenames)
 	std::unordered_map<std::string, int> indexMultMap;
 
 	ARCS::ContigKMap kmap;
-	kmap.set_deleted_key("");
+	kmap.set_deleted_key(0);
 	std::time_t rawtime;
 
 	ARCS::ContigToLength contigToLength;
@@ -2182,3 +2183,4 @@ main(int argc, char** argv)
 
 	return 0;
 }
+
