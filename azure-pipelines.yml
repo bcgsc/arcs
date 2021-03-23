@@ -31,9 +31,10 @@ jobs:
       curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
       sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main"
       sudo apt-get update
-      sudo apt-get install -y --no-install-recommends clang-format-8
+      sudo apt-get install -y --no-install-recommends clang-format-8 clang-tidy-8
       sudo ln -sf clang-format-8 /usr/bin/clang-format
-    displayName: Install clang-format
+      sudo ln -sf clang-tidy-8 /usr/bin/clang-tidy
+    displayName: Install clang-format and clang-tidy
   - script: |
       make -C Arcs clang-format
       make -C src lint
