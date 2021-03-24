@@ -71,6 +71,7 @@ AC_CONFIG_FILES([
 		DataLayer/Makefile
 		Graph/Makefile
 		Test/Makefile
+		src/Makefile
 ])
 AC_OUTPUT
 
