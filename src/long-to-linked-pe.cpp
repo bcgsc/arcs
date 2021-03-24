@@ -61,7 +61,7 @@ main(int argc, char* argv[])
 	int optindex = 0;
 	int help = 0, version = 0;
 	bool auto_span = false, auto_dist = false;
-	size_t l = 0, g = 0, t = 7, m = 2000;
+	size_t l = 0, g = 0, t = 6, m = 2000;
 	bool g_set = false;
 	bool l_set = false;
 	double cov_to_span = 0.25;      // Optimal tigmint-long span is 1/4 sequence coverage
@@ -113,14 +113,6 @@ main(int argc, char* argv[])
 		}
 	}
 
-	if (t > MAX_THREADS) {
-		t = MAX_THREADS;
-		std::cerr << (PROGNAME + ' ' + VERSION + ": Using more than " +
-		              std::to_string(MAX_THREADS) + " threads does not scale, reverting to " +
-		              std::to_string(MAX_THREADS) + ".\n")
-		          << std::flush;
-	}
-
 	std::vector<std::string> infiles(&argv[optind], &argv[argc]);
 	if (argc < 2) {
 		print_usage();
@@ -154,6 +146,14 @@ main(int argc, char* argv[])
 	if (failed) {
 		std::cerr << "Try '" << PROGNAME << " --help' for more information.\n";
 		std::exit(EXIT_FAILURE);
+	}
+
+	if (t > MAX_THREADS) {
+		t = MAX_THREADS;
+		std::cerr << (PROGNAME + ' ' + VERSION + ": Using more than " +
+		              std::to_string(MAX_THREADS) + " threads does not scale, reverting to " +
+		              std::to_string(MAX_THREADS) + ".\n")
+		          << std::flush;
 	}
 
 	char header_symbol = '@';
