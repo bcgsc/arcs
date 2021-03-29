@@ -92,7 +92,6 @@ main(int argc, char* argv[])
 			break;
 		case 'm':
 			m = std::stoul(optarg);
-			std::cerr << m <<std::endl;
 			break;
 		case 'g':
 			g_set = true;
@@ -187,10 +186,10 @@ main(int argc, char* argv[])
 			size_t step = l * 2;
 			std::string& seq = record.seq;
 			size_t seq_size = seq.size();
-			if (step > seq_size || m > seq_size) {
-				continue;
-			}
 			if (with_bx_multiplicity_only || with_bx_multiplicity) {
+				if (step > seq_size || m > seq_size) {
+					continue;
+				}
 				if (seq_size % step != 0) {
 					bx_multiplicity_ofs << record.num + 1 << "\t" << (seq_size / step + 1) * 2 << std::endl;
 				} else {
@@ -210,6 +209,10 @@ main(int argc, char* argv[])
 				}
 				if (auto_span) {
 					total_bases += seq_size;
+				}
+
+				if (step > seq_size || m > seq_size) {
+					continue;
 				}
 
 				int read_num = 1;
