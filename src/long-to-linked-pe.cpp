@@ -92,6 +92,7 @@ main(int argc, char* argv[])
 			break;
 		case 'm':
 			m = std::stoul(optarg);
+			std::cerr << m <<std::endl;
 			break;
 		case 'g':
 			g_set = true;
@@ -282,7 +283,7 @@ main(int argc, char* argv[])
 	}
 
 	if (auto_span || auto_dist) {
-		std::ofstream ofs(configFile, std::ofstream::out);
+		std::ofstream ofs(configFile, std::ofstream::app);
 		if (auto_span) {
 			ofs << "span\t" << (size_t)(total_bases / g * cov_to_span) << "\n";
 		}
