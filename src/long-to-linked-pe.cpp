@@ -35,8 +35,7 @@ print_usage()
 {
 	std::cerr
 	    << "Usage: Split long reads into paired-end pseudo-linked reads." << PROGNAME
-	    << " -l L -g G [--fasta -s -d -p P -c C -m M -t T -f FILE -b B --bx / (--bx-only)]  READS "
-	       "\n\n"
+	    << " -l L -g G [--fasta -s -d -p P -c C -m M -t T -f FILE -b B --bx / (--bx-only)]  READS \n\n"
 	       "  -l L        Use L as simulated read length size.\n"
 	       "  -g G        Use G as Genome size (bp) for calculating tigmint-long span "
 	       "parameter as an integer or in scientific notation (e.g. '3e9').\n"
@@ -48,9 +47,9 @@ print_usage()
 	       "  -p P        Use P percentile to estimate dist parameter. [50].\n"
 	       "  -m M        M minimum read length for a read to be considered a molecule. [2000].\n"
 	       "  -t T        Use T number of threads (max 6) per input file. [6]\n"
-	       "  -b B        Write barcode multiplicity to B. [tigmint-long.params.tsv].\n"
-	       "  --bx        Compute barcode multiplicity of simulated pe output.\n"
-	       "  --bx--only  Compute barcode multiplicity of simulated pe output only.\n"
+	       "  -b B        Write barcode multiplicity to B. [barcode_multiplicity.tsv].\n"
+	       "  --bx        Compute barcode multiplicity of simulated linked reads output.\n"
+	       "  --bx--only  Compute barcode multiplicity of simulated linked reads output only.\n"
 	       "  -v          Show verbose output.\n"
 	       "  --help      Display this help and exit.\n"
 	       "  --version   Display version and exit.\n"
@@ -77,14 +76,12 @@ main(int argc, char* argv[])
 	std::string configFile("tigmint-long.params.tsv");
 	std::string bxMultiplicityFile("barcode_multiplicity.tsv");
 	bool failed = false;
-	static const struct option longopts[] = {
-		{ "bx", no_argument, &with_bx_multiplicity, 1 },
-		{ "bx-only", no_argument, &with_bx_multiplicity_only, 1 },
-		{ "fasta", no_argument, &with_fasta, 1 },
-		{ "help", no_argument, &help, 1 },
-		{ "version", no_argument, &version, 1 },
-		{ nullptr, 0, nullptr, 0 }
-	};
+	static const struct option longopts[] = { { "bx", no_argument, &with_bx_multiplicity, 1 },
+											  { "bx-only", no_argument, &with_bx_multiplicity_only, 1 },
+											  { "fasta", no_argument, &with_fasta, 1 },
+		                                      { "help", no_argument, &help, 1 },
+		                                      { "version", no_argument, &version, 1 },
+		                                      { nullptr, 0, nullptr, 0 } };
 	while ((c = getopt_long(argc, argv, "l:g:o:c:p:sdf:t:b:m:", longopts, &optindex)) != -1) {
 		switch (c) {
 		case 0:
@@ -196,13 +193,13 @@ main(int argc, char* argv[])
 				if (seq_size % step != 0) {
 					bx_multiplicity_ofs << record.name << "\t" << seq_size / step + 1 << std::endl;
 				} else {
-					bx_multiplicity_ofs << record.name << "\t" << seq_size / step << std::endl;
-				}
+					bx_multiplicity_ofs << record.name << "\t" << seq_size / step  << std::endl;
+				} 
 			}
-			if (!with_bx_multiplicity_only) {
-
+			if (!with_bx_multiplicity_only) {				
+				
 				std::string& qual = record.qual;
-
+				
 				size_t qual_size = qual.size();
 
 				if (auto_dist) {
@@ -217,7 +214,7 @@ main(int argc, char* argv[])
 				int read_num = 1;
 				for (size_t i = 0; i <= seq_size - step; i = i + step) {
 					std::cout << header_symbol << record.name << "_f" << read_num
-					          << " BX:Z:" << record.num + 1 << '\n';
+							<< " BX:Z:" << record.num + 1 << '\n';
 					std::cout << seq.substr(i, l) << '\n';
 					if (!with_fasta) {
 						std::cout << "+\n";
@@ -230,7 +227,7 @@ main(int argc, char* argv[])
 					std::string reverse_linked_read = seq.substr(i + l, l);
 					btllib::reverse_complement(reverse_linked_read);
 					std::cout << header_symbol << record.name << "_f" << read_num
-					          << " BX:Z:" << record.num + 1 << '\n';
+							<< " BX:Z:" << record.num + 1 << '\n';
 					std::cout << reverse_linked_read << '\n';
 					if (!with_fasta) {
 						std::cout << "+\n";
@@ -249,7 +246,7 @@ main(int argc, char* argv[])
 				if (remainder != 0) {
 					size_t curr_i = seq_size - remainder;
 					std::cout << header_symbol << record.name << "_f" << read_num
-					          << " BX:Z:" << record.num + 1 << '\n';
+							<< " BX:Z:" << record.num + 1 << '\n';
 					std::string forward_linked_read = seq.substr(curr_i, l);
 					std::cout << forward_linked_read << '\n';
 					if (!with_fasta) {
@@ -260,11 +257,11 @@ main(int argc, char* argv[])
 							std::cout << qual.substr(curr_i, l) << '\n';
 						}
 					}
-					std::string reverse_linked_read = seq.substr(
-					    seq_size - forward_linked_read.size(), forward_linked_read.size());
+					std::string reverse_linked_read =
+						seq.substr(seq_size - forward_linked_read.size(), forward_linked_read.size());
 					btllib::reverse_complement(reverse_linked_read);
 					std::cout << header_symbol << record.name << "_f" << read_num
-					          << " BX:Z:" << record.num + 1 << '\n';
+							<< " BX:Z:" << record.num + 1 << '\n';
 					std::cout << reverse_linked_read << '\n';
 					if (!with_fasta) {
 						std::cout << "+\n";
@@ -272,7 +269,7 @@ main(int argc, char* argv[])
 							std::cout << std::string(forward_linked_read.size(), '#') << '\n';
 						} else {
 							std::string reverse_qual = qual.substr(
-							    seq_size - forward_linked_read.size(), forward_linked_read.size());
+								seq_size - forward_linked_read.size(), forward_linked_read.size());
 							std::reverse(reverse_qual.begin(), reverse_qual.end());
 							std::cout << reverse_qual << '\n';
 						}
