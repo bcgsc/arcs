@@ -191,9 +191,9 @@ main(int argc, char* argv[])
 			}
 			if (with_bx_multiplicity_only || with_bx_multiplicity) {
 				if (seq_size % step != 0) {
-					bx_multiplicity_ofs << record.name << "\t" << seq_size / step + 1 << std::endl;
+					bx_multiplicity_ofs << record.num + 1 << "\t" << (seq_size / step + 1) * 2 << std::endl;
 				} else {
-					bx_multiplicity_ofs << record.name << "\t" << seq_size / step  << std::endl;
+					bx_multiplicity_ofs << record.num + 1 << "\t" << seq_size / l  << std::endl;
 				} 
 			}
 			if (!with_bx_multiplicity_only) {				
