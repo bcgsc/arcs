@@ -50,7 +50,8 @@ print_usage()
 	       "  -t T        Use T number of threads (max 6) per input file. [6]\n"
 	       "  -b B        Write barcode multiplicity to B. [barcode_multiplicity.tsv].\n"
 	       "  --bx        Compute barcode multiplicity of simulated linked reads output.\n"
-	       "  --bx--only  Compute barcode multiplicity of simulated linked reads output only.\n"
+	       "  --bx-only  Compute barcode multiplicity of simulated linked reads output only.\n"
+
 	       "  -v          Show verbose output.\n"
 	       "  --help      Display this help and exit.\n"
 	       "  --version   Display version and exit.\n"
