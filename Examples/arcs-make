@@ -255,14 +255,20 @@ else
 endif
 
 # long kmer
-%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).cut$(cut).fq.gz
+$(reads).barcode-multiplicity.tsv: $(long_reads)
+	$(gtime) $(bin)/../src/long-to-linked-pe -l $(cut) -g 1 -t $t -m0 --bx-only -b $@ $<
+
+%_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_original.gv: %.renamed.fa $(long_reads) $(reads).barcode-multiplicity.tsv
 ifneq ($D, true)
-	$(gtime) arcs --arks -v -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+	$(gtime) $(bin)/../src/long-to-linked-pe -l $(cut) -g 1 -t $t -m0 $(long_reads) |\
+	 arcs --arks -v -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) -u $(reads).barcode-multiplicity.tsv /dev/stdin
 
 else ifneq ($(dist_upper), true)
-	$(gtime) arcs --arks -v -D -B $B -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+	$(gtime) $(bin)/../src/long-to-linked-pe -l $(cut) -g 1 -t $t -m0 $(long_reads) |\
+	arcs --arks -v -D -B $B -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) -u $(reads).barcode-multiplicity.tsv /dev/stdin
 else
-	$(gtime) arcs --arks -v -D -B $B --dist_upper -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) $(word 2,$^) --barcode-counts $(barcode_counts).tsv
+	$(gtime) $(bin)/../src/long-to-linked-pe -l $(cut) -g 1 -t $t -m0 $(long_reads) |\
+	arcs --arks -v -D -B $B --dist_upper -f $< -c $c -m $m -r $r -e $e -z $z -j $j -k $k -t $t -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) -u $(reads).barcode-multiplicity.tsv /dev/stdin
 endif
 
 # Generate TSV from ARCS
