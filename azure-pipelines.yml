@@ -22,7 +22,7 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: 1
   - script: |
       cd Examples
-      pylint long-to-linked-pe makeTSVfile.py
+      pylint makeTSVfile.py
       cd ../
     displayName: Run pylint
   - script: make distcheck
