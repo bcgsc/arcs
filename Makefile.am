@@ -11,6 +11,5 @@ dist_doc_DATA = \
 
 EXTRA_DIST = autogen.sh \
 	     Examples/arcs-make \
-	     Examples/long-to-linked-pe \
 	     Examples/makeTSVfile.py
 
