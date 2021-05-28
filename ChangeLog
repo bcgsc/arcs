@@ -1,3 +1,11 @@
+2021-05-28 Lauren Coombe <lcoombe@bcgsc.ca>
+
+    * Release version 1.2.2
+    * long-to-linked-pe script ported to C++
+    * pseudo-linked reads are streamed directly from long-to-linked to
+    `arcs --arks` in ARKS-long mode
+    * Bugfixes
+
 2021-01-29  Theodora Lo <tlo@bcgsc.ca>
 	
 	* Release version 1.2.1
