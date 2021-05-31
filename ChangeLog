@@ -2,7 +2,7 @@
 
     * Release version 1.2.2
     * long-to-linked-pe script ported to C++
-    * pseudo-linked reads are streamed directly from long-to-linked to
+    * pseudo-linked reads are streamed directly from long-to-linked-pe to
     `arcs --arks` in ARKS-long mode
     * Bugfixes
 
