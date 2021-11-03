@@ -1,5 +1,5 @@
 jobs:
- job:
+- job:
   displayName: ubuntu-latest
   pool:
     vmImage: 'ubuntu-latest'
