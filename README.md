@@ -18,7 +18,7 @@ Because ARKS is not dependent on read alignments, it is generally much faster th
 
 ### Dependencies
 * Boost (tested on 1.61)
-* GCC (tested on 4.4.7)
+* GCC (5.1+)
 * Autotools (if cloning directly from repository) 
 * LINKS (tested on 1.8)
 * Google SparseHash
