@@ -22,7 +22,7 @@ jobs:
     displayName: Compile ARCS
   - script: |
       source activate arcs_CI
-      conda install python pylint
+      conda install --yes --quiet -c ARCS_CI python pylint
     displayName: Install Python packages
   - script: |
       source activate arcs_CI
