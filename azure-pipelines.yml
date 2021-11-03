@@ -1,8 +1,16 @@
 jobs:
-- job: Test
-  container:
-    image: "linuxbrew/brew"
+ job:
+  displayName: ubuntu-latest
+  pool:
+    vmImage: 'ubuntu-latest'
+
   steps:
+  - script: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
+
+  - script: conda create --yes --quiet --name arcs_CI
+    displayName: Create Anaconda environment
+
   - script: |
       sudo apt-get update -qq
       sudo apt-get install -qq libboost-dev libsparsehash-dev automake
@@ -13,14 +21,11 @@ jobs:
       make
     displayName: Compile ARCS
   - script: |
-      sudo HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install python
-      sudo /home/linuxbrew/.linuxbrew/bin/pip3 install --upgrade setuptools \
-      -U pip --no-cache-dir \
-      pylint .
+      conda activate arcs_CI
+      conda install python pip3 pylint
     displayName: Install Python packages
-    env:
-      HOMEBREW_NO_AUTO_UPDATE: 1
   - script: |
+      conda activate arcs_CI
       cd Examples
       pylint makeTSVfile.py
       cd ../
