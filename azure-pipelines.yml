@@ -21,11 +21,11 @@ jobs:
       make
     displayName: Compile ARCS
   - script: |
-      conda activate arcs_CI
+      source activate arcs_CI
       conda install python3 pylint
     displayName: Install Python packages
   - script: |
-      conda activate arcs_CI
+      source activate arcs_CI
       cd Examples
       pylint makeTSVfile.py
       cd ../
