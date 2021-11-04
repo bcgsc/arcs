@@ -189,7 +189,7 @@ $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
 
 #Pre-processing long reads; cut into shorter segments (pseudo-linked reads)
 %.cut$(cut).fq.gz: $(long_reads)
-	$(gtime) sh -c 'gunzip -c $< | $(bin)../Examples/long-to-linked-pe -l$(cut) --fastq | $(gzip) > $@'
+	$(gtime) sh -c '$(bin)../src/long-to-linked-pe -l $(cut) -t $t -m2000 $(long_reads) | $(gzip) > $@'
 
 
 #Run ARCS
