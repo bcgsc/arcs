@@ -1,8 +1,16 @@
 jobs:
-- job: Test
-  container:
-    image: "linuxbrew/brew"
+- job:
+  displayName: ubuntu-latest
+  pool:
+    vmImage: 'ubuntu-latest'
+
   steps:
+  - script: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
+
+  - script: conda create --yes --quiet --name arcs_CI
+    displayName: Create Anaconda environment
+
   - script: |
       sudo apt-get update -qq
       sudo apt-get install -qq libboost-dev libsparsehash-dev automake
@@ -13,14 +21,11 @@ jobs:
       make
     displayName: Compile ARCS
   - script: |
-      sudo HOMEBREW_NO_AUTO_UPDATE=1 /home/linuxbrew/.linuxbrew/bin/brew install python
-      sudo /home/linuxbrew/.linuxbrew/bin/pip3 install --upgrade setuptools \
-      -U pip --no-cache-dir \
-      pylint .
+      source activate arcs_CI
+      conda install --yes --quiet --name arcs_CI python pylint
     displayName: Install Python packages
-    env:
-      HOMEBREW_NO_AUTO_UPDATE: 1
   - script: |
+      source activate arcs_CI
       cd Examples
       pylint makeTSVfile.py
       cd ../
@@ -29,11 +34,9 @@ jobs:
     displayName: Compile ARCS with make distcheck
   - script: |
       curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main"
+      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-11 main"
       sudo apt-get update
-      sudo apt-get install -y --no-install-recommends clang-format-8 clang-tidy-8
-      sudo ln -sf clang-format-8 /usr/bin/clang-format
-      sudo ln -sf clang-tidy-8 /usr/bin/clang-tidy
+      sudo apt-get install -y --no-install-recommends clang-format clang-tidy
     displayName: Install clang-format and clang-tidy
   - script: |
       make -C Arcs clang-format
