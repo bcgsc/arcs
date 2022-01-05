@@ -55,6 +55,9 @@ l=5
 a=0.3
 bin=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 
+# Control minimap2 index split parameter (-I)
+minimap2_index_size=50G
+
 SHELL=bash -e -o pipefail
 ifeq ($(shell zsh -e -o pipefail -c 'true' 2>/dev/null; echo $$?), 0)
 #Set pipefail to ensure that all commands of a pipe succeed.
@@ -188,8 +191,8 @@ $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
 	$(gtime) tigmint tigmint draft=$(draft) reads=$(reads) minsize=$(minsize) as=$(as) nm=$(nm) dist=$(dist) mapq=$(mapq) trim=$(trim) span=$(span) window=$(window) t=$t 
 
 #Pre-processing long reads; cut into shorter segments (pseudo-linked reads)
-%.cut$(cut).fq.gz: $(long_reads)
-	$(gtime) sh -c '$(bin)../src/long-to-linked-pe -l $(cut) -t $t -m2000 $(long_reads) | $(gzip) > $@'
+$(reads).cut$(cut).fq.gz: $(long_reads)
+	$(gtime) sh -c '$(bin)/../src/long-to-linked-pe -l $(cut) -t $t -m2000 $(long_reads) | $(gzip) > $@'
 
 
 #Run ARCS
@@ -230,15 +233,15 @@ endif
 # long
 %_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_original.gv: %.renamed.fa $(reads).cut$(cut).fq.gz
 ifneq ($D, true)
-	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no -I $(minimap2_index_size) $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
 		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
 		arcs -f $< -v -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
 else ifneq ($(dist_upper), true)
-	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no -I $(minimap2_index_size) $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
 		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
 		arcs -D -B $B -v -f $< -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
 else
-	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
+	$(gtime) minimap2 -ax map-ont -y -t$t --secondary=no -I $(minimap2_index_size) $< $(reads).cut$(cut).fq.gz | abyss-fixmate-ssq --all --qname | \
 		samtools view -Sb - | samtools sort -@$t -O SAM -n - -o - | \
 		arcs -D -B $B --dist_upper -v -f $<  -c $c -m $m -s $s -r $r -e $e -z $z -d $d --gap $(gap) -b $(patsubst %_original.gv,%,$@) --barcode-counts $(barcode_counts).tsv /dev/stdin
 endif
