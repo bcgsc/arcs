@@ -1,7 +1,0 @@
-graph G {
-0 [id=1];
-1 [id=2];
-2 [id=3];
-0--1 [label=2, weight=15];
-1--2 [label=2, weight=28];
-}
