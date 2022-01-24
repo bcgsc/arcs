@@ -151,6 +151,10 @@ TGTCTTCCTGGACAGCTGACATCCCTTTTGTTTTTCTGTTTGCTCAGATGCTGTCTCTTATACACATCTTAGGAAGACAA
 FFFFFFFGFGFFGFDFGFFFFFFFFFFFGFFF@FFFFFFFFFFFF@FFFFFFFFFGGFFEFEFFFF?FFFFGFFFGFFFFFFFGFFEFGFGGFGFFFGFF
 ```
 
+## Simulating pseudo-linked reads from long reads
+
+![Pseudo-linked read simulation](https://github.com/bcgsc/arcs/blob/master/arcs-long_pseudo-linked-reads.png)
+
 ### About ARCS/ARKS
 
 Thank you for your [![Stars](https://img.shields.io/github/stars/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/stargazers) and for using, developing and promoting this free software!
