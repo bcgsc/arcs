@@ -153,7 +153,7 @@ FFFFFFFGFGFFGFDFGFFFFFFFFFFFGFFF@FFFFFFFFFFFF@FFFFFFFFFGGFFEFEFFFF?FFFFGFFFGFFFF
 
 ## Simulating pseudo-linked reads from long reads
 
-![Pseudo-linked read simulation](https://github.com/bcgsc/arcs/blob/master/arcs-long_pseudo-linked-reads.png)
+![Pseudo-linked read simulation](arcs-long_pseudo-linked-reads.png)
 
 ### About ARCS/ARKS
 
