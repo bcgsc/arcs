@@ -123,6 +123,10 @@ arcs-make arks-long draft=my_scaffolds reads=my_reads k=20 j=0.05
 * `l=4`
 * `a=0.3`
 
+## Simulating pseudo-linked reads from long reads
+
+![Pseudo-linked read simulation](arcs-long_pseudo-linked-reads.png)
+
 ## Demo
 
 You can test your installation by running one of our supplied demos:
@@ -150,10 +154,6 @@ TGTCTTCCTGGACAGCTGACATCCCTTTTGTTTTTCTGTTTGCTCAGATGCTGTCTCTTATACACATCTTAGGAAGACAA
 +
 FFFFFFFGFGFFGFDFGFFFFFFFFFFFGFFF@FFFFFFFFFFFF@FFFFFFFFFGGFFEFEFFFF?FFFFGFFFGFFFFFFFGFFEFGFGGFGFFFGFF
 ```
-
-## Simulating pseudo-linked reads from long reads
-
-![Pseudo-linked read simulation](arcs-long_pseudo-linked-reads.png)
 
 ### About ARCS/ARKS
 
