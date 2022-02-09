@@ -87,6 +87,11 @@ gtime=command time -v -o $@.time
 endif
 endif
 
+# Error if user sets LINKS 'a' to 1
+ifeq ($a, 1)
+$(error Error: Please set LINKS 'a' parameter to less than 1)
+endif
+
 
 .PHONY: all version help clean tigmint arcs arcs-tigmint arcs-with-tigmint arks arks-tigmint arks-with-tigmint
 .DELETE_ON_ERROR:
