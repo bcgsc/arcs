@@ -49,13 +49,13 @@ The ARCS+LINKS pipeline requires two input files:
 * Reads file in fastq format `*.fq.gz` (or fasta format `*.fa.gz` if using long reads)
   * For linked reads, ARCS expects an interleaved linked reads file (Barcode sequence expected in the BX tag of the read header or in the form "@readname_barcode" ; Run [Long Ranger basic](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/what-is-long-ranger) on raw chromium reads to produce this interleaved file)
 
-The Makefile located here: Examples/arcs-make will run the full ARCS pipeline. It will also optionally run the misassembly corrector [Tigmint](https://github.com/bcgsc/tigmint) prior to scaffolding with ARCS.
+The Makefile located here: bin/arcs-make will run the full ARCS pipeline. It will also optionally run the misassembly corrector [Tigmint](https://github.com/bcgsc/tigmint) prior to scaffolding with ARCS.
 
 There are three steps to the pipeline:
 
 1. Run ARCS to generate a Graphviz Dot file (.gv). Nodes in the graph are the sequences to scaffold, and edges show that there is evidence to suggest nodes are linked based on the data obtained from the GemCode/Chromium reads.
 
-2. Run the python script Examples/makeTSVfile.py to generate a file named XXX.tigpair_checkpoint file from the ARCS graph file. The XXX.tigpair_checkpoint file will be provided to LINKS in step 3.
+2. Run the python script bin/makeTSVfile.py to generate a file named XXX.tigpair_checkpoint file from the ARCS graph file. The XXX.tigpair_checkpoint file will be provided to LINKS in step 3.
 
 3. Run LINKS with the XXX.tigpair_checkpoint file as input. To do this, the base name (-b) must be set to the same name as XXX.
 
@@ -67,12 +67,12 @@ An example bash script on how to run the ARCS+LINKS pipeline can be found at: Ex
 
 The default mode uses alignments of linked reads to contigs to scaffold the input contigs.
 
-To run the pipeline in default mode, run `Examples/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a minimum contig length of 1000bp:
+To run the pipeline in default mode, run `bin/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a minimum contig length of 1000bp:
 ```
 arcs-make arcs draft=my_scaffolds reads=my_reads z=1000
 ```
 
-For more info check `Examples/arcs-make help`.
+For more info check `bin/arcs-make help`.
 
 To run the `arcs` executable in default mode, run `arcs <alignments>`. For descriptions of all arguments, run `arcs --help`.
 
@@ -80,12 +80,12 @@ To run the `arcs` executable in default mode, run `arcs <alignments>`. For descr
 
 The arcs-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Alignments of the pseudo-linked reads are then used to scaffold the input contigs.
 
-To run the pipeline in arcs-long mode, run `Examples/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a minimum contig length of 1000bp:
+To run the pipeline in arcs-long mode, run `bin/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a minimum contig length of 1000bp:
 ```
 arcs-make arcs-long draft=my_scaffolds reads=my_reads z=1000
 ```
 
-For more info check `Examples/arcs-make help`.
+For more info check `bin/arcs-make help`.
 
 **Parameters**: To account for the higher error rates in long reads vs linked reads, we suggest starting with the following values: 
 * `m=8-10000`
@@ -98,11 +98,11 @@ Note that lowering `c`, `l` and increasing `a` may increase contiguity, but will
 
 ### Running ARCS in '--arks' mode
 
-To run the pipeline in ARKS mode, run `Examples/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a kmer size of 60:
+To run the pipeline in ARKS mode, run `bin/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a kmer size of 60:
 ```
 arcs-make arks draft=my_scaffolds reads=my_reads k=60
 ```
-For more info check `Examples/arcs-make help`.
+For more info check `bin/arcs-make help`.
 
 To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions of all arguments, run `arcs --help`.
 
@@ -110,7 +110,7 @@ To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions o
 
 The arks-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Scaffolding is performed based on exact k-mer mapping of pseudo-linked reads to the input contigs.
 
-To run the pipeline in arks-long mode, run `Examples/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a kmer size of 20 and `j` of 0.05:
+To run the pipeline in arks-long mode, run `bin/arcs-make arks-long`. For example, to scaffold the assembly `my_scaffolds.fa` with long reads `my_reads.fa.gz` or `my_reads.fq.gz`, specifying a kmer size of 20 and `j` of 0.05:
 ```
 arcs-make arks-long draft=my_scaffolds reads=my_reads k=20 j=0.05
 ```
