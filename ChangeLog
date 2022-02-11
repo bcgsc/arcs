@@ -1,3 +1,13 @@
+2022-02-11 Lauren Coombe <lcoombe@bcgsc.ca>
+
+    * Release version 1.2.3
+    * Add arcs-make, makeTSVfile.py to 'bin' folder
+    * Add `-I` option to minimap2 for arcs-long target to avoid
+    splitting index if genome size large
+      * Set to 50G by default, can be changed using `minimap2_index_size`
+    * Update documentation
+    * Bugfixes
+
 2021-05-28 Lauren Coombe <lcoombe@bcgsc.ca>
 
     * Release version 1.2.2
