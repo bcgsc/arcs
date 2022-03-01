@@ -1,6 +1,6 @@
 bin_PROGRAMS = long-to-linked-pe
 
-long_to_linked_pe_CXXFLAGS = -O3 -Wall -Werror -Wno-unknown-pragmas -std=c++11 -pthread -I$(top_srcdir)/src/include
+long_to_linked_pe_CXXFLAGS = -O3 -Wall -Werror -Wno-unknown-pragmas -std=c++11 -pthread -I$(top_srcdir)/src/btllib/include
 
 CXXFLAGS =  $(long_to_linked_pe_CXXFLAGS)
 
