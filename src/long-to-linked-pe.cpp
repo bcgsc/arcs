@@ -21,7 +21,7 @@
 #include <vector>
 
 const static std::string PROGNAME = "long-to-linked-pe";
-const static std::string VERSION = "v1.0";
+const static std::string VERSION = "v1.2.5";
 const static size_t MAX_THREADS = 6;
 
 static void
@@ -184,9 +184,8 @@ main(int argc, char* argv[])
 
 	for (auto& infile : infiles) {
 		unsigned flags = 0;
-		flags |= btllib::SeqReader::Flag::NO_FOLD_CASE; // skip time intensive checking
-		flags |= btllib::SeqReader::Flag::NO_TRIM_MASKED;
-		btllib::SeqReader reader(infile, flags, t - 1, 4, 1);
+		flags |= btllib::SeqReader::Flag::LONG_MODE;
+		btllib::SeqReader reader(infile, flags, t);
 		btllib::SeqReader::Record record;
 		while ((record = reader.read())) {
 			size_t step = l * 2;
@@ -224,7 +223,7 @@ main(int argc, char* argv[])
 
 				int read_num = 1;
 				for (size_t i = 0; i <= seq_size - step; i = i + step) {
-					std::cout << header_symbol << record.name << "_f" << read_num
+					std::cout << header_symbol << record.id << "_f" << read_num
 					          << " BX:Z:" << record.num + 1 << '\n';
 					std::cout << seq.substr(i, l) << '\n';
 					if (!with_fasta) {
@@ -237,7 +236,7 @@ main(int argc, char* argv[])
 					}
 					std::string reverse_linked_read = seq.substr(i + l, l);
 					btllib::reverse_complement(reverse_linked_read);
-					std::cout << header_symbol << record.name << "_f" << read_num
+					std::cout << header_symbol << record.id << "_f" << read_num
 					          << " BX:Z:" << record.num + 1 << '\n';
 					std::cout << reverse_linked_read << '\n';
 					if (!with_fasta) {
@@ -256,7 +255,7 @@ main(int argc, char* argv[])
 				size_t remainder = seq_size % step;
 				if (remainder != 0) {
 					size_t curr_i = seq_size - remainder;
-					std::cout << header_symbol << record.name << "_f" << read_num
+					std::cout << header_symbol << record.id << "_f" << read_num
 					          << " BX:Z:" << record.num + 1 << '\n';
 					std::string forward_linked_read = seq.substr(curr_i, l);
 					std::cout << forward_linked_read << '\n';
@@ -271,7 +270,7 @@ main(int argc, char* argv[])
 					std::string reverse_linked_read = seq.substr(
 					    seq_size - forward_linked_read.size(), forward_linked_read.size());
 					btllib::reverse_complement(reverse_linked_read);
-					std::cout << header_symbol << record.name << "_f" << read_num
+					std::cout << header_symbol << record.id << "_f" << read_num
 					          << " BX:Z:" << record.num + 1 << '\n';
 					std::cout << reverse_linked_read << '\n';
 					if (!with_fasta) {
