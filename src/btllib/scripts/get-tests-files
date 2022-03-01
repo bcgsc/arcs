@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ -z "${MESON_SOURCE_ROOT}" ]; then
+  echo "[ERROR] This script can only be ran with meson!"
+  exit 1
+fi
+
+set -e
+
+cd "${MESON_SOURCE_ROOT}"
+
+. scripts/portable_realpath
+
+files=$(find tests -type f | grep "\(.*\.h$\)\|\(.*\.hpp$\)\|\(.*\.cpp$\)\|\(.*\.cxx$\)")
+for file in $files; do
+  echo -n "$(portable_realpath $file) "
+done

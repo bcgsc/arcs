@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ -z "${MESON_SOURCE_ROOT}" ]; then
+  echo "[ERROR] This script can only be ran with meson!"
+  exit 1
+fi
+
+set -e
+
+cd "${MESON_SOURCE_ROOT}"
+
+files=$(scripts/get-include-files)
+files+=$(scripts/get-tests-files)
+files+=$(scripts/get-examples-files)
+files+=$(scripts/get-recipes-files)
+for file in $files; do
+  diff $file <(clang-format -style=mozilla $file)
+done

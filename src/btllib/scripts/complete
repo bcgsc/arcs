@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ -z "${MESON_BUILD_ROOT}" ]; then
+  echo "[ERROR] This script can only be ran with meson!"
+  exit 1
+fi
+
+set -e
+
+cd "${MESON_BUILD_ROOT}"
+
+ninja build-sdsl format wrap tidycheck #cppcheck
+ninja test
+ninja sanitize-undefined
+ninja docs
+cd "${MESON_SOURCE_ROOT}"
+./compile
+cd "${MESON_SOURCE_ROOT}/build"
+ninja test-wrappers
