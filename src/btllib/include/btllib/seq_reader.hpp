@@ -124,6 +124,7 @@ public:
   static const size_t MAX_SIMULTANEOUS_SEQREADERS = 256;
 
   /** For range-based for loop only. */
+  /// @cond HIDDEN_SYMBOLS
   class RecordIterator
   {
   public:
@@ -155,6 +156,7 @@ public:
     SeqReader& reader;
     Record record;
   };
+  /// @endcond
 
   RecordIterator begin() { return RecordIterator(*this, false); }
   RecordIterator end() { return RecordIterator(*this, true); }
@@ -257,6 +259,7 @@ private:
     OrderQueueSPMC<RecordCString>::Block& records,
     size_t& counter);
 
+  /// @cond HIDDEN_SYMBOLS
   template<typename Module>
   void read_from_buffer(Module& module,
                         OrderQueueSPMC<RecordCString>::Block& records,
@@ -271,6 +274,7 @@ private:
   void read_from_file(Module& module,
                       OrderQueueSPMC<RecordCString>::Block& records,
                       size_t& counter);
+  /// @endcond
 
   friend class SeqReaderFastaModule;
   SeqReaderFastaModule fasta_module;

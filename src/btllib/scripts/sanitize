@@ -1,0 +1,77 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "${MESON_SOURCE_ROOT}" ]; then
+  echo "[ERROR] This script can only be ran with meson!"
+  exit 1
+fi
+
+if [ "$#" -ne 1 ]; then
+    echo "Must provide the sanitation mode."
+    echo "sanitize <address|memory|thread|undefined>"
+    exit -1
+fi
+
+possible_options=( "address" "memory" "thread" "undefined" )
+if [[ ! " ${possible_options[*]} " =~ " ${1} " ]]; then
+  echo "The option must be one of the following: address, memory, thread, undefined"
+  exit -1
+fi
+
+cd "${MESON_SOURCE_ROOT}"
+
+case ${1} in
+  address)
+    builddir="${MESON_BUILD_ROOT}/__build-sanitize-address"
+    meson setup -Db_sanitize=address ${builddir}
+    ;;
+  memory)
+    # Check if clang is present
+    set +e
+    command -v clang >/dev/null
+    if [[ $? -eq 1 ]]; then
+      echo "[ERROR] Clang compiler must be used for memory sanitization, but it is missing!"
+      exit 1
+    fi
+    set -e
+
+    # GCC does not seem to support memory sanitization
+    export CXX=clang
+    export CC=clang
+
+    builddir="${MESON_BUILD_ROOT}/__build-sanitize-memory"
+    meson setup -Db_sanitize=memory ${builddir} -Db_lundef=false
+    ;;
+  thread)
+    # Check if clang is present
+    set +e
+    command -v clang >/dev/null
+    if [[ $? -eq 1 ]]; then
+      echo "[ERROR] Clang compiler must be used for thread sanitization, but it is missing!"
+      exit 1
+    fi
+    set -e
+
+    # GCC gives false positives when sanitizing threads if OpenMP is used
+    # Clang on the other hand seems to handle this properly
+    export CXX=clang
+    export CC=clang
+    export TSAN_OPTIONS='ignore_noninstrumented_modules=1'
+
+    builddir="${MESON_BUILD_ROOT}/__build-sanitize-thread"
+    meson setup -Db_sanitize=thread ${builddir} -Db_lundef=false
+    ;;
+  undefined)
+    builddir="${MESON_BUILD_ROOT}/__build-sanitize-undefined"
+    meson setup -Db_sanitize=undefined ${builddir}
+    ;;
+  *)
+    echo "Invalid option."
+    exit -1
+    ;;
+esac
+
+cd ${builddir}
+ninja test
+rm -rf ${builddir}

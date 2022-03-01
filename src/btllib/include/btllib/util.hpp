@@ -232,6 +232,7 @@ get_dirname(const std::string& path)
 }
 
 // This exists in C++20, but we don't support that yet
+/// @cond HIDDEN_SYMBOLS
 class Barrier
 {
 
@@ -262,6 +263,7 @@ private:
   unsigned counter_default;
   unsigned waiting;
 };
+/// @endcond
 
 } // namespace btllib
 

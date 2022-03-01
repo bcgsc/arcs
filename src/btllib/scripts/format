@@ -9,10 +9,7 @@ set -e
 
 cd "${MESON_SOURCE_ROOT}"
 
-files=$(scripts/get-include-files)
-files+=$(scripts/get-tests-files)
-files+=$(scripts/get-examples-files)
-files+=$(scripts/get-recipes-files)
+files=$(scripts/get-files src include tests examples recipes)
 for file in $files; do
   clang-format -i -style=mozilla $file
 done

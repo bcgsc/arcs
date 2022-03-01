@@ -42,6 +42,7 @@ pop_cnt_byte(uint8_t x)
          0xf;                                                          // NOLINT
 }
 
+/// @cond HIDDEN_SYMBOLS
 class BloomFilterInitializer
 {
 
@@ -70,6 +71,7 @@ public:
   BloomFilterInitializer& operator=(const BloomFilterInitializer&) = delete;
   BloomFilterInitializer& operator=(BloomFilterInitializer&&) = default;
 };
+/// @endcond
 
 class BloomFilter
 {

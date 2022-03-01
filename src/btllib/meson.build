@@ -1,7 +1,10 @@
 project('btllib', 'cpp',
-        version : '1.2.0',
+        version : '1.3.0',
         license : 'GPL3',
         default_options : [ 'cpp_std=c++11', 'warning_level=3', 'werror=true' ])
+
+# Dependencies and compiler
+# ===========================================================
 
 threads_dep = dependency('threads')
 openmp_dep = dependency('openmp', required : false)
@@ -11,11 +14,24 @@ compiler = meson.get_compiler('cpp')
 compiler_id = compiler.get_id()
 compiler_version = compiler.version()
 
+if compiler_id == 'gcc' and compiler_version.version_compare('<5.0.0')
+  error('GCC ' + compiler_version + ' is unsupported.')
+endif
+if compiler_id == 'clang' and compiler_version.version_compare('<4.0.0')
+  error('Clang ' + compiler_version + ' is unsupported.')
+endif
+
+fs = import('fs')
+
+# Configuration
+# ===========================================================
+
 conf = configuration_data()
 conf.set('PROJECT_VERSION', meson.project_version(), description : 'btllib version. Useful to append to the help prompt of recipes.')
 configure_file(input : 'include/btllib/btllib_config.hpp.in', output : 'btllib_config.hpp', configuration : conf)
 
-fs = import('fs')
+# Compile and link arguments
+# ===========================================================
 
 global_args = []
 global_link_args = [ '-ldl' ]
@@ -31,14 +47,8 @@ global_link_args += [ '-L' + meson.source_root() + '/external/sdsl-lite/installd
 add_global_arguments(global_args, language : 'cpp')
 add_global_link_arguments(global_link_args, language : 'cpp')
 
-if compiler_id == 'gcc' and compiler_version.version_compare('<5.0.0')
-  error('GCC ' + compiler_version + ' is unsupported.')
-endif
-if compiler_id == 'clang' and compiler_version.version_compare('<4.0.0')
-  error('Clang ' + compiler_version + ' is unsupported.')
-endif
-
-btllib_include = [ include_directories('include'), include_directories('.') ]
+# Custom run commands
+# ===========================================================
 
 rootpath = meson.source_root()
 
@@ -69,10 +79,22 @@ if cppcheck.found()
   run_target('cppcheck', command: join_paths(rootpath, 'scripts/cppcheck'))
 endif
 
-run_target('sanitize-address', command: join_paths(rootpath, 'scripts/sanitize-address'))
-run_target('sanitize-thread', command: join_paths(rootpath, 'scripts/sanitize-thread'))
-run_target('sanitize-undefined', command: join_paths(rootpath, 'scripts/sanitize-undefined'))
-run_target('sanitize-memory', command: join_paths(rootpath, 'scripts/sanitize-memory'))
+run_target('sanitize-address', command: [
+  join_paths(rootpath, 'scripts/sanitize'),
+  'address'
+])
+run_target('sanitize-memory', command: [
+  join_paths(rootpath, 'scripts/sanitize'),
+  'memory'
+])
+run_target('sanitize-thread', command: [
+  join_paths(rootpath, 'scripts/sanitize'),
+  'thread'
+])
+run_target('sanitize-undefined', command: [
+  join_paths(rootpath, 'scripts/sanitize'),
+  'undefined'
+])
 
 doxygen = find_program('doxygen', required : false)
 if doxygen.found()
@@ -83,7 +105,24 @@ run_target('complete', command: join_paths(rootpath, 'scripts/complete'))
 
 run_target('test-wrappers', command: join_paths(rootpath, 'scripts/test-wrappers'))
 
-subdir('include')
+# The library
+# ===========================================================
+
+btllib_include = [ include_directories('include'), include_directories('.') ]
+btllib_sources = run_command('scripts/get-files', 'src').stdout().strip().split()
+
+btllib_lib = static_library('btllib',
+                           btllib_sources,
+                           include_directories : btllib_include,
+                           dependencies : deps,
+                           install : true,
+                           install_dir : 'lib')
+
+btllib_dep = declare_dependency(
+  link_with : btllib_lib,
+  include_directories : btllib_include
+)
+
 subdir('wrappers')
 subdir('recipes')
 if get_option('buildtype') != 'release'

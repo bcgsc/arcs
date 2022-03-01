@@ -13,7 +13,7 @@ rm -f ${MESON_SOURCE_ROOT}/wrappers/python/*.py
 # Generate python swig files
 cd ${MESON_SOURCE_ROOT}
 
-include_files=$(scripts/get-include-files)
+include_files=$(scripts/get-files include)
 
 echo "%module btllib
 

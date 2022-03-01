@@ -17,15 +17,7 @@ Download
 ---
 The recommended way is to download the [latest release](https://github.com/bcgsc/btllib/releases/latest).
 
-C++
----
-- Dependencies
-  * GCC 5+ or Clang 4+ with OpenMP
-- Copy the root `btllib` directory into your project
-- Use any header from the `btllib/include` directory (pass `-I btllib/include` flag to the compiler)
-- `btllib` uses `C++11` features, so that standard should be enabled at a minimum.
-
-Python 
+Usage
 ---
 - Dependencies
   * GCC 5+ or Clang 4+ with OpenMP
@@ -33,8 +25,12 @@ Python
   * Meson and Ninja Python3 packages, and CMake (optional -- if they are missing, they will be automatically downloaded to a temporary directory)
 - Copy the root `btllib` directory into your project
 - Run `btllib/compile`
-- The wrappers correspond one-to-one with C++ code so any functions and classes can be used under the same name. The only exception are nested classes which are prefixed with outer class name (e.g. `btllib::SeqReader::Flag` in C++ versus `btllib.SeqReaderFlag` in Python).
-- Python
+- C++
+  * Link your code with `btllib/lib/libbtllib.a` (pass `-L btllib/lib -l btllib` flags to the compiler).
+  * `#include` any header from the `btllib/include` directory (pass `-I btllib/include` flag to the compiler).
+  * `btllib` uses `C++11` features, so that standard should be enabled at a minimum.
+- Python wrappers
+  * The wrappers correspond one-to-one with C++ code so any functions and classes can be used under the same name. The only exception are nested classes which are prefixed with outer class name (e.g. `btllib::SeqReader::Flag` in C++ versus `btllib.SeqReaderFlag` in Python).
   * Use Python's `sys.path.append()` to include `btllib/python` directory
   * Include the library with `import btllib`
 

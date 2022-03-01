@@ -94,6 +94,7 @@ public:
   }
 
   // TODO: include allowed miss in header
+  /// @cond HIDDEN_SYMBOLS
 #pragma pack(1) // to maintain consistent values across platforms
   struct FileHeader
   {
@@ -105,6 +106,7 @@ public:
     uint32_t version;
     //		uint8_t allowed_miss;
   };
+  /// @endcond
 
   /*
    * Constructor using a prebuilt bitvector

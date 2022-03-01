@@ -39,8 +39,6 @@ tidy_options="[
   { key: readability-identifier-naming.ConstexprVariableCase,     value: UPPER_CASE },
 ]"
 
-files=$(scripts/get-include-files)
-files+=$(scripts/get-examples-files)
-files+=$(scripts/get-recipes-files)
+files=$(scripts/get-files src include examples recipes)
 clang-tidy -warnings-as-errors='*' -config="{Checks: '$tidy_checks', CheckOptions: $tidy_options}" $files -- \
 -std=c++11 -Iinclude -I${MESON_BUILD_ROOT} $@

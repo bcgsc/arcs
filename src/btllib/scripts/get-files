@@ -1,0 +1,54 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "${MESON_SOURCE_ROOT}" ]; then
+  echo "[ERROR] This script can only be ran with meson!"
+  exit 1
+fi
+
+if [ "$#" -lt 1 ]; then
+    echo "Must provide at least one directory."
+    echo "get-files <src|include|recipes|examples|tests|wrappers|all>"
+    exit -1
+fi
+
+possible_options=( "src" "include" "recipes" "examples" "tests" "wrappers" "all" )
+for arg in "$@"; do
+  if [[ ! " ${possible_options[*]} " =~ " ${arg} " ]]; then
+    echo "Each option must be one of the following: src, include, recipes, examples, tests, wrappers, all"
+    exit -1
+  fi
+done
+
+cd "${MESON_SOURCE_ROOT}"
+
+. scripts/portable_realpath
+
+search_dirs=""
+for arg in "$@"; do
+  case ${arg} in
+    src)
+      search_dirs+="src/btllib ";;
+    include)
+      search_dirs+="include/btllib ";;
+    recipes)
+      search_dirs+="recipes ";;
+    examples)
+      search_dirs+="examples ";;
+    tests)
+      search_dirs+="tests ";;
+    wrappers)
+      search_dirs+="wrappers/python ";;
+    all)
+      search_dirs+="src/btllib include/btllib recipes examples tests ";;
+    *)
+      echo "Invalid option."
+      exit -1;;
+  esac
+done
+
+files=$(find ${search_dirs} -type f | grep "\(.*\.h$\)\|\(.*\.hpp$\)\|\(.*\.cpp$\)\|\(.*\.cxx$\)")
+for file in $files; do
+  echo -n "$(portable_realpath $file) "
+done

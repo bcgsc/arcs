@@ -148,6 +148,7 @@ public:
   static const size_t MAX_SIMULTANEOUS_INDEXLRS = 256;
 
   /** For range-based for loop only. */
+  /// @cond HIDDEN_SYMBOLS
   class RecordIterator
   {
   public:
@@ -179,6 +180,7 @@ public:
     Indexlr& indexlr;
     Record record;
   };
+  /// @endcond
 
   RecordIterator begin() { return RecordIterator(*this, false); }
   RecordIterator end() { return RecordIterator(*this, true); }

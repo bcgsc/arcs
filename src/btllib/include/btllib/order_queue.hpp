@@ -53,6 +53,7 @@ public:
 
   // Surrounds pieces of data in the buffer with a busy mutex
   // for exclusive access
+  /// @cond HIDDEN_SYMBOLS
   struct Slot
   {
     Slot(size_t block_size)
@@ -93,6 +94,7 @@ public:
     std::condition_variable occupancy_changed;
     size_t last_tenant = -1; // Required to ensure read order
   };
+  /// @endcond
 
   size_t elements() const { return element_count; }
 
