@@ -11,5 +11,6 @@ dist_doc_DATA = \
 
 EXTRA_DIST = autogen.sh \
 	     Examples/arcs-make \
-	     Examples/makeTSVfile.py
+	     Examples/makeTSVfile.py \
+	     $(top_srcdir)/src/btllib
 

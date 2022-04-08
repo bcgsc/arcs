@@ -742,6 +742,14 @@ process_spawner_init()
 
     const pid_t pid = fork();
     if (pid == 0) {
+      // This (and setpgid in parent) are necessary in order to prevent
+      // the spawner process from receiving the same signals as the parent
+      // (e.g. SIGINT). If the parent receives SIGINT, it can decide how
+      // to handle it or whether to ignore it. The spawner will simply
+      // exist in the background and die if the parent dies as well.
+      check_error(setpgid(0, 0) != 0,
+                  "Process pipeline: setpgid failed in spawner process.");
+
       check_error(close(process_spawner_user2spawner_fd[PIPE_WRITE_END]) != 0,
                   "Process pipeline: Pipe close error: " + get_strerror());
       check_error(close(process_spawner_spawner2user_fd[PIPE_READ_END]) != 0,
@@ -759,6 +767,9 @@ process_spawner_init()
       }
       std::exit(EXIT_SUCCESS); // NOLINT(concurrency-mt-unsafe)
     }
+    check_error(setpgid(pid, pid) < 0 && errno != EACCES,
+                "Process pipeline: setpgid failed in parent process.");
+
     check_error(close(process_spawner_user2spawner_fd[PIPE_READ_END]) != 0,
                 "Process pipeline: Pipe close error: " + get_strerror());
     check_error(close(process_spawner_spawner2user_fd[PIPE_WRITE_END]) != 0,

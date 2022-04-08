@@ -1,174 +1,156 @@
 #include "btllib/nthash.hpp"
+#include "btllib/seq.hpp"
 #include "helpers.hpp"
 
 #include <iostream>
 #include <queue>
+#include <stack>
 #include <string>
 
 int
 main()
 {
-  const std::string seq = "ACGTACACTGGACTGAGTCT";
 
   {
-    std::cerr << "Testing single kmer hash values" << std::endl;
-    btllib::NtHash nthash(seq, 3, seq.size());
+    PRINT_TEST_NAME("k-mer hash values")
 
-    const std::vector<uint64_t> hashes = { 10434435546371013747UL,
-                                           16073887395445158014UL,
-                                           8061578976118370557UL };
+    std::string seq = "ACATGCATGCA";
+    const unsigned k = 5;
+    const unsigned h = 3;
 
-    nthash.roll();
-    TEST_ASSERT_EQ(nthash.get_hash_num(), hashes.size());
+    const std::vector<std::array<uint64_t, h>> hashes = {
+      { 0xf59ecb45f0e22b9c, 0x4969c33ac240c129, 0x688d616f0d7e08c3 },
+      { 0x38cc00f940aebdae, 0xab7e1b110e086fc6, 0x11a1818bcfdd553 },
+      { 0x603a48c5a11c794a, 0xe66016e61816b9c4, 0xc5b13cb146996ffe }
+    };
+
+    btllib::NtHash nthash(seq, h, k);
+    btllib::BlindNtHash ntblind(seq, h, k);
+
+    for (const auto& h_vals : hashes) {
+      nthash.roll();
+      TEST_ASSERT_ARRAY_EQ(h_vals, nthash.hashes(), h);
+      ntblind.roll(seq[ntblind.get_pos() + 1]);
+      TEST_ASSERT_ARRAY_EQ(h_vals, ntblind.hashes(), h);
+    }
+  }
+
+  {
+    PRINT_TEST_NAME("k-mer rolling")
+
+    std::string seq = "AGTCAGTC";
+    unsigned h = 3;
+    unsigned k = 4;
+
+    btllib::NtHash nthash(seq, h, k);
+    std::vector<uint64_t*> hashes;
+
+    while (nthash.roll()) {
+      uint64_t* h_vals = new uint64_t[h];
+      std::copy(nthash.hashes(), nthash.hashes() + h, h_vals);
+      hashes.push_back(h_vals);
+    }
+
+    TEST_ASSERT_EQ(hashes.size(), seq.length() - k + 1);
+
+    // check same hash value for identical k-mers (first and last)
+    TEST_ASSERT_ARRAY_EQ(hashes[0], hashes[hashes.size() - 1], h);
+  }
+
+  {
+    PRINT_TEST_NAME("k-mer rolling vs ntbase hash values")
+
+    std::string seq = "ACGTACACTGGACTGAGTCT";
+
+    btllib::NtHash nthash(seq, 3, seq.size() - 2);
+    /* 18-mers of kmer*/
+    std::string kmer1 = "ACGTACACTGGACTGAGT";
+    std::string kmer2 = "CGTACACTGGACTGAGTC";
+    std::string kmer3 = "GTACACTGGACTGAGTCT";
+
+    btllib::NtHash nthash_vector[] = {
+      btllib::NtHash(kmer1, nthash.get_hash_num(), kmer1.size()),
+      btllib::NtHash(kmer2, nthash.get_hash_num(), kmer2.size()),
+      btllib::NtHash(kmer3, nthash.get_hash_num(), kmer3.size())
+    };
+
     size_t i;
-    for (i = 0; i < nthash.get_hash_num(); ++i) {
-      TEST_ASSERT_EQ(nthash.hashes()[i], hashes[i]);
+    for (i = 0; nthash.roll() && nthash_vector[i].roll(); ++i) {
+      for (size_t j = 0; j < nthash.get_hash_num(); ++j) {
+        TEST_ASSERT_EQ(nthash.hashes()[j], nthash_vector[i].hashes()[j]);
+      }
     }
     TEST_ASSERT_EQ(i, 3);
   }
 
   {
-    std::cerr << "Testing rolling" << std::endl;
-    btllib::NtHash nthash(seq, 3, seq.size() - 2);
+    PRINT_TEST_NAME("canonical hashing")
 
-    const std::vector<uint64_t> hashes = {
-      13163759238790597551UL, 12621194261766804115UL, 7338209520836137437UL,
-      1791600248699339671UL,  11191929811376415288UL, 12983529916756035783UL,
-      5425935920907136555UL,  5015085639900805921UL,  10441021516240327793UL
-    };
+    std::string seq_f = "ACGTACACTGGACTGAGTCT";
+    std::string seq_r = "AGACTCAGTCCAGTGTACGT";
+    unsigned h = 3;
 
-    size_t steps = 0;
+    btllib::NtHash nthash_f(seq_f, h, seq_f.size());
+    btllib::NtHash nthash_r(seq_r, h, seq_r.size());
+
+    nthash_f.roll();
+    nthash_r.roll();
+    TEST_ASSERT_EQ(nthash_f.get_hash_num(), nthash_r.get_hash_num())
+    TEST_ASSERT_ARRAY_EQ(nthash_f.hashes(), nthash_r.hashes(), h)
+  }
+
+  {
+    PRINT_TEST_NAME("k-mer back rolling")
+
+    std::string seq = "ACTAGCTG";
+    unsigned h = 3;
+    unsigned k = 5;
+
+    btllib::NtHash nthash(seq, h, k);
+    std::stack<uint64_t*> hashes;
+
     while (nthash.roll()) {
-      for (size_t i = 0; i < nthash.get_hash_num(); ++i) {
-        TEST_ASSERT_EQ(nthash.hashes()[i],
-                       hashes[nthash.get_pos() * nthash.get_hash_num() + i]);
-      }
-      if (nthash.get_pos() > 0) {
-        nthash.peek_back();
-        for (size_t i = 0; i < nthash.get_hash_num(); ++i) {
-          TEST_ASSERT_EQ(
-            nthash.hashes()[i],
-            hashes[(nthash.get_pos() - 1) * nthash.get_hash_num() + i]);
-        }
-        nthash.peek_back(seq[nthash.get_pos() - 1]);
-        for (size_t i = 0; i < nthash.get_hash_num(); ++i) {
-          TEST_ASSERT_EQ(
-            nthash.hashes()[i],
-            hashes[(nthash.get_pos() - 1) * nthash.get_hash_num() + i]);
-        }
-      }
-      steps++;
+      uint64_t* h_vals = new uint64_t[h];
+      std::copy(nthash.hashes(), nthash.hashes() + h, h_vals);
+      hashes.push(h_vals);
     }
-    TEST_ASSERT_EQ(steps, nthash.get_pos() + 1)
-    TEST_ASSERT_EQ(steps, 3)
+
+    TEST_ASSERT_EQ(hashes.size(), seq.length() - k + 1)
+
+    do {
+      TEST_ASSERT_ARRAY_EQ(nthash.hashes(), hashes.top(), h)
+      hashes.pop();
+    } while (nthash.roll_back());
   }
 
   {
-    std::cerr << "Testing rolling backwards" << std::endl;
-    unsigned k = seq.size() - 2;
-    btllib::NtHash nthash(seq, 3, k, seq.size() - k);
+    PRINT_TEST_NAME("k-mer peeking")
 
-    const std::vector<uint64_t> hashes = {
-      13163759238790597551UL, 12621194261766804115UL, 7338209520836137437UL,
-      1791600248699339671UL,  11191929811376415288UL, 12983529916756035783UL,
-      5425935920907136555UL,  5015085639900805921UL,  10441021516240327793UL
-    };
+    std::string seq = "ACTGATCAG";
+    unsigned h = 3;
+    unsigned k = 6;
+
+    btllib::NtHash nthash(seq, h, k);
+    nthash.roll();
 
     size_t steps = 3;
-    while (nthash.roll_back()) {
-      for (size_t i = 0; i < nthash.get_hash_num(); ++i) {
-        TEST_ASSERT_EQ(nthash.hashes()[i],
-                       hashes[nthash.get_pos() * nthash.get_hash_num() + i]);
-      }
-      if (nthash.get_pos() < seq.size() - k) {
-        nthash.peek();
-        for (size_t i = 0; i < nthash.get_hash_num(); ++i) {
-          TEST_ASSERT_EQ(
-            nthash.hashes()[i],
-            hashes[(nthash.get_pos() + 1) * nthash.get_hash_num() + i]);
-        }
-        nthash.peek(seq[nthash.get_pos() + k]);
-        for (size_t i = 0; i < nthash.get_hash_num(); ++i) {
-          TEST_ASSERT_EQ(
-            nthash.hashes()[i],
-            hashes[(nthash.get_pos() + 1) * nthash.get_hash_num() + i]);
-        }
-      }
-      steps--;
-    }
-    TEST_ASSERT_EQ(nthash.get_pos(), 0)
-    TEST_ASSERT_EQ(steps, 0)
-  }
-
-  {
-    std::cerr << "Testing block parsing" << std::endl;
-
-    std::vector<std::vector<unsigned>> blocks_out, monos_out;
-
-    std::vector<std::string> seeds = { "111101111", "1000110001" };
-    std::vector<std::vector<unsigned>> blocks = { { 0, 9 }, { 4, 6 } };
-    std::vector<std::vector<unsigned>> monos = { { 4 }, { 0, 9 } };
-
-    btllib::parse_blocks(seeds, blocks_out, monos_out);
-
-    for (unsigned i_seed = 0; i_seed < seeds.size(); i_seed++) {
-      TEST_ASSERT_EQ(blocks_out[i_seed].size(), blocks[i_seed].size());
-      TEST_ASSERT_EQ(monos_out[i_seed].size(), monos[i_seed].size());
-      for (unsigned i_block = 0; i_block < blocks[i_seed].size(); i_block++) {
-        TEST_ASSERT_EQ(blocks_out[i_seed][i_block], blocks[i_seed][i_block]);
-      }
-      for (unsigned i = 0; i < monos[i_seed].size(); i++) {
-        TEST_ASSERT_EQ(monos_out[i_seed][i], monos[i_seed][i]);
-      }
+    while (steps--) {
+      nthash.peek();
+      uint64_t* h_peek = new uint64_t[h];
+      std::copy(nthash.hashes(), nthash.hashes() + h, h_peek);
+      nthash.peek(seq[nthash.get_pos() + k]);
+      TEST_ASSERT_ARRAY_EQ(nthash.hashes(), h_peek, h);
+      nthash.roll();
+      TEST_ASSERT_ARRAY_EQ(nthash.hashes(), h_peek, h);
     }
   }
 
   {
-    std::cerr << "Testing rolling backwards with spaced seeds" << std::endl;
-    unsigned k = seq.size() - 2;
-    std::vector<std::string> seeds = { "111110000000011111",
-                                       "111111100001111111" };
-    btllib::SeedNtHash seed_nthash(seq, seeds, 2, k, seq.size() - k);
+    PRINT_TEST_NAME("skipping Ns")
 
-    const std::vector<uint64_t> hashes = {
-      817502191096265638ULL,   7002589659100769832ULL,  1859879627538729626ULL,
-      1503737960973537115ULL,  11201337262633184115ULL, 8091243882347916556ULL,
-      13566405847740282550ULL, 9923089871377977073ULL,  1451958618186721217ULL,
-      3905378141411987905ULL,  6006262340350391097ULL,  8505903736152692418ULL
-    };
-
-    size_t steps = 3;
-    while (seed_nthash.roll_back()) {
-      for (size_t i = 0; i < seed_nthash.get_hash_num(); ++i) {
-        TEST_ASSERT_EQ(
-          seed_nthash.hashes()[i],
-          hashes[seed_nthash.get_pos() * seed_nthash.get_hash_num() + i]);
-      }
-      if (seed_nthash.get_pos() < seq.size() - k) {
-        seed_nthash.peek();
-        for (size_t i = 0; i < seed_nthash.get_hash_num(); ++i) {
-          TEST_ASSERT_EQ(
-            seed_nthash.hashes()[i],
-            hashes[(seed_nthash.get_pos() + 1) * seed_nthash.get_hash_num() +
-                   i]);
-        }
-        seed_nthash.peek(seq[seed_nthash.get_pos() + k]);
-        for (size_t i = 0; i < seed_nthash.get_hash_num(); ++i) {
-          TEST_ASSERT_EQ(
-            seed_nthash.hashes()[i],
-            hashes[(seed_nthash.get_pos() + 1) * seed_nthash.get_hash_num() +
-                   i]);
-        }
-      }
-      steps--;
-    }
-    TEST_ASSERT_EQ(seed_nthash.get_pos(), 0)
-    TEST_ASSERT_EQ(steps, 0)
-  }
-
-  {
-    std::cerr << "Testing skipping Ns" << std::endl;
+    std::string seq = "ACGTACACTGGACTGAGTCT";
     std::string seq_with_ns = seq;
+
     TEST_ASSERT_GE(seq_with_ns.size(), 10)
     seq_with_ns[seq_with_ns.size() / 2] = 'N';
     seq_with_ns[seq_with_ns.size() / 2 + 1] = 'N';
@@ -193,10 +175,13 @@ main()
   }
 
   {
-    std::cerr << "Testing base substitution" << std::endl;
+    PRINT_TEST_NAME("base substitution")
+
+    std::string seq = "ACGTACACTGGACTGAGTCT";
+    std::string sub = "ACGCGCACTGGACTGAGTCT";
+
     btllib::NtHash nthash(seq, 3, seq.size());
-    std::string seq_subbed = "ACGCGCACTGGACTGAGTCT";
-    btllib::NtHash nthash_subbed(seq_subbed, 3, seq_subbed.size());
+    btllib::NtHash nthash_subbed(sub, 3, sub.size());
 
     nthash.roll();
     nthash.sub({ 3, 4 }, { 'C', 'G' });
@@ -210,49 +195,79 @@ main()
   }
 
   {
-    std::cerr << "Testing reverse complement" << std::endl;
-    /* Reverse complement of kmer*/
-    std::string rc_seq = "AGACTCAGTCCAGTGTACGT";
+    std::cerr << "Testing RNA" << std::endl;
 
-    btllib::NtHash nthash(seq, 3, seq.size());
-    btllib::NtHash nthash_rc(rc_seq, 3, rc_seq.size());
+    std::string seq = "ACGTACACTGGACTGAGTCT";
+    btllib::NtHash dna_nthash(seq, 3, 20);
 
-    nthash.roll();
-    nthash_rc.roll();
-    TEST_ASSERT_EQ(nthash.get_hash_num(), nthash_rc.get_hash_num());
+    std::string rna_seq = "ACGUACACUGGACUGAGUCU";
+    btllib::NtHash rna_nthash(rna_seq, 3, 20);
+
+    dna_nthash.roll();
+    rna_nthash.roll();
     size_t i;
-    for (i = 0; i < nthash.get_hash_num(); ++i) {
-      TEST_ASSERT_EQ(nthash.hashes()[i], nthash_rc.hashes()[i]);
+    for (i = 0; i < dna_nthash.get_hash_num(); ++i) {
+      TEST_ASSERT_EQ(dna_nthash.hashes()[i], rna_nthash.hashes()[i]);
     }
     TEST_ASSERT_EQ(i, 3);
   }
 
   {
-    std::cerr << "Testing rolling vs ntbase hash values" << std::endl;
-    btllib::NtHash nthash(seq, 3, seq.size() - 2);
+    PRINT_TEST_NAME("block parsing");
 
-    /* 18-mers of kmer*/
-    std::string kmer1 = "ACGTACACTGGACTGAGT";
-    std::string kmer2 = "CGTACACTGGACTGAGTC";
-    std::string kmer3 = "GTACACTGGACTGAGTCT";
+    std::vector<btllib::SpacedSeedBlocks> blocks_out;
+    std::vector<btllib::SpacedSeedMonomers> monos_out;
 
-    btllib::NtHash nthash_vector[] = {
-      btllib::NtHash(kmer1, nthash.get_hash_num(), kmer1.size()),
-      btllib::NtHash(kmer2, nthash.get_hash_num(), kmer2.size()),
-      btllib::NtHash(kmer3, nthash.get_hash_num(), kmer3.size())
+    std::vector<std::string> seeds = { "1101001001011", "11011" };
+    std::vector<btllib::SpacedSeedBlocks> blocks_true = {
+      { { 0, 2 }, { 11, 13 } }, { { 0, 5 } }
     };
+    std::vector<btllib::SpacedSeedMonomers> monos_true = { { 3, 6, 9 }, { 2 } };
 
-    size_t i;
-    for (i = 0; nthash.roll() && nthash_vector[i].roll(); ++i) {
-      for (size_t j = 0; j < nthash.get_hash_num(); ++j) {
-        TEST_ASSERT_EQ(nthash.hashes()[j], nthash_vector[i].hashes()[j]);
+    btllib::parse_seeds(seeds, blocks_out, monos_out);
+
+    for (unsigned i_seed = 0; i_seed < seeds.size(); i_seed++) {
+      TEST_ASSERT_EQ(blocks_out[i_seed].size(), blocks_true[i_seed].size());
+      for (unsigned i_block = 0; i_block < blocks_out[i_seed].size();
+           i_block++) {
+        TEST_ASSERT_EQ(blocks_out[i_seed][i_block][0],
+                       blocks_true[i_seed][i_block][0]);
+        TEST_ASSERT_EQ(blocks_out[i_seed][i_block][1],
+                       blocks_true[i_seed][i_block][1]);
+      }
+      TEST_ASSERT_EQ(monos_out[i_seed].size(), monos_true[i_seed].size());
+      for (unsigned i = 0; i < monos_true[i_seed].size(); i++) {
+        TEST_ASSERT_EQ(monos_out[i_seed][i], monos_true[i_seed][i]);
       }
     }
-    TEST_ASSERT_EQ(i, 3);
   }
 
   {
-    std::cerr << "Testing spaced seeds" << std::endl;
+    PRINT_TEST_NAME("spaced seed hash values")
+
+    std::string seq = "ACATGCATGCA";
+    std::vector<std::string> seeds = { "11100111" };
+    const unsigned k = seeds[0].length();
+    const unsigned h = 3;
+
+    const std::vector<std::array<uint64_t, h>> hashes = {
+      { 0x10be4904ad8de5d, 0x3e29e4f4c991628c, 0x3f35c984b13feb20 },
+      { 0x8200a7aa3eaf17c8, 0x344198402f4c2a9c, 0xb6423fe62e69c40c },
+      { 0x3ce8adcbeaa56532, 0x162e91a4dbedbf11, 0x53173f786a031f45 }
+    };
+
+    btllib::SeedNtHash nthash(seq, seeds, h, k);
+
+    for (const auto& h_vals : hashes) {
+      nthash.roll();
+      TEST_ASSERT_ARRAY_EQ(h_vals, nthash.hashes(), h);
+    }
+  }
+
+  {
+    PRINT_TEST_NAME("spaced seeds")
+
+    std::string seq = "ACGTACACTGGACTGAGTCT";
     std::vector<std::string> seeds = { "111110000000011111",
                                        "111111100001111111" };
 
@@ -324,19 +339,28 @@ main()
   }
 
   {
-    std::cerr << "Testing RNA" << std::endl;
-    btllib::NtHash dna_nthash(seq, 3, 20);
+    PRINT_TEST_NAME("spaced seed back roll")
 
-    std::string rna_seq = "ACGUACACUGGACUGAGUCU";
-    btllib::NtHash rna_nthash(rna_seq, 3, 20);
+    std::string seq = "ACTAGCTG";
+    std::string seed = "110011";
+    unsigned h = 3;
+    unsigned k = seed.length();
 
-    dna_nthash.roll();
-    rna_nthash.roll();
-    size_t i;
-    for (i = 0; i < dna_nthash.get_hash_num(); ++i) {
-      TEST_ASSERT_EQ(dna_nthash.hashes()[i], rna_nthash.hashes()[i]);
+    btllib::SeedNtHash nthash(seq, { seed }, h, k);
+    std::stack<uint64_t*> hashes;
+
+    while (nthash.roll()) {
+      uint64_t* h_vals = new uint64_t[h];
+      std::copy(nthash.hashes(), nthash.hashes() + h, h_vals);
+      hashes.push(h_vals);
     }
-    TEST_ASSERT_EQ(i, 3);
+
+    TEST_ASSERT_EQ(hashes.size(), seq.length() - k + 1)
+
+    do {
+      TEST_ASSERT_ARRAY_EQ(nthash.hashes(), hashes.top(), h)
+      hashes.pop();
+    } while (nthash.roll_back());
   }
 
   {
@@ -345,18 +369,19 @@ main()
     std::string seq = "AACGTGACTACTGACTAGCTAGCTAGCTGATCGT";
     std::vector<std::string> seeds = { "111111111101111111111",
                                        "110111010010010111011" };
-    unsigned k = seeds[0].length();
-    unsigned h = 2;
+    const unsigned k = seeds[0].length();
+    const unsigned h = 2;
 
     std::queue<uint64_t> masked_hashes;
     for (unsigned i = 0; i <= seq.size() - k; i++) {
       for (std::string seed : seeds) {
+        uint64_t h_vals[h];
         uint64_t fk = btllib::ntf64(seq.data() + i, k);
         uint64_t rk = btllib::ntr64(seq.data() + i, k);
         uint64_t hs = btllib::mask_hash(fk, rk, seed.data(), seq.data() + i, k);
-        masked_hashes.push(hs);
-        for (unsigned i_hash = 1; i_hash < h; i_hash++) {
-          masked_hashes.push(btllib::nte64(hs, k, i_hash));
+        btllib::nte64(hs, k, h, h_vals);
+        for (unsigned i = 0; i < h; i++) {
+          masked_hashes.push(h_vals[i]);
         }
       }
     }
@@ -416,6 +441,33 @@ main()
       TEST_ASSERT_EQ(hashes1.front(), hashes2.front());
       hashes1.pop();
       hashes2.pop();
+    }
+  }
+
+  {
+    PRINT_TEST_NAME("canonical hashing in spaced seeds")
+
+    std::string seq_fwd = "CACTCGGCCACACACACACACACACACCCTCACACACACAAAACGCACAC";
+    std::string seq_rev = btllib::get_reverse_complement(seq_fwd);
+
+    std::vector<std::string> seeds = {
+      "11011000001100101101011000011010110100110000011011",
+      "01010000101001110100111011011100101110010100001010",
+      "11100000100111010111000100100011101011100100000111",
+      "01111000011000111101000011000010111100011000011110",
+      "00111000011000111101000011000010111100011000011100",
+      "00000000000000000000000011000000000000000000000000",
+      "11111111111111111111111100111111111111111111111111",
+      "11111111111111111111111111111111111111111111111111",
+    };
+
+    const unsigned h = 4;
+
+    btllib::SeedNtHash nthash1(seq_fwd, seeds, h, seeds[0].length());
+    btllib::SeedNtHash nthash2(seq_rev, seeds, h, seeds[0].length());
+
+    while (nthash1.roll() & nthash2.roll()) {
+      TEST_ASSERT_ARRAY_EQ(nthash1.hashes(), nthash2.hashes(), h);
     }
   }
 

@@ -2,7 +2,7 @@
 #include "btllib/bloom_filter.hpp"
 #include "btllib/status.hpp"
 
-#include "btllib_config.hpp"
+#include "config.hpp"
 
 #include <cassert>
 #include <condition_variable>

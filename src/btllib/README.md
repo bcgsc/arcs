@@ -17,47 +17,64 @@ Download
 ---
 The recommended way is to download the [latest release](https://github.com/bcgsc/btllib/releases/latest).
 
-Usage
+Dependencies
 ---
-- Dependencies
-  * GCC 5+ or Clang 4+ with OpenMP
+- Build
+  * GCC 6+ or Clang 5+ with OpenMP
   * Python 3.5+
-  * Meson and Ninja Python3 packages, and CMake (optional -- if they are missing, they will be automatically downloaded to a temporary directory)
+  * Meson and Ninja Python3 packages, CMake (If you are a user and not a developer, these will be automatically installed to a temporary directory)
+- Run time
+  * SAMtools for reading SAM, BAM, and CRAM files.
+  * gzip, tar, pigz, bzip2, xz, lrzip, zip, and/or 7zip for compressing/decompressing files. Not all of these are necessary, only the ones whose compressions you'll be using. 
+  * wget for downloading sequences from a URL.
+
+For users
+---
 - Copy the root `btllib` directory into your project
 - Run `btllib/compile`
 - C++
-  * Link your code with `btllib/lib/libbtllib.a` (pass `-L btllib/lib -l btllib` flags to the compiler).
-  * `#include` any header from the `btllib/include` directory (pass `-I btllib/include` flag to the compiler).
+  * Link your code with `btllib/install/lib/libbtllib.a` (pass `-L /path/to/btllib/install/lib -l btllib` flags to the compiler).
+  * `#include` any header from the `btllib/install/include` directory (pass `-I /path/to/btllib/install/include` flag to the compiler).
   * `btllib` uses `C++11` features, so that standard should be enabled at a minimum.
 - Python wrappers
   * The wrappers correspond one-to-one with C++ code so any functions and classes can be used under the same name. The only exception are nested classes which are prefixed with outer class name (e.g. `btllib::SeqReader::Flag` in C++ versus `btllib.SeqReaderFlag` in Python).
-  * Use Python's `sys.path.append()` to include `btllib/python` directory
+  * Use `PYTHONPATH` environment variable or `sys.path.append()` in your Python code to include `/path/to/btllib/install/python` directory
   * Include the library with `import btllib`
+- Executables
+  * btllib generated executables can be found in `/path/to/btllib/install/bin` directory. Append that path to the `PATH` environment variable to make it available to your shell.
 
-Contributing
+For developers
 ---
-If you want to make changes to the btllib code, first create a build directory by running `meson build` in `btllib` directory. `cd` to `build` directory and run `ninja build-sdsl` once to build the `sdsl` dependency. After that, every time you want to build the tests and wrappers, run `ninja` in `build` directory. To run the tests, run `ninja test`.
+- Initial setup:
+  * `git clone --recurse-submodules https://github.com/bcgsc/btllib` in order to obtain all the code.
+  * In `btllib` dir, run `meson build` to create a build directory.
+- Every time you want to run tests, in the `build` dir:
+  * `ninja wrap` to regenerate wrappers.
+  * `ninja test` to build wrappers and tests, and run tests.
+- Before making a pull request, in the `build` dir:
+  * `ninja quality-assurance` to make sure all CI tests pass.
+  * Make a commit after the above step, in case it has made any changes to wrappers or formatting. Don't commit the changes made to the `sdsl-lite` subproject. Meson config file adjusts the `sdsl-lite` config in order for it to work for `btllib`, but this is done ad hoc and is not necessary to be committed. By doing it ad hoc we keep a list of differences compared to the upstream repository.
+- Before making a release, in the `build` dir:
+  * Do the same as for a pull request and
+  * `ninja docs` to regenerate docs to reflect the release and then commit the changes.
+  * `meson dist --allow-dirty` to generate a self-contained package based on the last commit. `--allow-dirty` permits making a distributable with uncommited changes. This is necessary as `sdsl-lite` dependency has ad hoc changes made during the build process. The resulting distributable will be compressed with xz. For easier use, decompress it and then compress with gzip. Attach the resulting file to the release.
 
-The following are the available `ninja` commands which can be run within `build` directory:
-- `ninja build-sdsl` builds the sdsl-lite dependency library.
+The following are all the available `ninja` commands which can be run within `build` directory:
 - `ninja format` formats the whitespace in code (requires clang-format 8+).
 - `ninja wrap` wraps C++ code for Python (requires SWIG 4.0+).
-- `ninja tidycheck` runs clang-tidy on C++ code and makes sure it passes (requires clang-tidy 8+).
-- `ninja cppcheck` runs cppcheck on C++ code and makes sure it passes (requires cppcheck).
+- `ninja clang-tidy` runs clang-tidy on C++ code and makes sure it passes (requires clang-tidy 8+).
 - `ninja` builds the tests and wrapper libraries / makes sure they compile.
 - `ninja test` runs the tests.
 - `ninja sanitize-undefined` runs undefined sanitization.
-- `ninja docs` generates code documentation from comments (requires Doxygen).
 - `ninja test-wrappers` tests whether wrappers work.
-- `ninja complete` runs all of the above commands in the listed order.
-
-Before making a pull request, make sure to run `ninja complete` to make sure the code passes the CI test.
+- `ninja docs` generates code documentation from comments (requires Doxygen).
+- `ninja quality-assurance` runs `clang-format`, `wrap`, `clang-tidy`, `test`, `sanitize-undefined`, and `test-wrappers`. These are all checked at the CI test.
 
 Credits
 ---
 - Author: [Vladimir Nikolic](https://github.com/vlad0x00)
 - Components:
-  - [Hamid Mohamadi](https://github.com/mohamadi) for [ntHash](https://github.com/bcgsc/ntHash)
+  - [Hamid Mohamadi](https://github.com/mohamadi) and [Parham Kazemi](https://github.com/parham-k) for [ntHash](https://github.com/bcgsc/ntHash)
   - [Justin Chu](https://github.com/JustinChu) for [MIBloomFilter](https://github.com/bcgsc/btl_bloomfilter)
   - [Chase Geigle](https://github.com/skystrife) for [cpptoml](https://github.com/skystrife/cpptoml)
   - Simon Gog, Timo Beller, Alistair Moffat, and Matthias Petri for [sdsl-lite](https://github.com/simongog/sdsl-lite)

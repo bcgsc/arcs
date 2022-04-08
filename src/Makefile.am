@@ -1,17 +1,20 @@
 bin_PROGRAMS = long-to-linked-pe
 
-long_to_linked_pe_CXXFLAGS = -O3 -Wall -Werror -Wno-unknown-pragmas -std=c++11 -pthread -I$(top_srcdir)/src/btllib/include
+long_to_linked_pe_SOURCES = long-to-linked-pe.cpp
 
-CXXFLAGS =  $(long_to_linked_pe_CXXFLAGS)
+btllib_build_SOURCES = $(top_srcdir)/src/btllib
 
-long_to_linked_pe_SOURCES = long-to-linked-pe.cpp \
-	include/btllib/seq_reader.hpp \
-	include/btllib/status.hpp \
-	include/btllib/util.hpp \
-	include/btllib/cstring.hpp \
-	include/btllib/data_stream.hpp \
-	include/btllib/order_queue.hpp \
-	include/btllib/seq.hpp
+all: btllib_build long-to-linked-pe
+
+btllib_build:
+		$(top_srcdir)/src/btllib/compile
+
+long-to-linked-pe$(EXEEXT): long-to-linked-pe.cpp btllib_build
+		$(CXX) -o $@ $< -O3 -Wall -Werror -Wno-unknown-pragmas -std=c++11 -pthread -Ibtllib/install/include -Iinclude -Lbtllib/install/lib -lbtllib
+
+clean:
+		rm -f long-to-linked-pe
+
 
 # Check the C++ source code for errors.
 lint: clang-format clang-tidy

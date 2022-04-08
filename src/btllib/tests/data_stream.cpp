@@ -46,21 +46,5 @@ main()
 
   std::remove(xz_filename.c_str());
 
-  // Test .lrz
-  const auto lrz_filename = get_random_name(64) + ".lrz";
-
-  std::cerr << "Test .lrz write" << std::endl;
-  btllib::DataSink lrz_sink(lrz_filename, false);
-  TEST_ASSERT_EQ(fwrite(txt, 1, strlen(txt), lrz_sink), strlen(txt));
-  lrz_sink.close();
-
-  std::cerr << "Test .lrz read" << std::endl;
-  btllib::DataSource lrz_source(lrz_filename);
-  TEST_ASSERT_GT(getline(&line, &line_len, lrz_source), 0);
-  lrz_source.close();
-  TEST_ASSERT_EQ(strcmp(line, txt), 0);
-
-  std::remove(lrz_filename.c_str());
-
   return 0;
 }

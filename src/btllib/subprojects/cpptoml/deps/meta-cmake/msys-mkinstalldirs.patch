@@ -1,0 +1,11 @@
+--- source/icudefs.mk.in.orig	2016-05-03 14:46:40.189169200 -0500
++++ source/icudefs.mk.in	2016-05-03 14:47:21.920800700 -0500
+@@ -93,7 +93,7 @@
+ 
+ # Installation programs
+ 
+-MKINSTALLDIRS = $(SHELL) $(top_srcdir)/mkinstalldirs
++MKINSTALLDIRS = mkdir -p
+ 
+ INSTALL = @INSTALL@
+ INSTALL_PROGRAM = @INSTALL_PROGRAM@

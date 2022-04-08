@@ -14,9 +14,13 @@ main()
                                 20,
                                 50,
                                 btllib::Indexlr::Flag::LONG_MODE);
+  int i = 0;
   for (auto minimizers : indexlr_empty) {
+    i++;
   }
+  TEST_ASSERT_EQ(i, 0);
 
+  std::cerr << "Testing without Bloom filters" << std::endl;
   btllib::Indexlr indexlr(btllib::get_dirname(__FILE__) + "/indexlr.fa",
                           100,
                           5,
@@ -51,7 +55,6 @@ main()
   std::stringstream ss;
   std::stringstream ss2;
 
-  std::cerr << "Testing without Bloom filters" << std::endl;
   decltype(indexlr)::Record record;
   bool success_indexlr = false, success_indexlr2 = false;
   for (int i = 0;; i++) {
@@ -89,6 +92,9 @@ main()
     }
   }
 
+  ss << std::endl;
+  ss2 << std::endl;
+
   TEST_ASSERT_EQ(ss.str(), correct_output);
   TEST_ASSERT_EQ(ss2.str(), correct_output2);
 
@@ -96,12 +102,12 @@ main()
   btllib::BloomFilter filter_in_bf(1024 * 1024 * 32, 1);
   btllib::BloomFilter filter_out_bf(1024 * 1024 * 32, 1);
 
-  std::vector<uint64_t> filter_in_hashes = { 430447521414431149ULL,
-                                             3146270839399521840ULL,
-                                             161808173335193798ULL };
-  std::vector<uint64_t> filter_out_hashes = { 1672947938795563804ULL,
-                                              2858314356342515870ULL,
-                                              1712341822067595113ULL };
+  std::vector<uint64_t> filter_in_hashes = { 1315163655624994337ULL,
+                                             4261937130627716230ULL,
+                                             6055236352205909654ULL };
+  std::vector<uint64_t> filter_out_hashes = { 54854220342742384ULL,
+                                              10545593919277017579ULL,
+                                              6459583435485319281ULL };
 
   for (const auto h : filter_in_hashes) {
     filter_in_bf.insert({ h });

@@ -32,8 +32,16 @@ main()
 
   TEST_ASSERT_EQ(cbf2.contains_insert({ 9, 99, 999 }), 0);
   TEST_ASSERT_EQ(cbf2.contains_insert({ 9, 99, 999 }), 1);
-  TEST_ASSERT_EQ(cbf2.contains_insert({ 9, 99, 999 }), 2);
-  TEST_ASSERT_EQ(cbf2.contains_insert({ 9, 99, 999 }), 3);
+
+  TEST_ASSERT_EQ(cbf2.insert_contains({ 9, 99, 999 }), 3);
+  TEST_ASSERT_EQ(cbf2.insert_contains({ 9, 99, 999 }), 4);
+
+  TEST_ASSERT_EQ(cbf2.contains_insert_thresh({ 9, 99, 999 }, 5), 4);
+  TEST_ASSERT_EQ(cbf2.contains_insert_thresh({ 9, 99, 999 }, 5), 5);
+  TEST_ASSERT_EQ(cbf2.contains_insert_thresh({ 9, 99, 999 }, 5), 5);
+
+  TEST_ASSERT_EQ(cbf2.insert_thresh_contains({ 9, 99, 999 }, 6), 6);
+  TEST_ASSERT_EQ(cbf2.insert_thresh_contains({ 9, 99, 999 }, 6), 6);
 
   std::remove(filename.c_str());
 
@@ -44,15 +52,29 @@ main()
   std::cerr << "Testing KmerCountingBloomFilter" << std::endl;
   btllib::KmerCountingBloomFilter8 kbf(1024 * 1024, 4, seq.size() / 2);
   kbf.insert(seq);
-  TEST_ASSERT_EQ(kbf.contains(seq), (seq.size() - seq.size() / 2 + 1));
+  const auto expected = seq.size() - seq.size() / 2 + 1;
+  TEST_ASSERT_EQ(kbf.contains(seq), expected);
   TEST_ASSERT_LE(kbf.contains(seq2), 1);
 
   filename = get_random_name(64);
   kbf.save(filename);
 
   btllib::KmerCountingBloomFilter8 kbf2(filename);
-  TEST_ASSERT_EQ(kbf2.contains(seq), (seq.size() - seq.size() / 2 + 1));
+  TEST_ASSERT_EQ(kbf2.contains(seq), expected);
   TEST_ASSERT_LE(kbf2.contains(seq2), 1);
+
+  TEST_ASSERT_EQ(kbf2.contains_insert(seq), expected);
+  TEST_ASSERT_EQ(kbf2.contains_insert(seq), expected * 2);
+
+  TEST_ASSERT_EQ(kbf2.insert_contains(seq), expected * 4);
+  TEST_ASSERT_EQ(kbf2.insert_contains(seq), expected * 5);
+
+  TEST_ASSERT_EQ(kbf2.contains_insert_thresh(seq, 6), expected * 5);
+  TEST_ASSERT_EQ(kbf2.contains_insert_thresh(seq, 6), expected * 6);
+  TEST_ASSERT_EQ(kbf2.contains_insert_thresh(seq, 6), expected * 6);
+
+  TEST_ASSERT_EQ(kbf2.insert_thresh_contains(seq, 7), expected * 7);
+  TEST_ASSERT_EQ(kbf2.insert_thresh_contains(seq, 7), expected * 7);
 
   std::remove(filename.c_str());
 

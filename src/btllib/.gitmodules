@@ -1,0 +1,6 @@
+[submodule "subprojects/sdsl-lite"]
+	path = subprojects/sdsl-lite
+	url = https://github.com/simongog/sdsl-lite
+[submodule "subprojects/cpptoml"]
+	path = subprojects/cpptoml
+	url = https://github.com/skystrife/cpptoml

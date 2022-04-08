@@ -8,8 +8,8 @@
 #ifndef BTLLIB_NTHASH_HPP
 #define BTLLIB_NTHASH_HPP
 
-#include "nthash_lowlevel.hpp"
-#include "status.hpp"
+#include "btllib/nthash_lowlevel.hpp"
+#include "btllib/status.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -19,7 +19,7 @@
 
 namespace btllib {
 
-static const char* const NTHASH_FN_NAME = "ntHash_v1";
+static const char* const NTHASH_FN_NAME = "ntHash_v2";
 
 // This lets us minimize NtHash object size. Good for performance if it's copied
 // in, e.g., DBG traversal
@@ -33,19 +33,22 @@ static const int NTHASH_K_MAX = std::numeric_limits<NTHASH_K_TYPE>::max();
 class NtHash;
 class SeedNtHash;
 
-inline std::vector<SpacedSeed>
+std::vector<SpacedSeed>
 parse_seeds(const std::vector<std::string>& seed_strings);
 
-inline void
-parse_blocks(const std::vector<std::string>& seed_strings,
-             std::vector<SpacedSeed>& blocks,
-             std::vector<std::vector<unsigned>>& monomers);
+void
+parse_seeds(const std::vector<std::string>& seed_strings,
+            std::vector<SpacedSeedBlocks>& blocks,
+            std::vector<SpacedSeedMonomers>& monomers);
 
-inline void
+void
 parsed_seeds_to_blocks(const std::vector<SpacedSeed>& seeds,
                        unsigned k,
-                       std::vector<SpacedSeed>& blocks,
-                       std::vector<std::vector<unsigned>>& monomers);
+                       std::vector<SpacedSeedBlocks>& blocks,
+                       std::vector<SpacedSeedMonomers>& monomers);
+
+void
+check_seeds(const std::vector<std::string>& seeds, unsigned k);
 
 class NtHash
 {
@@ -383,312 +386,14 @@ private:
   NtHash nthash;
   const unsigned hash_num_per_seed;
 
-  std::vector<SpacedSeed> blocks;
-  std::vector<std::vector<unsigned>> monomers;
+  std::vector<SpacedSeedBlocks> blocks;
+  std::vector<SpacedSeedMonomers> monomers;
 
   std::unique_ptr<uint64_t[]> fh_no_monomers;
   std::unique_ptr<uint64_t[]> rh_no_monomers;
   std::unique_ptr<uint64_t[]> forward_hash;
   std::unique_ptr<uint64_t[]> reverse_hash;
 };
-
-inline NtHash::NtHash(const char* seq,
-                      size_t seq_len,
-                      unsigned hash_num,
-                      unsigned k,
-                      size_t pos)
-  : seq(seq)
-  , seq_len(seq_len)
-  , hash_num(hash_num)
-  , k(k)
-  , pos(pos)
-  , initialized(false)
-  , hashes_array(new uint64_t[hash_num])
-{
-  check_error(k > NTHASH_K_MAX,
-              "NtHash: passed k value (" + std::to_string(k) +
-                ") is larger than allowed (" + std::to_string(NTHASH_K_MAX) +
-                ").");
-  check_error(hash_num > NTHASH_HASH_NUM_MAX,
-              "NtHash: passed number of hashes (" + std::to_string(hash_num) +
-                ") is larger than allowed (" +
-                std::to_string(NTHASH_HASH_NUM_MAX) + ").");
-  check_warning(hash_num >= k,
-                "NtHash: using " + std::to_string(hash_num) +
-                  " hash functions and k size of " + std::to_string(k) +
-                  ". Did you permute the parameters?");
-}
-
-inline NtHash::NtHash(const std::string& seq,
-                      unsigned hash_num,
-                      unsigned k,
-                      size_t pos)
-  : NtHash(seq.c_str(), seq.size(), hash_num, k, pos)
-{}
-
-inline NtHash::NtHash(const NtHash& nthash)
-  : seq(nthash.seq)
-  , seq_len(nthash.seq_len)
-  , hash_num(nthash.hash_num)
-  , k(nthash.k)
-  , pos(nthash.pos)
-  , initialized(nthash.initialized)
-  , hashes_array(new uint64_t[hash_num])
-  , forward_hash(nthash.forward_hash)
-  , reverse_hash(nthash.reverse_hash)
-{
-  std::memcpy(
-    hashes_array.get(), nthash.hashes_array.get(), hash_num * sizeof(uint64_t));
-}
-
-inline BlindNtHash::BlindNtHash(const char* seq,
-                                size_t seq_len,
-                                unsigned hash_num,
-                                unsigned k,
-                                size_t pos)
-  : seq(new char[seq_len])
-  , seq_len(seq_len)
-  , hash_num(hash_num)
-  , k(k)
-  , pos(pos)
-  , initialized(false)
-  , hashes_array(new uint64_t[hash_num])
-{
-  check_error(k == seq_len,
-              "BlindNtHash: passed sequence length (" +
-                std::to_string(seq_len) + ") is not equal to k (" +
-                std::to_string(k) + ").");
-  check_error(k > NTHASH_K_MAX,
-              "BlindNtHash: passed k value (" + std::to_string(k) +
-                ") is larger than allowed (" + std::to_string(NTHASH_K_MAX) +
-                ").");
-  check_error(hash_num > NTHASH_HASH_NUM_MAX,
-              "BlindNtHash: passed number of hashes (" +
-                std::to_string(hash_num) + ") is larger than allowed (" +
-                std::to_string(NTHASH_HASH_NUM_MAX) + ").");
-  check_warning(hash_num >= k,
-                "BlindNtHash: using " + std::to_string(hash_num) +
-                  " hash functions and k size of " + std::to_string(k) +
-                  ". Did you permute the parameters?");
-  std::memcpy(this->seq.get(), seq, seq_len);
-}
-
-inline BlindNtHash::BlindNtHash(const std::string& seq,
-                                unsigned hash_num,
-                                unsigned k,
-                                size_t pos)
-  : BlindNtHash(seq.c_str(), seq.size(), hash_num, k, pos)
-{}
-
-inline BlindNtHash::BlindNtHash(const BlindNtHash& nthash)
-  : seq(new char[nthash.seq_len])
-  , seq_len(nthash.seq_len)
-  , hash_num(nthash.hash_num)
-  , k(nthash.k)
-  , pos(nthash.pos)
-  , initialized(nthash.initialized)
-  , hashes_array(new uint64_t[hash_num])
-  , forward_hash(nthash.forward_hash)
-  , reverse_hash(nthash.reverse_hash)
-{
-  std::memcpy(this->seq.get(), nthash.seq.get(), nthash.seq_len);
-  std::memcpy(
-    hashes_array.get(), nthash.hashes_array.get(), hash_num * sizeof(uint64_t));
-}
-
-inline SeedNtHash::SeedNtHash(const char* seq,
-                              size_t seq_len,
-                              const std::vector<SpacedSeed>& seeds,
-                              unsigned hash_num_per_seed,
-                              unsigned k,
-                              size_t pos)
-  : nthash(seq, seq_len, seeds.size() * hash_num_per_seed, k, pos)
-  , hash_num_per_seed(hash_num_per_seed)
-  , fh_no_monomers(new uint64_t[seeds.size()])
-  , rh_no_monomers(new uint64_t[seeds.size()])
-  , forward_hash(new uint64_t[seeds.size()])
-  , reverse_hash(new uint64_t[seeds.size()])
-{
-  parsed_seeds_to_blocks(seeds, k, blocks, monomers);
-}
-
-inline SeedNtHash::SeedNtHash(const std::string& seq,
-                              const std::vector<SpacedSeed>& seeds,
-                              unsigned hash_num_per_seed,
-                              unsigned k,
-                              size_t pos)
-  : nthash(seq, seeds.size() * hash_num_per_seed, k, pos)
-  , hash_num_per_seed(hash_num_per_seed)
-  , fh_no_monomers(new uint64_t[seeds.size()])
-  , rh_no_monomers(new uint64_t[seeds.size()])
-  , forward_hash(new uint64_t[seeds.size()])
-  , reverse_hash(new uint64_t[seeds.size()])
-{
-  parsed_seeds_to_blocks(seeds, k, blocks, monomers);
-}
-
-inline SeedNtHash::SeedNtHash(const char* seq,
-                              size_t seq_len,
-                              const std::vector<std::string>& seeds,
-                              unsigned hash_num_per_seed,
-                              unsigned k,
-                              size_t pos)
-  : nthash(seq, seq_len, seeds.size() * hash_num_per_seed, k, pos)
-  , hash_num_per_seed(hash_num_per_seed)
-  , fh_no_monomers(new uint64_t[seeds.size()])
-  , rh_no_monomers(new uint64_t[seeds.size()])
-  , forward_hash(new uint64_t[seeds.size()])
-  , reverse_hash(new uint64_t[seeds.size()])
-{
-  parse_blocks(seeds, blocks, monomers);
-}
-
-inline SeedNtHash::SeedNtHash(const std::string& seq,
-                              const std::vector<std::string>& seeds,
-                              unsigned hash_num_per_seed,
-                              unsigned k,
-                              size_t pos)
-  : nthash(seq, seeds.size() * hash_num_per_seed, k, pos)
-  , hash_num_per_seed(hash_num_per_seed)
-  , fh_no_monomers(new uint64_t[seeds.size()])
-  , rh_no_monomers(new uint64_t[seeds.size()])
-  , forward_hash(new uint64_t[seeds.size()])
-  , reverse_hash(new uint64_t[seeds.size()])
-{
-  parse_blocks(seeds, blocks, monomers);
-}
-
-inline SeedNtHash::SeedNtHash(const SeedNtHash& seed_nthash)
-  : nthash(seed_nthash.nthash)
-  , hash_num_per_seed(seed_nthash.hash_num_per_seed)
-  , blocks(seed_nthash.blocks)
-  , fh_no_monomers(new uint64_t[seed_nthash.blocks.size()])
-  , rh_no_monomers(new uint64_t[seed_nthash.blocks.size()])
-  , forward_hash(new uint64_t[seed_nthash.blocks.size()])
-  , reverse_hash(new uint64_t[seed_nthash.blocks.size()])
-{
-  std::memcpy(fh_no_monomers.get(),
-              seed_nthash.fh_no_monomers.get(),
-              seed_nthash.blocks.size() * sizeof(uint64_t));
-  std::memcpy(rh_no_monomers.get(),
-              seed_nthash.rh_no_monomers.get(),
-              seed_nthash.blocks.size() * sizeof(uint64_t));
-  std::memcpy(forward_hash.get(),
-              seed_nthash.forward_hash.get(),
-              seed_nthash.blocks.size() * sizeof(uint64_t));
-  std::memcpy(reverse_hash.get(),
-              seed_nthash.reverse_hash.get(),
-              seed_nthash.blocks.size() * sizeof(uint64_t));
-}
-
-inline std::vector<SpacedSeed>
-parse_seeds(const std::vector<std::string>& seed_strings)
-{
-  std::vector<SpacedSeed> seed_set;
-  for (const auto& seed_string : seed_strings) {
-    SpacedSeed seed;
-    size_t pos = 0;
-    for (const auto& c : seed_string) {
-      if (c != '1') {
-        seed.push_back(pos);
-      }
-      ++pos;
-    }
-    seed_set.push_back(seed);
-  }
-  return seed_set;
-}
-
-inline void
-parse_blocks(const std::vector<std::string>& seed_strings,
-             std::vector<SpacedSeed>& out_blocks,
-             std::vector<std::vector<unsigned>>& out_monomers)
-{
-  for (const auto& seed_string : seed_strings) {
-    const std::string padded_string = seed_string + '0';
-    SpacedSeed care_blocks, ignore_blocks;
-    std::vector<unsigned> care_monos, ignore_monos;
-    unsigned i_start = 0;
-    bool is_care_block = true;
-    for (unsigned pos = 0; pos < padded_string.length(); pos++) {
-      if (is_care_block && padded_string[pos] == '0') {
-        if (pos - i_start == 1) {
-          care_monos.push_back(i_start);
-        } else {
-          care_blocks.push_back(i_start);
-          care_blocks.push_back(pos);
-        }
-        i_start = pos;
-        is_care_block = false;
-      } else if (!is_care_block && padded_string[pos] == '1') {
-        if (pos - i_start == 1) {
-          ignore_monos.push_back(i_start);
-        } else {
-          ignore_blocks.push_back(i_start);
-          ignore_blocks.push_back(pos);
-        }
-        i_start = pos;
-        is_care_block = true;
-      }
-    }
-    unsigned num_cares = care_blocks.size() + care_monos.size();
-    unsigned num_ignores = ignore_blocks.size() + ignore_monos.size() + 2;
-    if (num_ignores < num_cares) {
-      ignore_blocks.push_back(0);
-      ignore_blocks.push_back(seed_string.length());
-      out_blocks.push_back(ignore_blocks);
-      out_monomers.push_back(ignore_monos);
-    } else {
-      out_blocks.push_back(care_blocks);
-      out_monomers.push_back(care_monos);
-    }
-  }
-}
-
-inline void
-parsed_seeds_to_blocks(const std::vector<SpacedSeed>& seeds,
-                       unsigned k,
-                       std::vector<SpacedSeed>& out_blocks,
-                       std::vector<std::vector<unsigned>>& out_monomers)
-{
-  std::vector<std::string> seed_strings;
-  for (const SpacedSeed& seed : seeds) {
-    std::string seed_string(k, '1');
-    for (const auto& i : seed) {
-      seed_string[i] = '0';
-    }
-    seed_strings.push_back(seed_string);
-  }
-  parse_blocks(seed_strings, out_blocks, out_monomers);
-}
-
-inline void
-NtHash::sub(const std::vector<unsigned>& positions,
-            const std::vector<unsigned char>& new_bases)
-{
-  sub_hash(forward_hash,
-           reverse_hash,
-           seq + pos,
-           positions,
-           new_bases,
-           get_k(),
-           get_hash_num(),
-           hashes_array.get());
-}
-
-inline void
-BlindNtHash::sub(const std::vector<unsigned>& positions,
-                 const std::vector<unsigned char>& new_bases)
-{
-  sub_hash(forward_hash,
-           reverse_hash,
-           seq.get() + pos,
-           positions,
-           new_bases,
-           get_k(),
-           get_hash_num(),
-           hashes_array.get());
-}
 
 // NOLINTNEXTLINE
 #define BTLLIB_NTHASH_INIT(CLASS, NTHASH_CALL, MEMBER_PREFIX)                  \
@@ -949,9 +654,12 @@ BTLLIB_NTHASH_ROLL_BACK(SeedNtHash,
                         roll_back(),
                         ntmsm64l(nthash.seq + nthash.pos - 1,
                                  blocks,
+                                 monomers,
                                  nthash.k,
                                  blocks.size(),
                                  hash_num_per_seed,
+                                 fh_no_monomers.get(),
+                                 rh_no_monomers.get(),
                                  forward_hash.get(),
                                  reverse_hash.get(),
                                  nthash.hashes_array.get());
@@ -1030,8 +738,16 @@ BTLLIB_NTHASH_PEEK(
   peek_back(),
 
   {
+    std::unique_ptr<uint64_t[]> fh_no_monomers_tmp(new uint64_t[blocks.size()]);
+    std::unique_ptr<uint64_t[]> rh_no_monomers_tmp(new uint64_t[blocks.size()]);
     std::unique_ptr<uint64_t[]> forward_hash_tmp(new uint64_t[blocks.size()]);
     std::unique_ptr<uint64_t[]> reverse_hash_tmp(new uint64_t[blocks.size()]);
+    std::memcpy(fh_no_monomers_tmp.get(),
+                forward_hash.get(),
+                blocks.size() * sizeof(uint64_t));
+    std::memcpy(rh_no_monomers_tmp.get(),
+                reverse_hash.get(),
+                blocks.size() * sizeof(uint64_t));
     std::memcpy(forward_hash_tmp.get(),
                 forward_hash.get(),
                 blocks.size() * sizeof(uint64_t));
@@ -1040,9 +756,12 @@ BTLLIB_NTHASH_PEEK(
                 blocks.size() * sizeof(uint64_t));
     ntmsm64l(nthash.seq + nthash.pos - 1,
              blocks,
+             monomers,
              nthash.k,
              blocks.size(),
              hash_num_per_seed,
+             fh_no_monomers_tmp.get(),
+             rh_no_monomers_tmp.get(),
              forward_hash_tmp.get(),
              reverse_hash_tmp.get(),
              nthash.hashes_array.get());
@@ -1053,8 +772,16 @@ BTLLIB_NTHASH_PEEK(
   peek_back(char char_in),
 
   {
+    std::unique_ptr<uint64_t[]> fh_no_monomers_tmp(new uint64_t[blocks.size()]);
+    std::unique_ptr<uint64_t[]> rh_no_monomers_tmp(new uint64_t[blocks.size()]);
     std::unique_ptr<uint64_t[]> forward_hash_tmp(new uint64_t[blocks.size()]);
     std::unique_ptr<uint64_t[]> reverse_hash_tmp(new uint64_t[blocks.size()]);
+    std::memcpy(fh_no_monomers_tmp.get(),
+                forward_hash.get(),
+                blocks.size() * sizeof(uint64_t));
+    std::memcpy(rh_no_monomers_tmp.get(),
+                reverse_hash.get(),
+                blocks.size() * sizeof(uint64_t));
     std::memcpy(forward_hash_tmp.get(),
                 forward_hash.get(),
                 blocks.size() * sizeof(uint64_t));
@@ -1064,9 +791,12 @@ BTLLIB_NTHASH_PEEK(
     ntmsm64l(nthash.seq + nthash.pos - 1,
              char_in,
              blocks,
+             monomers,
              nthash.k,
              blocks.size(),
              hash_num_per_seed,
+             fh_no_monomers_tmp.get(),
+             rh_no_monomers_tmp.get(),
              forward_hash_tmp.get(),
              reverse_hash_tmp.get(),
              nthash.hashes_array.get());

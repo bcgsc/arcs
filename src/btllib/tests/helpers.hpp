@@ -7,6 +7,9 @@
 #include <random>
 #include <string>
 
+#define PRINT_TEST_NAME(TEST_NAME)                                             \
+  std::cerr << __FILE__ << ": Testing " << TEST_NAME << std::endl;
+
 #define TEST_ASSERT(x)                                                         \
   if (!(x)) {                                                                  \
     std::cerr << __FILE__ ":" << __LINE__ << ":TEST_ASSERT: " #x " is false"   \
@@ -29,6 +32,11 @@
 #define TEST_ASSERT_GT(x, y) TEST_ASSERT_RELATIONAL(x, y, >)
 #define TEST_ASSERT_LE(x, y) TEST_ASSERT_RELATIONAL(x, y, <=)
 #define TEST_ASSERT_LT(x, y) TEST_ASSERT_RELATIONAL(x, y, <)
+
+#define TEST_ASSERT_ARRAY_EQ(x, y, size)                                       \
+  for (unsigned i = 0; i < size; i++) {                                        \
+    TEST_ASSERT_EQ(x[i], y[i])                                                 \
+  }
 
 inline int
 get_random(const int min, const int max)

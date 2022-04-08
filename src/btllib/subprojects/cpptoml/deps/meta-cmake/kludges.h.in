@@ -1,0 +1,37 @@
+// AlignedAlloc.cmake
+#cmakedefine01 META_HAS_ALIGNED_ALLOC
+#cmakedefine01 META_HAS_POSIX_MEMALIGN
+#cmakedefine01 META_HAS_ALIGNED_MALLOC
+
+// Expect.cmake
+#cmakedefine01 META_HAS_BUILTIN_EXPECT
+
+// ExperimentalFilesystem.cmake
+#cmakedefine01 META_HAS_EXPERIMENTAL_FILESYSTEM
+#cmakedefine01 META_HAS_EXPERIMENTAL_FILESYSTEM_REMOVE_ALL
+
+// ExperimentalOptional.cmake
+#cmakedefine01 META_HAS_EXPERIMENTAL_OPTIONAL
+
+// ExperimentalStringView.cmake
+#cmakedefine01 META_HAS_EXPERIMENTAL_STRING_VIEW
+
+// MakeUnique.cmake
+#cmakedefine01 META_HAS_STD_MAKE_UNIQUE
+
+// SharedPtrAtomics.cmake
+#cmakedefine01 META_HAS_SHARED_PTR_ATOMICS
+
+// MaxAlignT.cmake
+#cmakedefine META_MAX_ALIGN_T @META_MAX_ALIGN_T@
+
+// PromiseWithNoDefaultCtor.cmake
+#cmakedefine01 META_HAS_PROMISE_WITH_NO_DEFAULT_CTOR
+
+// CountTrailingZeros.cmake
+#cmakedefine01 META_HAS_BUILTIN_CTZLL
+#cmakedefine01 META_HAS_BITSCANFORWARD64
+
+// PopCount.cmake
+#cmakedefine01 META_HAS_BUILTIN_POPCOUNTLL
+#cmakedefine01 META_HAS_POPCOUNT64

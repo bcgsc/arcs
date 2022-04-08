@@ -1,0 +1,33 @@
+#!/bin/bash
+
+if [ -z "${MESON_SOURCE_ROOT}" ]; then
+  echo "[ERROR] This script can only be ran with meson!"
+  exit 1
+fi
+
+set -e
+
+cd "${MESON_SOURCE_ROOT}/subprojects/sdsl-lite"
+
+# For whatever reason, this causes an error when sdsl is used as a subproject so we need to remove it
+sed -i'.tmp' '/add_subdirectory(test)/d' CMakeLists.txt
+rm -f CMakeLists.txt.tmp
+
+# On Mac, this file is treated as a header file and causes a build error
+if [[ -f VERSION ]]; then
+  mv -f VERSION VERSION.renamed
+fi
+sed -i'.tmp' 's~file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PROJECT_VERSION_FULL)~file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.renamed" PROJECT_VERSION_FULL)~' CMakeLists.txt
+rm -f CMakeLists.txt.tmp
+
+# Enable PIC in order to link wrapper shared modules with sdsl lib
+sed -i'.tmp' '/set(CMAKE_POSITION_INDEPENDENT_CODE ON)/d' CMakeLists.txt
+rm -f CMakeLists.txt.tmp
+
+sed -i'.tmp' '/set(CMAKE_BUILD_TYPE "Release")/a set(CMAKE_POSITION_INDEPENDENT_CODE ON)' CMakeLists.txt
+rm -f CMakeLists.txt.tmp
+
+# Disable git submodule mechanism, since we're not using submodules
+# Currently, github does not include submodules in releases, hence this decision
+sed -i'.tmp' -e 's~\(.*EXECUTE_PROCESS(COMMAND\) git .*~\1 ;~' external/CMakeLists.txt
+rm -f external/CMakeLists.txt.tmp

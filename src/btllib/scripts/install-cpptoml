@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ -z "${MESON_SOURCE_ROOT}" ]; then
+  echo "[ERROR] This script can only be ran with meson!"
+  exit 1
+fi
+
+mkdir -p "${DESTDIR}/${MESON_INSTALL_PREFIX}/include"
+
+cp "${MESON_SOURCE_ROOT}/subprojects/cpptoml/include/cpptoml.h" "${DESTDIR}/${MESON_INSTALL_PREFIX}/include/btllib/"
