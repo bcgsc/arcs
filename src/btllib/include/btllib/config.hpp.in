@@ -1,0 +1,10 @@
+#ifndef BTLLIB_CONFIG_HPP
+#define BTLLIB_CONFIG_HPP
+
+namespace btllib {
+
+static constexpr char const *PROJECT_VERSION = "@PROJECT_VERSION@";
+
+}
+
+#endif
