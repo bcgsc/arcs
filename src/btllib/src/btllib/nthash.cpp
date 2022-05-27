@@ -15,6 +15,8 @@ NtHash::NtHash(const char* seq,
   , initialized(false)
   , hashes_array(new uint64_t[hash_num])
 {
+  // Parameter sanity check
+  check_error(k == 0, "NtHash: k must be greater than 0");
   check_error(k > NTHASH_K_MAX,
               "NtHash: passed k value (" + std::to_string(k) +
                 ") is larger than allowed (" + std::to_string(NTHASH_K_MAX) +
@@ -27,6 +29,13 @@ NtHash::NtHash(const char* seq,
                 "NtHash: using " + std::to_string(hash_num) +
                   " hash functions and k size of " + std::to_string(k) +
                   ". Did you permute the parameters?");
+  check_error(seq_len < k,
+              "NtHash: sequence length (" + std::to_string(seq_len) +
+                ") is smaller than k (" + std::to_string(k) + ").");
+  check_error(pos >= seq_len,
+              "NtHash: passed position (" + std::to_string(pos) +
+                ") is larger than sequence length (" + std::to_string(seq_len) +
+                ").");
 }
 
 NtHash::NtHash(const std::string& seq,

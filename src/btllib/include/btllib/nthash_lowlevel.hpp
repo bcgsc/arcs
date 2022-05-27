@@ -8,7 +8,7 @@
 #ifndef BTLLIB_NTHASH_LOWLEVEL_HPP
 #define BTLLIB_NTHASH_LOWLEVEL_HPP
 
-#include "nthash_consts.hpp"
+#include "btllib/nthash_consts.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -17,7 +17,16 @@
 
 namespace btllib {
 
-#define CANONICAL(FORWARD, REVERSE) ((FORWARD) + (REVERSE))
+template<typename T>
+inline T
+canonical(const T fwd, const T rev)
+{
+  return fwd + rev;
+}
+
+static_assert(std::numeric_limits<unsigned>::max() + 1 == 0,
+              "Integers don't overflow on this platform which is necessary for "
+              "ntHash canonical hash computation.");
 
 // Data structures for spaced seeds
 
@@ -550,7 +559,7 @@ ntmsm64(const char* kmer_seq,
     fh_val[i_seed] = fh_seed;                                                  \
     rh_val[i_seed] = rh_seed;                                                  \
     i_base = i_seed * m2;                                                      \
-    h_val[i_base] = CANONICAL(fh_seed, rh_seed);                               \
+    h_val[i_base] = canonical(fh_seed, rh_seed);                               \
     for (unsigned i_hash = 1; i_hash < m2; i_hash++) {                         \
       h_val[i_base + i_hash] = h_val[i_base] * (i_hash ^ k * MULTISEED);       \
       h_val[i_base + i_hash] ^= h_val[i_base + i_hash] >> MULTISHIFT;          \

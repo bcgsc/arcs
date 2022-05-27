@@ -11,6 +11,23 @@
 
 namespace btllib {
 
+/**
+ * @brief OrderQueue is a thread-safe queue where the elements have
+ * an inherent order (they must have a number in this order attached
+ * to them). Using their order information, we can optimize
+ * queue operations. There are four variations of the queue:
+ * 1) OrderQueueSPSC: Single Producer Single Consumer
+ * 2) OrderQueueMPSC: Multiple Producer Single Consumer
+ * 3) OrderQueueSPMC: Single Producer Multiple Consumer
+ * 4) OrderQueueMPMC: Multiple Producer Multiple Consumer
+ * The variations imply which aspect of the queue is thread-safe.
+ * If the queue is multiple producer, then insertion into the queue
+ * is thread-safe. If the queue is multiple consumer, then removal
+ * from the queue is thread-safe. Hence, the first variation is not
+ * thread-safe and the last is fully thread-safe.
+ *
+ * @tparam T The type of the elements in the queue.
+ */
 template<typename T>
 class OrderQueue
 {

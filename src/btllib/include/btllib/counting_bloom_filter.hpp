@@ -2,6 +2,7 @@
 #define BTLLIB_COUNTING_BLOOM_FILTER_HPP
 
 #include "btllib/bloom_filter.hpp"
+#include "btllib/counting_bloom_filter.hpp"
 #include "btllib/nthash.hpp"
 #include "btllib/status.hpp"
 
@@ -18,8 +19,10 @@
 
 namespace btllib {
 
+// NOLINTNEXTLINE(clang-diagnostic-unneeded-internal-declaration)
 static const char* const COUNTING_BLOOM_FILTER_SIGNATURE =
   "[BTLCountingBloomFilter_v5]";
+// NOLINTNEXTLINE(clang-diagnostic-unneeded-internal-declaration)
 static const char* const KMER_COUNTING_BLOOM_FILTER_SIGNATURE =
   "[BTLKmerCountingBloomFilter_v5]";
 
@@ -205,14 +208,20 @@ public:
 
   /** Get filter size in bytes. */
   size_t get_bytes() const { return bytes; }
-  /** Get population count, i.e. the number of counters >0 in the filter. */
-  uint64_t get_pop_cnt() const;
-  /** Get the fraction of the filter occupied by >1 counters. */
-  double get_occupancy() const;
+  /** Get population count, i.e. the number of counters >= threshold in the
+   * filter. */
+  uint64_t get_pop_cnt(T threshold = 1) const;
+  /** Get the fraction of the filter occupied by >= threshold counters. */
+  double get_occupancy(T threshold = 1) const;
   /** Get the number of hash values per element. */
   unsigned get_hash_num() const { return hash_num; }
-  /** Get the query false positive rate. */
-  double get_fpr() const;
+  /** Get the query false positive rate for elements with count >= threshold.
+   *
+   * @param threshold The threshold.
+   *
+   * @return The false positive rate.
+   */
+  double get_fpr(T threshold = 1) const;
   /** Get the name of the hash function used. */
   const std::string& get_hash_fn() const { return hash_fn; }
 
@@ -577,13 +586,27 @@ public:
   /** Get filter size in bytes. */
   size_t get_bytes() const { return counting_bloom_filter.get_bytes(); }
   /** Get population count, i.e. the number of counters >0 in the filter. */
-  uint64_t get_pop_cnt() const { return counting_bloom_filter.get_pop_cnt(); }
+  uint64_t get_pop_cnt(T threshold = 1) const
+  {
+    return counting_bloom_filter.get_pop_cnt(threshold);
+  }
   /** Get the fraction of the filter occupied by >0 counters. */
-  double get_occupancy() const { return counting_bloom_filter.get_occupancy(); }
+  double get_occupancy(T threshold = 1) const
+  {
+    return counting_bloom_filter.get_occupancy(threshold);
+  }
   /** Get the number of hash values per element. */
   unsigned get_hash_num() const { return counting_bloom_filter.get_hash_num(); }
-  /** Get the query false positive rate. */
-  double get_fpr() const { return counting_bloom_filter.get_fpr(); }
+  /** Get the query false positive rate for elements with count >= threshold.
+   *
+   * @param threshold The threshold.
+   *
+   * @return The false positive rate.
+   */
+  double get_fpr(T threshold = 1) const
+  {
+    return counting_bloom_filter.get_fpr(threshold);
+  }
   /** Get the k-mer size used. */
   unsigned get_k() const { return k; }
   /** Get the name of the hash function used. */
@@ -750,12 +773,15 @@ CountingBloomFilter<T>::contains_insert_thresh(const uint64_t* hashes,
 
 template<typename T>
 inline uint64_t
-CountingBloomFilter<T>::get_pop_cnt() const
+CountingBloomFilter<T>::get_pop_cnt(const T threshold) const
 {
   uint64_t pop_cnt = 0;
-#pragma omp parallel for default(none) reduction(+ : pop_cnt)
+  // OpenMP make up your mind man. Using default(none) here causes errors on
+  // some compilers and not others.
+  // NOLINTNEXTLINE(openmp-use-default-none,-warnings-as-errors)
+#pragma omp parallel for reduction(+ : pop_cnt)
   for (size_t i = 0; i < array_size; ++i) {
-    if (array[i] > 0) {
+    if (array[i] >= threshold) {
       ++pop_cnt;
     }
   }
@@ -764,16 +790,16 @@ CountingBloomFilter<T>::get_pop_cnt() const
 
 template<typename T>
 inline double
-CountingBloomFilter<T>::get_occupancy() const
+CountingBloomFilter<T>::get_occupancy(const T threshold) const
 {
-  return double(get_pop_cnt()) / double(array_size);
+  return double(get_pop_cnt(threshold)) / double(array_size);
 }
 
 template<typename T>
 inline double
-CountingBloomFilter<T>::get_fpr() const
+CountingBloomFilter<T>::get_fpr(const T threshold) const
 {
-  return std::pow(get_occupancy(), double(hash_num));
+  return std::pow(get_occupancy(threshold), double(hash_num));
 }
 
 template<typename T>

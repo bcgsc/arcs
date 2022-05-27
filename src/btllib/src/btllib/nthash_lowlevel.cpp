@@ -95,7 +95,7 @@ ntc64(const char* kmer_seq, const unsigned k)
   uint64_t fh_val = 0, rh_val = 0;
   fh_val = ntf64(kmer_seq, k);
   rh_val = ntr64(kmer_seq, k);
-  return CANONICAL(fh_val, rh_val);
+  return canonical(fh_val, rh_val);
 }
 
 uint64_t
@@ -106,7 +106,7 @@ ntc64(const char* kmer_seq,
 {
   fh_val = ntf64(kmer_seq, k);
   rh_val = ntr64(kmer_seq, k);
-  return CANONICAL(fh_val, rh_val);
+  return canonical(fh_val, rh_val);
 }
 
 uint64_t
@@ -118,7 +118,7 @@ ntc64(const unsigned char char_out,
 {
   fh_val = ntf64(fh_val, k, char_out, char_in);
   rh_val = ntr64(rh_val, k, char_out, char_in);
-  return CANONICAL(fh_val, rh_val);
+  return canonical(fh_val, rh_val);
 }
 
 uint64_t
@@ -154,7 +154,7 @@ ntc64l(const unsigned char char_out,
 {
   fh_val = ntf64l(fh_val, k, char_out, char_in);
   rh_val = ntr64l(rh_val, k, char_out, char_in);
-  return CANONICAL(fh_val, rh_val);
+  return canonical(fh_val, rh_val);
 }
 
 void
@@ -237,7 +237,7 @@ ntc64(const char* kmer_seq, const unsigned k, uint64_t& h_val, unsigned& loc_n)
     rh_val = srol(rh_val);
     rh_val ^= SEED_TAB[(unsigned char)kmer_seq[i] & CP_OFF];
   }
-  h_val = CANONICAL(fh_val, rh_val);
+  h_val = canonical(fh_val, rh_val);
   return true;
 }
 
@@ -261,7 +261,7 @@ ntmc64(const char* kmer_seq,
     rh_val = srol(rh_val);
     rh_val ^= SEED_TAB[(unsigned char)kmer_seq[i] & CP_OFF];
   }
-  b_val = CANONICAL(fh_val, rh_val);
+  b_val = canonical(fh_val, rh_val);
   nte64(b_val, k, m, h_val);
   return true;
 }
@@ -287,7 +287,7 @@ ntc64(const char* kmer_seq,
     rh_val = srol(rh_val);
     rh_val ^= SEED_TAB[(unsigned char)kmer_seq[i] & CP_OFF];
   }
-  h_val = CANONICAL(fh_val, rh_val);
+  h_val = canonical(fh_val, rh_val);
   return true;
 }
 
@@ -314,7 +314,7 @@ ntmc64(const char* kmer_seq,
     rh_val = srol(rh_val);
     rh_val ^= SEED_TAB[(unsigned char)kmer_seq[i] & CP_OFF];
   }
-  b_val = CANONICAL(fh_val, rh_val);
+  b_val = canonical(fh_val, rh_val);
   nte64(b_val, k, m, h_val);
   return true;
 }
@@ -344,7 +344,7 @@ ntmc64(const char* kmer_seq,
     rh_val ^= SEED_TAB[(unsigned char)kmer_seq[i] & CP_OFF];
   }
   h_stn = rh_val < fh_val;
-  b_val = CANONICAL(fh_val, rh_val);
+  b_val = canonical(fh_val, rh_val);
   nte64(b_val, k, m, h_val);
   return true;
 }
@@ -378,7 +378,7 @@ mask_hash(uint64_t& fk_val,
       rs_val ^= MS_TAB((unsigned char)kmer_seq[i] & CP_OFF, i);
     }
   }
-  return CANONICAL(fs_val, rs_val);
+  return canonical(fs_val, rs_val);
 }
 
 void
@@ -404,7 +404,7 @@ sub_hash(uint64_t fh_val,
     rh_val ^= MS_TAB(new_base & CP_OFF, pos);
   }
 
-  b_val = CANONICAL(fh_val, rh_val);
+  b_val = canonical(fh_val, rh_val);
   nte64(b_val, k, m, h_val);
 }
 
@@ -447,7 +447,7 @@ ntmsm64(const char* kmer_seq,
     fh_val[i_seed] = fh_seed;
     rh_val[i_seed] = rh_seed;
     i_base = i_seed * m2;
-    h_val[i_base] = CANONICAL(fh_seed, rh_seed);
+    h_val[i_base] = canonical(fh_seed, rh_seed);
     for (unsigned i_hash = 1; i_hash < m2; i_hash++) {
       h_val[i_base + i_hash] = h_val[i_base] * (i_hash ^ k * MULTISEED);
       h_val[i_base + i_hash] ^= h_val[i_base + i_hash] >> MULTISHIFT;

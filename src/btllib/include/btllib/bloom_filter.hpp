@@ -37,20 +37,16 @@ class BloomFilterInitializer
 
 public:
   BloomFilterInitializer(const std::string& path, const std::string& signature)
-    : ifs(path)
-    , table(parse_header(ifs, signature))
+    : path(path)
+    , ifs(path)
+    , table(parse_header(signature))
   {}
 
   static bool check_file_signature(std::ifstream& ifs,
-                                   std::string& file_signature,
-                                   const std::string& expected_signature);
+                                   const std::string& expected_signature,
+                                   std::string& file_signature);
 
-  /** Parse a Bloom filter file header. Useful for implementing Bloom filter
-   * variants. */
-  static std::shared_ptr<cpptoml::table> parse_header(
-    std::ifstream& file,
-    const std::string& signature);
-
+  std::string path;
   std::ifstream ifs;
   std::shared_ptr<cpptoml::table> table;
 
@@ -59,6 +55,11 @@ public:
 
   BloomFilterInitializer& operator=(const BloomFilterInitializer&) = delete;
   BloomFilterInitializer& operator=(BloomFilterInitializer&&) = default;
+
+private:
+  /** Parse a Bloom filter file header. Useful for implementing Bloom filter
+   * variants. */
+  std::shared_ptr<cpptoml::table> parse_header(const std::string& signature);
 };
 /// @endcond
 

@@ -52,6 +52,7 @@ SeqReader::SeqReader(const std::string& source_path,
   , output_queue(buffer_size, block_size)
   , id(++last_id)
 {
+  // Parameter sanity check
   check_error(!short_mode() && !long_mode(),
               "SeqReader: no mode selected, either short or long mode flag "
               "must be provided.");

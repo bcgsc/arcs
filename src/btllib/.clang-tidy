@@ -54,6 +54,7 @@
     -altera-id-dependent-backward-branch,
     -clang-diagnostic-unused-command-line-argument,
     -clang-diagnostic-unneeded-internal-declaration',
+  WarningsAsErrors: '*',
   CheckOptions: [
       { key: readability-identifier-naming.ClassCase,                 value: CamelCase },
       { key: readability-identifier-naming.VariableCase,              value: lower_case },
@@ -63,5 +64,5 @@
       { key: readability-identifier-naming.GlobalConstantCase,        value: UPPER_CASE },
       { key: readability-identifier-naming.GlobalConstantPointerCase, value: UPPER_CASE },
       { key: readability-identifier-naming.ConstexprVariableCase,     value: UPPER_CASE },
-    ]
+  ]
 }

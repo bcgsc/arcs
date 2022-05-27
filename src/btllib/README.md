@@ -1,49 +1,54 @@
 [Bioinformatics Technology Lab](http://www.birollab.ca/) common code library in C++ with Python wrappers.
 
-[![Build Status](https://dev.azure.com/bcgsc/btl_public/_apis/build/status/bcgsc.btllib)](https://dev.azure.com/bcgsc/btl_public/_build/latest?definitionId=1)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/btllib/badges/version.svg)](https://anaconda.org/bioconda/btllib)
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/bcgsc/btllib.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/bcgsc/btllib/context:cpp)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/bcgsc/btllib.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/bcgsc/btllib/alerts/)
+[![Build Status](https://dev.azure.com/bcgsc/btl_public/_apis/build/status/bcgsc.btllib)](https://dev.azure.com/bcgsc/btl_public/_build/latest?definitionId=1)
 
 Platforms
 ---
 - Linux
 - MacOS
 
+Installation for users
+---
+The recommended way is to download using [Conda](https://docs.conda.io/en/latest/) package manager:  
+`conda install -c bioconda btllib`
+
+Alternatively, you can compile the code from source. Download `btllib-$VERSION.tar.gz` from the GitHub [latest release](https://github.com/bcgsc/btllib/releases/latest) where `$VERSION` is the latest btllib version and do the following:
+- `tar xzf btllib-$VERSION.tar.gz` to extract the source code.
+- Have the dependencies ready:
+  * GCC 6+ or Clang 5+ (optionally with OpenMP support)
+  * Python 3.7+
+  * Meson and Ninja Python3 packages, CMake (If not available, these will be automatically installed to a temporary directory.)
+- Run `btllib/compile`
+  * This will install btllib in the `btllib/install` directory. You can provide the `--prefix` parameter to change this.
+  * The C++ compiler must be the same as the one used for compiling Python. E.g. if you installed Python using a package manager, you should use the C++ compiler from the same package manager. You can change the compiler by exporting the `CXX` environment variable to point to the compiler before running `btllib/compile`.
+  * You can optionally run `python3 -m pip install $PREFIX/lib/btllib/python` afterwards to install the Python package. The Python wrappers are usable even without this step. `$PREFIX` is the path where btllib is installed.
+
+Using the library
+---
+- Run time dependencies:
+  * SAMtools for reading SAM, BAM, and CRAM files.
+  * gzip, tar, pigz, bzip2, xz, lrzip, zip, and/or 7zip for compressing/decompressing files. Not all of these are necessary, only the ones whose compressions you'll be using. 
+  * wget for downloading sequences from a URL.
+- Building C++ code (`$PREFIX` is the path where btllib is installed):
+  * Link your code with `$PREFIX/lib/libbtllib.a` (pass `-L $PREFIX/lib -l btllib` flags to the compiler).
+  * `#include` any header from the `$PREFIX/include` directory (pass `-I $PREFIX/include` flag to the compiler).
+  * `btllib` uses `C++11` features, so that standard should be enabled at a minimum.
+- Running Python code:
+  * The Python used to import btllib _must_ be the same as the one used to compile the library. Specifically, btllib uses `python3-config` to determine the flags used for compilation. Running `python3-config --exec-prefix` will give the path to the Python installation that needs to be used. The `python3` executable can be found at `$(python3-config --exec-prefix)/bin/python3`.
+  * The wrappers correspond one-to-one with C++ code so any functions and classes can be used under the same name. The only exception are nested classes which are prefixed with outer class name (e.g. `btllib::SeqReader::Flag` in C++ versus `btllib.SeqReaderFlag` in Python).
+  * If you compiled btllib from source code and didn't install the Python wrappers, you can use `PYTHONPATH` environment variable or `sys.path.append()` in your Python code to include `$PREFIX/lib/btllib/python/btllib` directory to make btllib available to the interpreter.
+  * Include the library with `import btllib`
+- Executables
+  * btllib generated executables can be found in `$PREFIX/bin` directory. Append that path to the `PATH` environment variable to make it available to your shell.
+
 Documentation
 ---
 [Docs page](https://bcgsc.github.io/btllib/)
 
-Download
----
-The recommended way is to download the [latest release](https://github.com/bcgsc/btllib/releases/latest).
-
-Dependencies
----
-- Build
-  * GCC 6+ or Clang 5+ with OpenMP
-  * Python 3.5+
-  * Meson and Ninja Python3 packages, CMake (If you are a user and not a developer, these will be automatically installed to a temporary directory)
-- Run time
-  * SAMtools for reading SAM, BAM, and CRAM files.
-  * gzip, tar, pigz, bzip2, xz, lrzip, zip, and/or 7zip for compressing/decompressing files. Not all of these are necessary, only the ones whose compressions you'll be using. 
-  * wget for downloading sequences from a URL.
-
-For users
----
-- Copy the root `btllib` directory into your project
-- Run `btllib/compile`
-- C++
-  * Link your code with `btllib/install/lib/libbtllib.a` (pass `-L /path/to/btllib/install/lib -l btllib` flags to the compiler).
-  * `#include` any header from the `btllib/install/include` directory (pass `-I /path/to/btllib/install/include` flag to the compiler).
-  * `btllib` uses `C++11` features, so that standard should be enabled at a minimum.
-- Python wrappers
-  * The wrappers correspond one-to-one with C++ code so any functions and classes can be used under the same name. The only exception are nested classes which are prefixed with outer class name (e.g. `btllib::SeqReader::Flag` in C++ versus `btllib.SeqReaderFlag` in Python).
-  * Use `PYTHONPATH` environment variable or `sys.path.append()` in your Python code to include `/path/to/btllib/install/python` directory
-  * Include the library with `import btllib`
-- Executables
-  * btllib generated executables can be found in `/path/to/btllib/install/bin` directory. Append that path to the `PATH` environment variable to make it available to your shell.
-
-For developers
+For btllib developers
 ---
 - Initial setup:
   * `git clone --recurse-submodules https://github.com/bcgsc/btllib` in order to obtain all the code.

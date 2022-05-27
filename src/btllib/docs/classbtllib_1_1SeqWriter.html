@@ -90,8 +90,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac5676e4db3e0caf984d41abd26a35c35"><td class="memItemLeft" align="right" valign="top"><a id="ac5676e4db3e0caf984d41abd26a35c35" name="ac5676e4db3e0caf984d41abd26a35c35"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>close</b> ()</td></tr>
 <tr class="separator:ac5676e4db3e0caf984d41abd26a35c35"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad1202d19b9934405fa0cfa7ee165ccc3"><td class="memItemLeft" align="right" valign="top"><a id="ad1202d19b9934405fa0cfa7ee165ccc3" name="ad1202d19b9934405fa0cfa7ee165ccc3"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>write</b> (const std::string &amp;id, const std::string &amp;comment, const std::string &amp;seq, const std::string &amp;qual=&quot;&quot;)</td></tr>
+<tr class="memitem:ad1202d19b9934405fa0cfa7ee165ccc3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1SeqWriter.html#ad1202d19b9934405fa0cfa7ee165ccc3">write</a> (const std::string &amp;id, const std::string &amp;comment, const std::string &amp;seq, const std::string &amp;qual=&quot;&quot;)</td></tr>
 <tr class="separator:ad1202d19b9934405fa0cfa7ee165ccc3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
@@ -138,6 +137,59 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>write</b> (const std:
     <tr><td class="paramname">append</td><td>Whether to append to the target file or write anew. </td></tr>
   </table>
   </dd>
+</dl>
+
+</div>
+</div>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="ad1202d19b9934405fa0cfa7ee165ccc3" name="ad1202d19b9934405fa0cfa7ee165ccc3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad1202d19b9934405fa0cfa7ee165ccc3">&#9670;&nbsp;</a></span>write()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void btllib::SeqWriter::write </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>comment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>seq</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>qual</em> = <code>&quot;&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p >Write a sequence.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">id</td><td>Sequence ID or name. </td></tr>
+    <tr><td class="paramname">comment</td><td>Optional comment after the ID/name. </td></tr>
+    <tr><td class="paramname">seq</td><td>The sequence to write. </td></tr>
+    <tr><td class="paramname">qual</td><td>Optional quality scores, mandatory if format is FASTQ. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="seq_writer_8cpp-example.html#a1">seq_writer.cpp</a>.</dd>
 </dl>
 
 </div>

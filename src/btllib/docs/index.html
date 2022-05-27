@@ -66,7 +66,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p ><a class="anchor" id="md_README"></a> <a href="http://www.birollab.ca/">Bioinformatics Technology Lab</a> common code library in C++ with Python wrappers.</p>
-<p ><a href="https://dev.azure.com/bcgsc/btl_public/_build/latest?definitionId=1"><img src="https://dev.azure.com/bcgsc/btl_public/_apis/build/status/bcgsc.btllib" alt="Build Status" class="inline"/></a> <a href="https://lgtm.com/projects/g/bcgsc/btllib/context:cpp"><img src="https://img.shields.io/lgtm/grade/cpp/g/bcgsc/btllib.svg?logo=lgtm&amp;logoWidth=18" alt="Language grade: C/C++" style="pointer-events: none;" class="inline"/></a> <a href="https://lgtm.com/projects/g/bcgsc/btllib/alerts/"><img src="https://img.shields.io/lgtm/alerts/g/bcgsc/btllib.svg?logo=lgtm&amp;logoWidth=18" alt="Total alerts" style="pointer-events: none;" class="inline"/></a></p>
+<p ><a href="https://anaconda.org/bioconda/btllib"><img src="https://anaconda.org/bioconda/btllib/badges/version.svg" alt="Anaconda-Server Badge" style="pointer-events: none;" class="inline"/></a> <a href="https://lgtm.com/projects/g/bcgsc/btllib/context:cpp"><img src="https://img.shields.io/lgtm/grade/cpp/g/bcgsc/btllib.svg?logo=lgtm&amp;logoWidth=18" alt="Language grade: C/C++" style="pointer-events: none;" class="inline"/></a> <a href="https://lgtm.com/projects/g/bcgsc/btllib/alerts/"><img src="https://img.shields.io/lgtm/alerts/g/bcgsc/btllib.svg?logo=lgtm&amp;logoWidth=18" alt="Total alerts" style="pointer-events: none;" class="inline"/></a> <a href="https://dev.azure.com/bcgsc/btl_public/_build/latest?definitionId=1"><img src="https://dev.azure.com/bcgsc/btl_public/_apis/build/status/bcgsc.btllib" alt="Build Status" class="inline"/></a></p>
 <h2><a class="anchor" id="autotoc_md0"></a>
 Platforms</h2>
 <ul>
@@ -74,51 +74,56 @@ Platforms</h2>
 <li>MacOS</li>
 </ul>
 <h2><a class="anchor" id="autotoc_md1"></a>
-Documentation</h2>
-<p ><a href="https://bcgsc.github.io/btllib/">Docs page</a></p>
-<h2><a class="anchor" id="autotoc_md2"></a>
-Download</h2>
-<p >The recommended way is to download the <a href="https://github.com/bcgsc/btllib/releases/latest">latest release</a>.</p>
-<h2><a class="anchor" id="autotoc_md3"></a>
-Dependencies</h2>
-<ul>
-<li>Build<ul>
-<li>GCC 6+ or Clang 5+ with OpenMP</li>
-<li>Python 3.5+</li>
-<li>Meson and Ninja Python3 packages, CMake (If you are a user and not a developer, these will be automatically installed to a temporary directory)</li>
+Installation for users</h2>
+<p >The recommended way is to download using <a href="https://docs.conda.io/en/latest/">Conda</a> package manager: <br  />
+ <code>conda install -c bioconda btllib</code></p>
+<p >Alternatively, you can compile the code from source. Download <code>btllib-$VERSION.tar.gz</code> from the GitHub <a href="https://github.com/bcgsc/btllib/releases/latest">latest release</a> where <code>$VERSION</code> is the latest btllib version and do the following:</p><ul>
+<li><code>tar xzf btllib-$VERSION.tar.gz</code> to extract the source code.</li>
+<li>Have the dependencies ready:<ul>
+<li>GCC 6+ or Clang 5+ (optionally with OpenMP support)</li>
+<li>Python 3.7+</li>
+<li>Meson and Ninja Python3 packages, CMake (If not available, these will be automatically installed to a temporary directory.)</li>
 </ul>
 </li>
-<li>Run time<ul>
+<li>Run <code>btllib/compile</code><ul>
+<li>This will install btllib in the <code>btllib/install</code> directory. You can provide the <code>--prefix</code> parameter to change this.</li>
+<li>The C++ compiler must be the same as the one used for compiling Python. E.g. if you installed Python using a package manager, you should use the C++ compiler from the same package manager. You can change the compiler by exporting the <code>CXX</code> environment variable to point to the compiler before running <code>btllib/compile</code>.</li>
+<li>You can optionally run <code>python3 -m pip install $PREFIX/lib/btllib/python</code> afterwards to install the Python package. The Python wrappers are usable even without this step. <code>$PREFIX</code> is the path where btllib is installed.</li>
+</ul>
+</li>
+</ul>
+<h2><a class="anchor" id="autotoc_md2"></a>
+Using the library</h2>
+<ul>
+<li>Run time dependencies:<ul>
 <li>SAMtools for reading SAM, BAM, and CRAM files.</li>
 <li>gzip, tar, pigz, bzip2, xz, lrzip, zip, and/or 7zip for compressing/decompressing files. Not all of these are necessary, only the ones whose compressions you'll be using.</li>
 <li>wget for downloading sequences from a URL.</li>
 </ul>
 </li>
-</ul>
-<h2><a class="anchor" id="autotoc_md4"></a>
-For users</h2>
-<ul>
-<li>Copy the root <code>btllib</code> directory into your project</li>
-<li>Run <code>btllib/compile</code></li>
-<li>C++<ul>
-<li>Link your code with <code>btllib/install/lib/libbtllib.a</code> (pass <code>-L /path/to/btllib/install/lib -l btllib</code> flags to the compiler).</li>
-<li><code>#include</code> any header from the <code>btllib/install/include</code> directory (pass <code>-I /path/to/btllib/install/include</code> flag to the compiler).</li>
+<li>Building C++ code (<code>$PREFIX</code> is the path where btllib is installed):<ul>
+<li>Link your code with <code>$PREFIX/lib/libbtllib.a</code> (pass <code>-L $PREFIX/lib -l btllib</code> flags to the compiler).</li>
+<li><code>#include</code> any header from the <code>$PREFIX/include</code> directory (pass <code>-I $PREFIX/include</code> flag to the compiler).</li>
 <li><code>btllib</code> uses <code>C++11</code> features, so that standard should be enabled at a minimum.</li>
 </ul>
 </li>
-<li>Python wrappers<ul>
+<li>Running Python code:<ul>
+<li>The Python used to import btllib <em>must</em> be the same as the one used to compile the library. Specifically, btllib uses <code>python3-config</code> to determine the flags used for compilation. Running <code>python3-config --exec-prefix</code> will give the path to the Python installation that needs to be used. The <code>python3</code> executable can be found at <code>$(python3-config --exec-prefix)/bin/python3</code>.</li>
 <li>The wrappers correspond one-to-one with C++ code so any functions and classes can be used under the same name. The only exception are nested classes which are prefixed with outer class name (e.g. <code><a class="el" href="structbtllib_1_1SeqReader_1_1Flag.html">btllib::SeqReader::Flag</a></code> in C++ versus <code>btllib.SeqReaderFlag</code> in Python).</li>
-<li>Use <code>PYTHONPATH</code> environment variable or <code>sys.path.append()</code> in your Python code to include <code>/path/to/btllib/install/python</code> directory</li>
+<li>If you compiled btllib from source code and didn't install the Python wrappers, you can use <code>PYTHONPATH</code> environment variable or <code>sys.path.append()</code> in your Python code to include <code>$PREFIX/lib/btllib/python/btllib</code> directory to make btllib available to the interpreter.</li>
 <li>Include the library with <code>import btllib</code></li>
 </ul>
 </li>
 <li>Executables<ul>
-<li>btllib generated executables can be found in <code>/path/to/btllib/install/bin</code> directory. Append that path to the <code>PATH</code> environment variable to make it available to your shell.</li>
+<li>btllib generated executables can be found in <code>$PREFIX/bin</code> directory. Append that path to the <code>PATH</code> environment variable to make it available to your shell.</li>
 </ul>
 </li>
 </ul>
-<h2><a class="anchor" id="autotoc_md5"></a>
-For developers</h2>
+<h2><a class="anchor" id="autotoc_md3"></a>
+Documentation</h2>
+<p ><a href="https://bcgsc.github.io/btllib/">Docs page</a></p>
+<h2><a class="anchor" id="autotoc_md4"></a>
+For btllib developers</h2>
 <ul>
 <li>Initial setup:<ul>
 <li><code>git clone --recurse-submodules <a href="https://github.com/bcgsc/btllib">https://github.com/bcgsc/btllib</a></code> in order to obtain all the code.</li>
@@ -153,7 +158,7 @@ For developers</h2>
 <li><code>ninja docs</code> generates code documentation from comments (requires Doxygen).</li>
 <li><code>ninja quality-assurance</code> runs <code>clang-format</code>, <code>wrap</code>, <code>clang-tidy</code>, <code>test</code>, <code>sanitize-undefined</code>, and <code>test-wrappers</code>. These are all checked at the CI test.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md6"></a>
+<h2><a class="anchor" id="autotoc_md5"></a>
 Credits</h2>
 <ul>
 <li>Author: <a href="https://github.com/vlad0x00">Vladimir Nikolic</a></li>

@@ -8,7 +8,7 @@ fi
 set -e
 
 # Remove old wrapper files
-rm -f ${MESON_SOURCE_ROOT}/wrappers/python/*.py
+rm -f ${MESON_SOURCE_ROOT}/wrappers/python/btllib.py
 
 # Generate python swig files
 cd ${MESON_SOURCE_ROOT}

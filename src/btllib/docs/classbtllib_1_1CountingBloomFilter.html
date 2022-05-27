@@ -123,14 +123,14 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae3ff24f0c94cc64936e16c7a5124d33d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a757657b6cdee481025be9535d003e7d6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a757657b6cdee481025be9535d003e7d6">get_bytes</a> () const</td></tr>
 <tr class="separator:a757657b6cdee481025be9535d003e7d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a69c657ea3b384c52f5d49bdb7255d2f6"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a69c657ea3b384c52f5d49bdb7255d2f6">get_pop_cnt</a> () const</td></tr>
-<tr class="separator:a69c657ea3b384c52f5d49bdb7255d2f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afca13e8c6f3901e06f1dedfe9e5bbf60"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#afca13e8c6f3901e06f1dedfe9e5bbf60">get_occupancy</a> () const</td></tr>
-<tr class="separator:afca13e8c6f3901e06f1dedfe9e5bbf60"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a500bd5392fbb4ea4f4f0b0de6b2d1cf1"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a500bd5392fbb4ea4f4f0b0de6b2d1cf1">get_pop_cnt</a> (T threshold=1) const</td></tr>
+<tr class="separator:a500bd5392fbb4ea4f4f0b0de6b2d1cf1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a88352a9190ffc9339ef875ddde03cf"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a2a88352a9190ffc9339ef875ddde03cf">get_occupancy</a> (T threshold=1) const</td></tr>
+<tr class="separator:a2a88352a9190ffc9339ef875ddde03cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a92536bbe784a710cf27abec895d2ac44"><td class="memItemLeft" align="right" valign="top">unsigned&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a92536bbe784a710cf27abec895d2ac44">get_hash_num</a> () const</td></tr>
 <tr class="separator:a92536bbe784a710cf27abec895d2ac44"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a172db896b1c6d60a5ae4727df1cd33a5"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a172db896b1c6d60a5ae4727df1cd33a5">get_fpr</a> () const</td></tr>
-<tr class="separator:a172db896b1c6d60a5ae4727df1cd33a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a48af89e6c93555037a004dd7e2ae355c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a48af89e6c93555037a004dd7e2ae355c">get_fpr</a> (T threshold=1) const</td></tr>
+<tr class="separator:a48af89e6c93555037a004dd7e2ae355c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2df04be0748fb66578f9ec54e599b9fd"><td class="memItemLeft" align="right" valign="top">const std::string &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a2df04be0748fb66578f9ec54e599b9fd">get_hash_fn</a> () const</td></tr>
 <tr class="separator:a2df04be0748fb66578f9ec54e599b9fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5e22481a658471b286a2a8b915839121"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbtllib_1_1CountingBloomFilter.html#a5e22481a658471b286a2a8b915839121">save</a> (const std::string &amp;path)</td></tr>
@@ -534,8 +534,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a172db896b1c6d60a5ae4727df1cd33a5" name="a172db896b1c6d60a5ae4727df1cd33a5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a172db896b1c6d60a5ae4727df1cd33a5">&#9670;&nbsp;</a></span>get_fpr()</h2>
+<a id="a48af89e6c93555037a004dd7e2ae355c" name="a48af89e6c93555037a004dd7e2ae355c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a48af89e6c93555037a004dd7e2ae355c">&#9670;&nbsp;</a></span>get_fpr()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -546,7 +546,11 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">double <a class="el" href="classbtllib_1_1CountingBloomFilter.html">btllib::CountingBloomFilter</a>&lt; T &gt;::get_fpr</td>
+          <td class="memname">double <a class="el" href="classbtllib_1_1CountingBloomFilter.html">btllib::CountingBloomFilter</a>&lt; T &gt;::get_fpr </td>
+          <td>(</td>
+          <td class="paramtype">T&#160;</td>
+          <td class="paramname"><em>threshold</em> = <code>1</code></td><td>)</td>
+          <td> const</td>
         </tr>
       </table>
   </td>
@@ -555,7 +559,14 @@ template&lt;typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p >Get the query false positive rate. </p>
+<p >Get the query false positive rate for elements with count &gt;= threshold.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">threshold</td><td>The threshold.</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>The false positive rate. </dd></dl>
 
 </div>
 </div>
@@ -615,8 +626,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="afca13e8c6f3901e06f1dedfe9e5bbf60" name="afca13e8c6f3901e06f1dedfe9e5bbf60"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afca13e8c6f3901e06f1dedfe9e5bbf60">&#9670;&nbsp;</a></span>get_occupancy()</h2>
+<a id="a2a88352a9190ffc9339ef875ddde03cf" name="a2a88352a9190ffc9339ef875ddde03cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2a88352a9190ffc9339ef875ddde03cf">&#9670;&nbsp;</a></span>get_occupancy()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -627,7 +638,11 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">double <a class="el" href="classbtllib_1_1CountingBloomFilter.html">btllib::CountingBloomFilter</a>&lt; T &gt;::get_occupancy</td>
+          <td class="memname">double <a class="el" href="classbtllib_1_1CountingBloomFilter.html">btllib::CountingBloomFilter</a>&lt; T &gt;::get_occupancy </td>
+          <td>(</td>
+          <td class="paramtype">T&#160;</td>
+          <td class="paramname"><em>threshold</em> = <code>1</code></td><td>)</td>
+          <td> const</td>
         </tr>
       </table>
   </td>
@@ -636,12 +651,12 @@ template&lt;typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p >Get the fraction of the filter occupied by &gt;1 counters. </p>
+<p >Get the fraction of the filter occupied by &gt;= threshold counters. </p>
 
 </div>
 </div>
-<a id="a69c657ea3b384c52f5d49bdb7255d2f6" name="a69c657ea3b384c52f5d49bdb7255d2f6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a69c657ea3b384c52f5d49bdb7255d2f6">&#9670;&nbsp;</a></span>get_pop_cnt()</h2>
+<a id="a500bd5392fbb4ea4f4f0b0de6b2d1cf1" name="a500bd5392fbb4ea4f4f0b0de6b2d1cf1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a500bd5392fbb4ea4f4f0b0de6b2d1cf1">&#9670;&nbsp;</a></span>get_pop_cnt()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -652,7 +667,11 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">uint64_t <a class="el" href="classbtllib_1_1CountingBloomFilter.html">btllib::CountingBloomFilter</a>&lt; T &gt;::get_pop_cnt</td>
+          <td class="memname">uint64_t <a class="el" href="classbtllib_1_1CountingBloomFilter.html">btllib::CountingBloomFilter</a>&lt; T &gt;::get_pop_cnt </td>
+          <td>(</td>
+          <td class="paramtype">T&#160;</td>
+          <td class="paramname"><em>threshold</em> = <code>1</code></td><td>)</td>
+          <td> const</td>
         </tr>
       </table>
   </td>
@@ -661,7 +680,7 @@ template&lt;typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p >Get population count, i.e. the number of counters &gt;0 in the filter. </p>
+<p >Get population count, i.e. the number of counters &gt;= threshold in the filter. </p>
 
 </div>
 </div>

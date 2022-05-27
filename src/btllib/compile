@@ -1,142 +1,190 @@
-#!/bin/bash
+#!/usr/bin/env python3
 
-get_major_minor_version() {
-  echo "$1" | awk '{print $2}' | awk -F '.' '{print $1 "." $2}'
-}
+import argparse
+import os
+from os.path import dirname, join, isdir, abspath
+import subprocess as sp
+import shutil
+import sys
+import base64
+import uuid
+import signal
+import threading
+import time
 
-get_lib_paths() {
-  local lib_paths=()
-  for flag in $1; do
-    if [[ $flag == "-L"* ]]; then
-      lib_paths+=($flag)
+DEFAULT_INSTALL_DIR = "install"
+
+
+def get_cli_args(btllib_dir):
+    # Create parser
+    parser = argparse.ArgumentParser(description="Compile btllib.")
+
+    # Add "prefix" argument
+    default_install_dir = join(btllib_dir, DEFAULT_INSTALL_DIR)
+    parser.add_argument(
+        "--prefix",
+        "-p",
+        type=str,
+        default=default_install_dir,
+        help="Prefix of the installation path.",
+    )
+
+    return parser.parse_args()
+
+
+def program_exists(program):
+    return sp.run([f"command -v {program}"], shell=True).returncode == 0
+
+
+def install_temp_deps(venv_path):
+    deps = ["meson", "ninja", "cmake"]
+    missing_deps = []
+    for dep in deps:
+        if not program_exists(dep):
+            missing_deps.append(dep)
+    missing_deps = " ".join(missing_deps)
+
+    if len(missing_deps) > 0:
+        print(
+            f"Building virtual environment for missing dependencies: {missing_deps}",
+            flush=True,
+        )
+
+        os.makedirs(f"{os.path.dirname(venv_path)}", exist_ok=True)
+
+        # Create virtual environment
+        if isdir(venv_path):
+            print(
+                f"Using already existing virtual environment: {venv_path}", flush=True
+            )
+        else:
+            sp.run([f"python3 -m venv {venv_path}"], shell=True)
+
+        sp.run(
+            [
+                f"""
+      . {venv_path}/bin/activate &&
+      pip3 install {missing_deps} &&
+      deactivate;
+    """
+            ],
+            shell=True,
+            check=True,
+        )
+    else:
+        print("All build dependencies are present.", flush=True)
+
+
+def export_python_flags():
+    python3_config = join(sys.exec_prefix, "bin", "python3-config")
+
+    # Get python flags
+    cflags = sp.run(
+        [f"{python3_config} --cflags"],
+        shell=True,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+    ldflags = sp.run(
+        [f"{python3_config} --ldflags"],
+        shell=True,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+
+    # Print flags
+    print(f"Passing the following CFLAGS to Python: {cflags}", flush=True)
+    print(f"Passing the following LDFLAGS to Python: {ldflags}", flush=True)
+
+    # Export flags
+    os.environ["BTLLIB_PYTHON_CFLAGS"] = cflags
+    os.environ["BTLLIB_PYTHON_LDFLAGS"] = ldflags
+
+
+def process_terminate():
+    """SIGTERM the calling process."""
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def watch_process(process):
+    """SIGTERM the calling process if the observed process dies with an error."""
+
+    def _watch_process(process):
+        process.wait()
+        if process.returncode != 0:
+            print(f"{process.args} failed!")
+            process_terminate()
+
+    threading.Thread(target=_watch_process, args=(process,), daemon=True).start()
+
+
+def autoclean(to_clean, btllib_dir):
+    process = sp.Popen([join(btllib_dir, "auto-cleanup"), to_clean])
+    watch_process(process)
+
+
+def get_random_name():
+    return (
+        base64.urlsafe_b64encode(uuid.uuid4().bytes)
+        .rstrip(b"=")
+        .replace(b"-", b"")
+        .decode("ascii")
+    )
+
+
+def get_build_dir(btllib_dir):
+    build_dir_name = f"btllib-build-{get_random_name()}"
+    if isdir("/tmp"):
+        prefix = "/tmp"
+    elif "TMPDIR" in os.environ:
+        prefix = os.environ["TMPDIR"]
+    else:
+        prefix = btllib_dir
+    return join(prefix, build_dir_name)
+
+
+if __name__ == "__main__":
+    btllib_dir = abspath(dirname(__file__))
+
+    args = get_cli_args(btllib_dir)
+
+    os.chdir(btllib_dir)
+
+    build_dir = get_build_dir(btllib_dir)
+    autoclean(build_dir, btllib_dir)
+
+    # Print build dir
+    print(f"Building btllib at: {build_dir}", flush=True)
+
+    # Check if previous build dir exists and remove it
+    if isdir(build_dir):
+        print(f"Removing previous build dir: {build_dir}", flush=True)
+        shutil.rmtree(build_dir, ignore_errors=True)
+
+    venv_path = join(build_dir, "venv")
+    install_temp_deps(venv_path)
+
+    export_python_flags()
+
+    time.sleep(3)
+
+    sp.run(
+        [
+            f"""
+    if [ -f {venv_path}/bin/activate ]; then
+      . {venv_path}/bin/activate;
+    fi &&
+    meson setup --buildtype release --prefix={args.prefix} {build_dir} &&
+    cd {build_dir} &&
+    ninja install &&
+    cd .. &&
+    if [ -f {venv_path}/bin/activate ]; then
+      deactivate;
     fi
-  done
-  echo "${lib_paths[@]}"
-}
-
-get_config_vars() {
-  local prefix="py${1}"
-  local config_var="${prefix}_config"
-  local path_var="${prefix}_path"
-  local version_var="${prefix}_version"
-  local version_num_var="${prefix}_version_num"
-  local cflags_var="${prefix}_cflags"
-  local ldflags_var="${prefix}_ldflags"
-  local lib_paths_var="${prefix}_lib_paths"
-
-  export declare ${config_var}="python${1}-config"
-  set +e
-  command -v ${!config_var} >/dev/null
-  if [[ $? -eq 0 ]]; then
-    export declare ${path_var}="$(${!config_var} --exec-prefix)/bin/python${1}"
-    export declare ${version_var}="$(${!path_var} --version 2>&1)"
-    export declare ${version_num_var}="$(get_major_minor_version "${!version_var}")"
-    export declare ${cflags_var}="$(${!config_var} --cflags)"
-    export declare ${ldflags_var}="$(${!config_var} --ldflags)"
-    export declare ${lib_paths_var}="$(get_lib_paths "${!ldflags_var}")"
-  else
-    export declare ${version_var}=""
-    export declare ${version_num_var}=-1
-  fi
-  set -e
-}
-
-are_lists_diff() {
-  local list1=()
-  local list2=()
-  for e in $1; do
-    list1+=($e)
-  done
-  for e in $2; do
-    list2+=($e)
-  done
-  old_IFS="$IFS"
-  IFS=$'\n'
-  local list1_sorted=($(sort <<< "${list1[*]}"))
-  local list2_sorted=($(sort <<< "${list2[*]}"))
-  IFS="$old_IFS"
-  [[ ${list1_sorted[@]} == ${list2_sorted[@]} ]]
-  echo $?
-}
-
-get_config_vars
-get_config_vars 3
-
-set -e
-
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-cd $SCRIPTPATH
-
-# Check if in interactive prompt
-if [[ -n ${PS1+x} ]]; then
-  if [[ ! "$py_version_num" < "3.0" && "$py_version_num" < "4.0" ]]; then
-    lib_paths_diff=$(are_lists_diff "$py_lib_paths" "$py3_lib_paths")
-    if [[ ("$py_version" != "$py3_version") || ($lib_paths_diff -eq 1) ]]; then
-      option1="$py_version"
-      option2="$py3_version"
-      if [[ -n "${py_lib_paths}" ]]; then
-        option1+=" ($py_lib_paths)"
-      fi
-      if [[ -n "${py3_lib_paths}" ]]; then
-        option2+=" ($py3_lib_paths)"
-      fi
-
-      echo "Multiple Pythons found"
-      PS3="Select which one to build with: "
-      options=("${option1}" "${option2}")
-      select opt in "${options[@]}"; do
-        case $opt in
-          "${option1}")
-              echo "Using ${option1}";
-              export BTLLIB_PYTHON_CFLAGS="$py_cflags"
-              export BTLLIB_PYTHON_LDFLAGS="$py_ldflags"
-              export BTLLIB_PYTHON_VERSION="$py_version_num"
-              break;;
-          "${option2}")
-              echo "Using ${option2}";
-              export BTLLIB_PYTHON_CFLAGS="$py3_cflags"
-              export BTLLIB_PYTHON_LDFLAGS="$py3_ldflags"
-              export BTLLIB_PYTHON_VERSION="$py3_version_num"
-              break;;
-          *) echo "Invalid option $REPLY";;
-        esac
-      done
-    fi
-  fi
-fi
-
-deps=( 'meson' 'ninja' 'cmake' )
-missing_dep=0
-pip_to_install=""
-for dep in ${deps[@]}; do
-  set +e
-  command -v $dep >/dev/null
-  if [[ $? -eq 1 ]]; then
-    missing_dep=1
-    pip_to_install+=" $dep"
-  fi
-  set -e
-done
-
-in_venv=false
-if [[ $missing_dep -eq 1 ]]; then
-  if [[ ! -f venv ]]; then
-    python3 -m venv venv
-  fi
-  source venv/bin/activate
-  pip3 install $pip_to_install
-  in_venv=true
-fi
-
-rm -rf __build-compile python bin
-meson setup --buildtype release --prefix=$SCRIPTPATH/install __build-compile
-if [[ $? -eq 0 ]]; then
-  cd __build-compile
-  ninja install
-  cd ..
-fi
-
-cd $SCRIPTPATH
-if [[ $in_venv == true ]]; then
-  deactivate
-fi
+  """
+        ],
+        shell=True,
+        check=True,
+    )

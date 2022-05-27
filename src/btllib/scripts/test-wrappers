@@ -9,5 +9,5 @@ set -e
 
 cd "${MESON_SOURCE_ROOT}"
 
-cd install/python
+cd install/lib/btllib/python
 python3 -c 'import btllib; nt = btllib.NtHash("ACTG", 2, 3); nt.roll(); b = btllib.BloomFilter(1024, 2); b.insert(nt.hashes())'

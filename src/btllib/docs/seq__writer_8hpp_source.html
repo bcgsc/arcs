@@ -97,25 +97,26 @@ $(function() {
 <div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span> </div>
 <div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span>  <span class="keywordtype">void</span> close();</div>
 <div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span> </div>
-<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span>  <span class="keywordtype">void</span> write(<span class="keyword">const</span> std::string&amp; <span class="keywordtype">id</span>,</div>
-<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>             <span class="keyword">const</span> std::string&amp; comment,</div>
-<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>             <span class="keyword">const</span> std::string&amp; seq,</div>
-<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>             <span class="keyword">const</span> std::string&amp; qual = <span class="stringliteral">&quot;&quot;</span>);</div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span> </div>
-<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span><span class="keyword">private</span>:</div>
-<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>  <span class="keyword">const</span> std::string sink_path;</div>
-<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>  DataSink sink;</div>
-<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span>  <span class="keywordtype">bool</span> closed;</div>
-<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>  Format format;</div>
-<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span>  <span class="keywordtype">char</span> headerchar;</div>
-<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span>  std::mutex mutex;</div>
-<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span>};</div>
-<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span> </div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>} <span class="comment">// namespace btllib</span></div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span> </div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="classbtllib_1_1SeqWriter.html#ad1202d19b9934405fa0cfa7ee165ccc3">   53</a></span>  <span class="keywordtype">void</span> <a class="code hl_function" href="classbtllib_1_1SeqWriter.html#ad1202d19b9934405fa0cfa7ee165ccc3">write</a>(<span class="keyword">const</span> std::string&amp; <span class="keywordtype">id</span>,</div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>             <span class="keyword">const</span> std::string&amp; comment,</div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span>             <span class="keyword">const</span> std::string&amp; seq,</div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span>             <span class="keyword">const</span> std::string&amp; qual = <span class="stringliteral">&quot;&quot;</span>);</div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span> </div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span><span class="keyword">private</span>:</div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>  <span class="keyword">const</span> std::string sink_path;</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>  DataSink sink;</div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>  <span class="keywordtype">bool</span> closed;</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>  Format format;</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>  <span class="keywordtype">char</span> headerchar;</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>  std::mutex mutex;</div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span>};</div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span> </div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span>} <span class="comment">// namespace btllib</span></div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span> </div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span><span class="preprocessor">#endif</span></div>
 <div class="ttc" id="aclassbtllib_1_1SeqWriter_html"><div class="ttname"><a href="classbtllib_1_1SeqWriter.html">btllib::SeqWriter</a></div><div class="ttdef"><b>Definition:</b> seq_writer.hpp:23</div></div>
 <div class="ttc" id="aclassbtllib_1_1SeqWriter_html_a6271cffe77701558f0997532a7e58d43"><div class="ttname"><a href="classbtllib_1_1SeqWriter.html#a6271cffe77701558f0997532a7e58d43">btllib::SeqWriter::SeqWriter</a></div><div class="ttdeci">SeqWriter(const std::string &amp;sink_path, Format format=FASTA, bool append=false)</div></div>
+<div class="ttc" id="aclassbtllib_1_1SeqWriter_html_ad1202d19b9934405fa0cfa7ee165ccc3"><div class="ttname"><a href="classbtllib_1_1SeqWriter.html#ad1202d19b9934405fa0cfa7ee165ccc3">btllib::SeqWriter::write</a></div><div class="ttdeci">void write(const std::string &amp;id, const std::string &amp;comment, const std::string &amp;seq, const std::string &amp;qual=&quot;&quot;)</div></div>
 <div class="ttc" id="anamespacebtllib_html"><div class="ttname"><a href="namespacebtllib.html">btllib</a></div><div class="ttdef"><b>Definition:</b> bloom_filter.hpp:16</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
