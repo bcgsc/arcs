@@ -12,7 +12,7 @@ jobs:
     displayName: Create Anaconda environment
   - script: |
       source activate arcs_CI
-      conda install -c conda-forge -c bioconda compilers btllib boost automake sparsehash
+      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
     displayName: Install dependencies
   - script: |
       source activate arcs_CI
