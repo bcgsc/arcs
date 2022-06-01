@@ -10,12 +10,12 @@ jobs:
 
   - script: conda create --yes --quiet --name arcs_CI
     displayName: Create Anaconda environment
-
   - script: |
-      sudo apt-get update -qq
-      sudo apt-get install -qq libboost-dev libsparsehash-dev automake
-    displayName: Install C++ modules
+      source activate arcs_CI
+      conda install compilers btl boost automake sparsehash
+    displayName: Install dependencies
   - script: |
+      source activate arcs_CI
       ./autogen.sh
       ./configure
       make
