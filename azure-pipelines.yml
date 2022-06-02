@@ -68,4 +68,4 @@ jobs:
         ./autogen.sh
         ./configure
         make
-        displayName: Compile ARCS
+      displayName: Compile ARCS
