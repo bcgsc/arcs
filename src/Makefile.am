@@ -13,7 +13,7 @@ lint: clang-format clang-tidy
 
 # Check the C++ source code for errors with clang-tidy.
 clang-tidy:
-	clang-tidy -warnings-as-errors='*' *.cpp -- -std=c++11 -x c++ -Ibtllib/include -Iinclude
+	clang-tidy -warnings-as-errors='*' *.cpp -- -std=c++11 -x c++  ${CXXFLAGS}
 
 # Check the C++ source code for white-space errors with clang-format.
 clang-format:

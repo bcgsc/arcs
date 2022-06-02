@@ -185,7 +185,7 @@ main(int argc, char* argv[])
 	for (auto& infile : infiles) {
 		unsigned flags = 0;
 		flags |= btllib::SeqReader::Flag::LONG_MODE;
-		btllib::SeqReader reader(infile, flags);
+		btllib::SeqReader reader(infile, flags, t);
 		btllib::SeqReader::Record record;
 		while ((record = reader.read())) {
 			size_t step = l * 2;
