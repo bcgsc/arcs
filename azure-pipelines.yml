@@ -7,7 +7,6 @@ jobs:
   steps:
   - script: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
-
   - script: conda create --yes --quiet --name arcs_CI
     displayName: Create Anaconda environment
   - script: |
@@ -49,3 +48,24 @@ jobs:
       source activate arcs_CI
       make -C src all
     displayName: Compile long-to-linked-pe
+
+- job:
+    displayName: mac-latest
+    pool:
+      vmImage: 'macOS-latest'
+
+    steps:
+    - script: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - script: conda create --yes --quiet --name arcs_CI
+        displayName: Create Anaconda environment
+    - script: |
+        source activate arcs_CI
+        conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
+      displayName: Install dependencies
+    - script: |
+        source activate arcs_CI
+        ./autogen.sh
+        ./configure
+        make
+        displayName: Compile ARCS
