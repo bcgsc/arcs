@@ -30,7 +30,9 @@ jobs:
       pylint makeTSVfile.py
       cd ../
     displayName: Run pylint
-  - script: make distcheck
+  - script: |
+    source activate arcs_CI
+    make distcheck
     displayName: Compile ARCS with make distcheck
   - script: |
       curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
