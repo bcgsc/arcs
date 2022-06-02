@@ -41,8 +41,11 @@ jobs:
       sudo apt-get install -y --no-install-recommends clang-format clang-tidy
     displayName: Install clang-format and clang-tidy
   - script: |
+      source activate arcs_CI
       make -C Arcs clang-format
       make -C src lint
     displayName: Run clang-format
-  - script: make -C src all
+  - script: |
+      source activate arcs_CI
+      make -C src all
     displayName: Compile long-to-linked-pe
