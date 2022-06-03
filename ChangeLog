@@ -1,3 +1,8 @@
+2022-06-03 Lauren Coombe <lcoombe@bcgsc.ca>
+
+   * Release version 1.2.4
+   * Remove integrated btllib, make it a dependency
+
 2022-02-11 Lauren Coombe <lcoombe@bcgsc.ca>
 
     * Release version 1.2.3
