@@ -18,11 +18,12 @@ Because ARKS is not dependent on read alignments, it is generally much faster th
 
 ### Dependencies
 * Boost (tested on 1.61)
-* GCC (5.1+)
+* GCC (6+)
 * Autotools (if cloning directly from repository) 
 * LINKS (tested on 1.8)
 * Google SparseHash
 * ABySS (if using long reads) (tested on 2.2.5)
+* [btllib](https://github.com/bcgsc/btllib) (1.4.3+)
 
 ### Compilation:
 If cloning directly from the repository run:
@@ -40,6 +41,12 @@ To install ARCS in a specified directory:
 If your boost library headers are not in your PATH you can specify their location:
 ```
 ./configure –-with-boost=/boost/path --prefix=/ARCS/PATH && make install
+```
+If you compiled btllib from source (as opposed to installation using conda), you can specify the location of the btllib library files:
+```
+export CXXFLAGS+=" -I /path/to/btllib/include"
+export LDFLAGS+=" -L /path/to/btllib/install/lib"
+./configure && make
 ```
 
 ### ARCS+LINKS Pipeline

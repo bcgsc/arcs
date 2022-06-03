@@ -1,6 +1,6 @@
 bin_PROGRAMS = arcs
 
-arcs_CXXFLAGS = $(AM_CXXFLAGS) $(OPENMP_CXXFLAGS)
+arcs_CXXFLAGS = $(AM_CXXFLAGS) $(OPENMP_CXXFLAGS) -Wno-error=unused-but-set-variable
 
 arcs_CPPFLAGS = -I$(top_srcdir)/Arcs \
 	-I$(top_srcdir)/Common \

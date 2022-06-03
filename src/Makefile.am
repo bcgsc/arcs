@@ -1,24 +1,19 @@
 bin_PROGRAMS = long-to-linked-pe
 
-long_to_linked_pe_CXXFLAGS = -O3 -Wall -Werror -Wno-unknown-pragmas -std=c++11 -pthread -I$(top_srcdir)/src/include
+long_to_linked_pe_CXXFLAGS = -O3 -Wall -Werror -Wno-unknown-pragmas -std=c++17 -pthread -I$(top_srcdir)/src/include 
 
-CXXFLAGS =  $(long_to_linked_pe_CXXFLAGS)
+CXXFLAGS += $(long_to_linked_pe_CXXFLAGS)
 
-long_to_linked_pe_SOURCES = long-to-linked-pe.cpp \
-	include/btllib/seq_reader.hpp \
-	include/btllib/status.hpp \
-	include/btllib/util.hpp \
-	include/btllib/cstring.hpp \
-	include/btllib/data_stream.hpp \
-	include/btllib/order_queue.hpp \
-	include/btllib/seq.hpp
+long_to_linked_pe_LDADD = -lbtllib
+
+long_to_linked_pe_SOURCES = long-to-linked-pe.cpp 
 
 # Check the C++ source code for errors.
 lint: clang-format clang-tidy
 
 # Check the C++ source code for errors with clang-tidy.
 clang-tidy:
-	clang-tidy -warnings-as-errors='*' *.cpp -- -std=c++11 -x c++ -Ibtllib/include -Iinclude
+	clang-tidy -warnings-as-errors='*' *.cpp -- -std=c++11 -x c++  ${CXXFLAGS}
 
 # Check the C++ source code for white-space errors with clang-format.
 clang-format:

@@ -7,15 +7,14 @@ jobs:
   steps:
   - script: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
-
   - script: conda create --yes --quiet --name arcs_CI
     displayName: Create Anaconda environment
-
   - script: |
-      sudo apt-get update -qq
-      sudo apt-get install -qq libboost-dev libsparsehash-dev automake
-    displayName: Install C++ modules
+      source activate arcs_CI
+      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
+    displayName: Install dependencies
   - script: |
+      source activate arcs_CI
       ./autogen.sh
       ./configure
       make
@@ -30,7 +29,9 @@ jobs:
       pylint makeTSVfile.py
       cd ../
     displayName: Run pylint
-  - script: make distcheck
+  - script: |
+      source activate arcs_CI
+      make distcheck
     displayName: Compile ARCS with make distcheck
   - script: |
       curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -39,8 +40,32 @@ jobs:
       sudo apt-get install -y --no-install-recommends clang-format clang-tidy
     displayName: Install clang-format and clang-tidy
   - script: |
+      source activate arcs_CI
       make -C Arcs clang-format
       make -C src lint
     displayName: Run clang-format
-  - script: make -C src all
+  - script: |
+      source activate arcs_CI
+      make -C src all
     displayName: Compile long-to-linked-pe
+
+- job:
+  displayName: mac-latest
+  pool:
+    vmImage: 'macOS-latest'
+
+  steps:
+  - script: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
+  - script: conda create --yes --quiet --name arcs_CI
+    displayName: Create Anaconda environment
+  - script: |
+      source activate arcs_CI
+      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
+    displayName: Install dependencies
+  - script: |
+      source activate arcs_CI
+      ./autogen.sh
+      ./configure
+      make
+    displayName: Compile ARCS
