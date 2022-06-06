@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="arcs",
-    version="1.2.3",
+    version="1.2.4",
     description="Scaffolding genome sequence assemblies using linked or long read sequencing data",
     long_description=long_description,
     long_description_content_type="text/markdown",
