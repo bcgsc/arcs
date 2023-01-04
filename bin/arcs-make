@@ -8,13 +8,40 @@ draft=draft
 reads=reads
 
 # Find the complete long read file name
-fastq=$(shell test -f $(reads).fq.gz && echo "true")
-fasta=$(shell test -f $(reads).fa.gz && echo "true")
-ifeq ($(fastq), true)
+fastq_gz=$(shell test -f $(reads).fq.gz && echo "true")
+fastq=$(shell test -f $(reads).fq && echo "true")
+fastq_long=$(shell test -f $(reads).fastq && echo "true")
+fastq_gz_long=$(shell test -f $(reads).fastq.gz && echo "true")
+
+fasta_gz=$(shell test -f $(reads).fa.gz && echo "true")
+fasta=$(shell test -f $(reads).fa && echo "true")
+fasta_long=$(shell test -f $(reads).fasta && echo "true")
+fasta_gz_long=$(shell test -f $(reads).fasta.gz && echo "true")
+
+ifeq ($(fastq_gz), true)
 long_reads=$(reads).fq.gz
 endif
-ifeq ($(fasta), true)
+ifeq ($(fastq), true)
+long_reads=$(reads).fq
+endif
+ifeq ($(fastq_long), true)
+long_reads=$(reads).fastq
+endif
+ifeq ($(fastq_gz_long), true)
+long_reads=$(reads).fastq.gz
+endif
+
+ifeq ($(fasta_gz), true)
 long_reads=$(reads).fa.gz
+endif
+ifeq ($(fasta), true)
+long_reads=$(reads).fa
+endif
+ifeq ($(fasta_long), true)
+long_reads=$(reads).fasta
+endif
+ifeq ($(fasta_gz_long), true)
+long_reads=$(reads).fasta.gz
 endif
 
 # tigmint Parameters
@@ -117,7 +144,8 @@ help:
 	@echo "    General Options:"
 	@echo ""
 	@echo "	draft           draft name [draft]. File must have .fasta or .fa extension"
-	@echo "	reads           read name [reads]. File must have .fastq.gz or .fq.gz extension"
+	@echo "	reads           read name [reads]. File must have .fastq.gz or .fq.gz extension."
+	@echo " 			File can be uncompressed (.fastq, .fq) when using arcs-long or arks-long modes."
 	@echo "	time		logs time and memory usage to file for main steps (Set to 1 to enable logging)"	
 	@echo ""
 	@echo "    bwa Options:"
