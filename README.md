@@ -92,7 +92,7 @@ To run the pipeline in arcs-long mode, run `bin/arcs-make arks-long`. For exampl
 arcs-make arcs-long draft=my_scaffolds reads=my_reads z=1000
 ```
 
-For more info check `bin/arcs-make help`.
+The input long reads can be gzipped or uncompressed. For more info check `bin/arcs-make help`.
 
 **Parameters**: To account for the higher error rates in long reads vs linked reads, we suggest starting with the following values: 
 * `m=8-10000`
@@ -129,6 +129,8 @@ arcs-make arks-long draft=my_scaffolds reads=my_reads k=20 j=0.05
 * `c=4`
 * `l=4`
 * `a=0.3`
+
+The input long reads can be gzipped or uncompressed.
 
 ## Simulating pseudo-linked reads from long reads for `--arks-long` and `--arcs-long` modes
 
