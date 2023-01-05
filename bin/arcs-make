@@ -200,7 +200,7 @@ clean:
 	@echo "Clean Done"
 
 version:
-	@echo "arcs-make v1.2.4"
+	@echo "arcs-make v1.2.5"
 
 #Preprocessing
 
