@@ -7,7 +7,7 @@
 
 # ARCS
 
-Scaffolding genome sequence assemblies using linked or long read sequencing data. 
+Scaffolding genome sequence assemblies using linked or long read sequencing data
 
 
 ### Contents
