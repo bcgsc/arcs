@@ -11,7 +11,7 @@ Scaffolding genome sequence assemblies using linked or long read sequencing data
 
 
 ### Contents
-======
+------
 1. [Description](#description)
 2. [Run modes - cheat sheet](#modes)
 3. [Install](#install)
@@ -28,8 +28,7 @@ Scaffolding genome sequence assemblies using linked or long read sequencing data
 14. [About ARCS/ARKS](#about)
 15. [Citing ARCS/ARKS/LINKS](#cite)
 16. [License](#license)
-=======
-
+------
 
 ### Description <a name=description></a>
 
@@ -208,9 +207,12 @@ FFFFFFFGFGFFGFDFGFFFFFFFFFFFGFFF@FFFFFFFFFFFF@FFFFFFFFFGGFFEFEFFFF?FFFFGFFFGFFFF
 
 Thank you for your [![Stars](https://img.shields.io/github/stars/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/stargazers) and for using, developing and promoting this free software!
 
+
+### Citing ARCS/ARKS/LINKS <a name=cite></a>
+
 If you use ARCS/ARKS/LINKS in your research, please cite:
 
-### Citing ARKS <a name=cite></a>
+#### Citing ARKS
 
 <pre>
 ARKS: chromosome-scale scaffolding of human genome drafts with linked read kmers.
@@ -219,7 +221,7 @@ BMC Bioinformatics. 2018 Jun 20;19(1):234. doi: 10.1186/s12859-018-2243-x.
 </pre>
 [![link](https://img.shields.io/badge/ARKS-manuscript-brightgreen)](https://doi.org/10.1186/s12859-018-2243-x)
 
-### Citing ARCS 
+#### Citing ARCS 
 
 <pre>
 ARCS: scaffolding genome drafts with linked reads.
@@ -230,7 +232,7 @@ Bioinformatics. 2018 Mar 1;34(5):725-731. doi: 10.1093/bioinformatics/btx675.
 
 **NOTE: The supplementary data and scripts have been moved to http://www.bcgsc.ca/downloads/supplementary/ARCS/**
 
-### Citing LINKS
+#### Citing LINKS
 
 <pre>
 LINKS: Scalable, alignment-free scaffolding of draft genomes with long reads.
