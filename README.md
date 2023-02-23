@@ -8,15 +8,47 @@
 # ARCS
 
 Scaffolding genome sequence assemblies using linked or long read sequencing data. 
+
+
+### Contents
+======
+1. [Description](#description)
+2. [Run modes - cheat sheet](#modes)
+3. [Install](#install)
+4. [Dependencies](#dep)
+5. [Installation](#install)
+6. [ARCS+LINKS pipeline](#pipeline)
+7. [Running ARCS with linked reads](#runlinked)
+8. [Running ARCS with long reads](#runlong)
+9. [Running alignment-free ARKS on linked reads](#runarkslinked)
+10. [Running alignment-free ARKS on long reads](#runarkslong)
+11. [Simulating pseudo-linked reads from long reads](#pseudo)
+12. [Demo](#demo)
+13. [Using stLFR linked reads](#stlfr)
+14. [About ARCS/ARKS](#about)
+15. [Citing ARCS/ARKS/LINKS](#cite)
+16. [License](#license)
+=======
+
+
+### Description <a name=description></a>
+
+ARCS and ARKS are genome sequence assembly scaffolders using linked and long read sequencing data
+
+
+### Run modes - cheat sheet <a name=modes></a>
+
 ARCS can be run in 4 modes:
 * [ARCS](https://doi.org/10.1101/100750) (default) uses alignments of linked reads to the input contigs
-* ARCS-long (`arcs-long`) uses alignments of long reads to the input contigs 
+* ARCS-long (`arcs-long`) uses alignments of long reads to the input contigs
 * [ARKS](https://doi.org/10.1186/s12859-018-2243-x) (`--arks`) uses exact k-mer mapping to associate linked reads to input contigs
 * ARKS-long (`arks-long`) uses exact k-mer mapping to associate long reads to input contigs
 
 Because ARKS is not dependent on read alignments, it is generally much faster than ARCS. However, ARCS is recommended for use with very fragmented assemblies and/or large genomes.
 
-### Dependencies
+
+### Dependencies <a name=dep></a>
+
 * Boost (tested on 1.61)
 * GCC (6+)
 * Autotools (if cloning directly from repository) 
@@ -25,7 +57,9 @@ Because ARKS is not dependent on read alignments, it is generally much faster th
 * ABySS (if using long reads) (tested on 2.2.5)
 * [btllib](https://github.com/bcgsc/btllib) (1.4.3+)
 
-### Compilation:
+
+### Installation <a name=install></a>
+
 If cloning directly from the repository run:
 ```
 ./autogen.sh
@@ -49,7 +83,7 @@ export LDFLAGS+=" -L /path/to/btllib/install/lib"
 ./configure && make
 ```
 
-### ARCS+LINKS Pipeline
+### ARCS+LINKS pipeline <a name=pipeline></a>
 
 The ARCS+LINKS pipeline requires two input files:
 * Draft assembly fasta file
@@ -70,7 +104,8 @@ When using the `-D`/`--dist_est` ARCS option to estimate gap sizes, the user is 
 
 An example bash script on how to run the ARCS+LINKS pipeline can be found at: Examples/pipeline_example.sh
 
-### Running ARCS in default mode
+
+### Running ARCS with linked reads (default mode) <a name=runlinked></a>
 
 The default mode uses alignments of linked reads to contigs to scaffold the input contigs.
 
@@ -83,7 +118,8 @@ For more info check `bin/arcs-make help`.
 
 To run the `arcs` executable in default mode, run `arcs <alignments>`. For descriptions of all arguments, run `arcs --help`.
 
-### Running ARCS in '--arcs-long' mode
+
+### Running ARCS with long reads '--arcs-long' mode <a name=runlong></a>
 
 The arcs-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Alignments of the pseudo-linked reads are then used to scaffold the input contigs.
 
@@ -103,7 +139,8 @@ The input long reads can be gzipped or uncompressed. For more info check `bin/ar
 
 Note that lowering `c`, `l` and increasing `a` may increase contiguity, but will likely increase the number of misassemblies as well.
 
-### Running ARCS in '--arks' mode
+
+### Running alignment-free ARKS on linked reads ('--arks' mode) <a name=runarkslinked></a>
 
 To run the pipeline in ARKS mode, run `bin/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a kmer size of 60:
 ```
@@ -113,7 +150,8 @@ For more info check `bin/arcs-make help`.
 
 To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions of all arguments, run `arcs --help`.
 
-### Running ARCS in '--arks-long' mode
+
+### Running alignment-free ARKS on long reads ('--arks-long' mode) <a name=runarkslong></a>
 
 The arks-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Scaffolding is performed based on exact k-mer mapping of pseudo-linked reads to the input contigs.
 
@@ -132,11 +170,12 @@ arcs-make arks-long draft=my_scaffolds reads=my_reads k=20 j=0.05
 
 The input long reads can be gzipped or uncompressed.
 
-## Simulating pseudo-linked reads from long reads for `--arks-long` and `--arcs-long` modes
+### Simulating pseudo-linked reads from long reads for `--arks-long` and `--arcs-long` modes <a name=pseudo></a>
 
 ![Pseudo-linked read simulation](arcs-long_pseudo-linked-reads.png)
 
-## Demo
+
+### Demo <a name=demo></a>
 
 You can test your installation by running one of our supplied demos:
 * ARCS: `Examples/arcs_test-demo`
@@ -146,7 +185,8 @@ You can test your installation by running one of our supplied demos:
 
 You can compare your output to the files provided in the `output` folders within the above directories.
 
-## Using stLFR linked reads
+
+### Using stLFR linked reads <a name=stlfr></a>
 
 To use stLFR linked reads with ARCS, you will need to re-format the reads to have the barcode in a `BX:Z:` tag in the read header.
 For example, this format
@@ -164,13 +204,13 @@ TGTCTTCCTGGACAGCTGACATCCCTTTTGTTTTTCTGTTTGCTCAGATGCTGTCTCTTATACACATCTTAGGAAGACAA
 FFFFFFFGFGFFGFDFGFFFFFFFFFFFGFFF@FFFFFFFFFFFF@FFFFFFFFFGGFFEFEFFFF?FFFFGFFFGFFFFFFFGFFEFGFGGFGFFFGFF
 ```
 
-### About ARCS/ARKS
+### About ARCS/ARKS <a name=about></a>
 
 Thank you for your [![Stars](https://img.shields.io/github/stars/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/stargazers) and for using, developing and promoting this free software!
 
-If you use ARCS/ARKS in your research, please cite:
+If you use ARCS/ARKS/LINKS in your research, please cite:
 
-### Citing ARKS
+### Citing ARKS <a name=cite></a>
 
 <pre>
 ARKS: chromosome-scale scaffolding of human genome drafts with linked read kmers.
@@ -179,7 +219,7 @@ BMC Bioinformatics. 2018 Jun 20;19(1):234. doi: 10.1186/s12859-018-2243-x.
 </pre>
 [![link](https://img.shields.io/badge/ARKS-manuscript-brightgreen)](https://doi.org/10.1186/s12859-018-2243-x)
 
-### Citing ARCS
+### Citing ARCS 
 
 <pre>
 ARCS: scaffolding genome drafts with linked reads.
@@ -190,7 +230,7 @@ Bioinformatics. 2018 Mar 1;34(5):725-731. doi: 10.1093/bioinformatics/btx675.
 
 **NOTE: The supplementary data and scripts have been moved to http://www.bcgsc.ca/downloads/supplementary/ARCS/**
 
-### Citing LINKS :
+### Citing LINKS
 
 <pre>
 LINKS: Scalable, alignment-free scaffolding of draft genomes with long reads.
@@ -201,7 +241,7 @@ Gigascience. 2015 Aug 4;4:35. doi: 10.1186/s13742-015-0076-3. eCollection 2015.
 [![link](https://img.shields.io/badge/LINKS-github-yellow)](https://github.com/warrenlr/LINKS)
 
 
-### License  
+### License <a name=license></a>
 
 ARCS Copyright (c) 2016-2021 British Columbia Cancer Agency Branch.  All rights reserved.
 
