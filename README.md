@@ -20,8 +20,8 @@ Scaffolding genome sequence assemblies using linked or long read sequencing data
 6. [ARCS+LINKS pipeline](#pipeline)
 7. [Running ARCS with linked reads](#runlinked)
 8. [Running ARCS with long reads](#runlong)
-9. [Running alignment-free ARKS on linked reads](#runarkslinked)
-10. [Running alignment-free ARKS on long reads](#runarkslong)
+9. [Running alignment-free ARKS with linked reads](#runarkslinked)
+10. [Running alignment-free ARKS with long reads](#runarkslong)
 11. [Simulating pseudo-linked reads from long reads](#pseudo)
 12. [Demo](#demo)
 13. [Using stLFR linked reads](#stlfr)
@@ -119,7 +119,7 @@ For more info check `bin/arcs-make help`.
 To run the `arcs` executable in default mode, run `arcs <alignments>`. For descriptions of all arguments, run `arcs --help`.
 
 
-### Running ARCS with long reads '--arcs-long' mode <a name=runlong></a>
+### Running ARCS with long reads ('--arcs-long' mode) <a name=runlong></a>
 
 The arcs-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Alignments of the pseudo-linked reads are then used to scaffold the input contigs.
 
@@ -140,7 +140,7 @@ The input long reads can be gzipped or uncompressed. For more info check `bin/ar
 Note that lowering `c`, `l` and increasing `a` may increase contiguity, but will likely increase the number of misassemblies as well.
 
 
-### Running alignment-free ARKS on linked reads ('--arks' mode) <a name=runarkslinked></a>
+### Running alignment-free ARKS with linked reads ('--arks' mode) <a name=runarkslinked></a>
 
 To run the pipeline in ARKS mode, run `bin/arcs-make arcs`. For example, to scaffold the assembly `my_scaffolds.fa` with the interleaved, longranger processed reads `my_reads.fq.gz`, specifying a kmer size of 60:
 ```
@@ -151,7 +151,7 @@ For more info check `bin/arcs-make help`.
 To run the `arcs` executable in ARKS mode, run `arcs --arks`. For descriptions of all arguments, run `arcs --help`.
 
 
-### Running alignment-free ARKS on long reads ('--arks-long' mode) <a name=runarkslong></a>
+### Running alignment-free ARKS with long reads ('--arks-long' mode) <a name=runarkslong></a>
 
 The arks-long mode first segments and assigns barcodes to the long reads, yielding pseudo-linked reads. Scaffolding is performed based on exact k-mer mapping of pseudo-linked reads to the input contigs.
 
