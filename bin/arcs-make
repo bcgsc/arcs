@@ -194,6 +194,7 @@ help:
 	@echo "Example: To run tigmint and arcs with myDraft.fa, myReads.fq.gz, and a custom multiplicty range, run:"
 	@echo "	./arcs-make arcs-tigmint draft=myDraft reads=myReads m=[User defined multiplicty range]"
 	@echo "To ensure that the pipeline runs correctly, make sure that the following tools are in your PATH: bwa, tigmint, samtools, arcs (>= v1.1.0), LINKS (>= v1.8.6)"
+	@echo "When running targets including Tigmint, please ensure that all input files are in your current working directory."
 
 clean:
 	rm -f *.amb *.ann *.bwt *.pac *.sa *.dist.gv *.fai *.bed *.molecule.tsv *.sortbx.bam
