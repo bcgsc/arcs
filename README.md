@@ -89,7 +89,7 @@ The ARCS+LINKS pipeline requires two input files:
 * Reads file in fastq format `*.fq.gz` (or fasta format `*.fa.gz` if using long reads)
   * For linked reads, ARCS expects an interleaved linked reads file (Barcode sequence expected in the BX tag of the read header or in the form "@readname_barcode" ; Run [Long Ranger basic](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/what-is-long-ranger) on raw chromium reads to produce this interleaved file)
 
-The Makefile located here: bin/arcs-make will run the full ARCS pipeline. It will also optionally run the misassembly corrector [Tigmint](https://github.com/bcgsc/tigmint) prior to scaffolding with ARCS.
+The Makefile located here: bin/arcs-make will run the full ARCS pipeline. It will also optionally run the misassembly corrector [Tigmint](https://github.com/bcgsc/tigmint) prior to scaffolding with ARCS. If you are running Tigmint in your pipeline, please ensure that all input files are in your current working directory.
 
 There are three steps to the pipeline:
 
