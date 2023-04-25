@@ -1,5 +1,5 @@
 [![Release](https://img.shields.io/github/release/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/releases)
-[![Downloads](https://img.shields.io/github/downloads/bcgsc/arcs/total?logo=github)](https://github.com/bcgsc/arcs/releases/download/v1.1.0/arcs-1.1.0.tar.gz)
+[![Downloads](https://img.shields.io/github/downloads/bcgsc/arcs/total?logo=github)](https://github.com/bcgsc/arcs/releases)
 [![Conda](https://img.shields.io/conda/dn/bioconda/arcs?label=Conda)](https://anaconda.org/bioconda/ARCS)
 [![Issues](https://img.shields.io/github/issues/bcgsc/arcs.svg)](https://github.com/bcgsc/arcs/issues)
 
