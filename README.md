@@ -53,7 +53,7 @@ Because ARKS is not dependent on read alignments, it is generally much faster th
 * Autotools (if cloning directly from repository) 
 * LINKS (tested on 1.8)
 * Google SparseHash
-* ABySS (if using long reads) (tested on 2.2.5)
+* ABySS (if using long reads)
 * [btllib](https://github.com/bcgsc/btllib) (1.4.3+)
 
 
