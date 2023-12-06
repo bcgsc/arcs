@@ -1,3 +1,9 @@
+2023-12-06 Lauren Coombe <lcoombe@bcgsc.ca>
+
+  * Release version 1.2.6
+  * Bugfix for `arks-tigmint` and `arcs-tigmint` rules in `arcs-make`
+  * Update documentation
+
 2023-01-05 Lauren Coombe <lcoombe@bcgsc.ca>
 
   * Release version 1.2.5
