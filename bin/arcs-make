@@ -222,7 +222,7 @@ arks-tigmint: tigmint arks-with-tigmint
 tigmint: $(draft).tigmint.fa
 # Run tigmint
 $(draft).tigmint.fa: $(draft).fa $(reads).fq.gz
-	$(gtime) tigmint tigmint draft=$(draft) reads=$(reads) minsize=$(minsize) as=$(as) nm=$(nm) dist=$(dist) mapq=$(mapq) trim=$(trim) span=$(span) window=$(window) t=$t 
+	$(gtime) tigmint-make tigmint  draft=$(draft) reads=$(reads) minsize=$(minsize) as=$(as) nm=$(nm) dist=$(dist) mapq=$(mapq) trim=$(trim) span=$(span) window=$(window) t=$t 
 
 #Pre-processing long reads; cut into shorter segments (pseudo-linked reads)
 $(reads).cut$(cut).fq.gz: $(long_reads)
