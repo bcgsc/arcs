@@ -26,7 +26,7 @@ static const char VERSION_MESSAGE[] =
 			"issue at https://github.com/bcgsc/arcs.\n"
             "If you use LINKS, ARCS code or ideas, please cite our work. \n"
             "\n"
-            "LINKS and ARCS Copyright (c) 2014-2016 Canada's Michael Smith Genome Science Centre.  "
+            "LINKS and ARCS Copyright (c) 2014-present Canada's Michael Smith Genome Science Centre.  "
             "All rights reserved. \n";
 
 static const char USAGE_MESSAGE[] =
