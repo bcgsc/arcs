@@ -18,6 +18,7 @@ jobs:
       ./autogen.sh
       ./configure
       make
+      ./Arcs/arcs --version
     displayName: Compile ARCS
   - script: |
       source activate arcs_CI

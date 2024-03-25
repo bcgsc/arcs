@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(arcs, 1.2.6, rwarren@bcgsc.ca)
+AC_INIT(arcs, 1.2.6, lcoombe@bcgsc.ca)
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_SRCDIR([Arcs/Arcs.cpp])
 AC_CONFIG_HEADER([config.h])
