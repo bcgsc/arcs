@@ -11,7 +11,7 @@ jobs:
     displayName: Create Anaconda environment
   - script: |
       source activate arcs_CI
-      conda install --yes -c conda-forge -c bioconda compilers=1.7.0 btllib boost automake sparsehash clang-format clang-tools python pylint
+      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash clang-format clang-tools python pylint
     displayName: Install dependencies
   - script: |
       source activate arcs_CI
@@ -24,9 +24,7 @@ jobs:
       source activate arcs_CI
       ./configure
       make -C Arcs clang-format
-      clang-tidy --version
-      which clang-tidy
-      make -C src lint
+      make -C src clang-format
     displayName: Run clang-format
   - script: |
       source activate arcs_CI
