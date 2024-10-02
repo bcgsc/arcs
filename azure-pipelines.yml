@@ -16,7 +16,7 @@ jobs:
   - script: |
       source activate arcs_CI
       ./autogen.sh
-      ./configure
+      ./configure -Wno-error=dangling-reference
       make
       ./Arcs/arcs --version
     displayName: Compile ARCS
@@ -70,7 +70,7 @@ jobs:
     displayName: Create Anaconda environment
   - script: |
       source activate arcs_CI
-      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
+      mamba install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
     displayName: Install dependencies
   - script: |
       source activate arcs_CI
