@@ -24,6 +24,8 @@ jobs:
       source activate arcs_CI
       ./configure
       make -C Arcs clang-format
+      clang-tidy --version
+      which clang-tidy
       make -C src lint
     displayName: Run clang-format
   - script: |
