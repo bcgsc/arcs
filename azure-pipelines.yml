@@ -22,7 +22,6 @@ jobs:
     displayName: Compile ARCS
   - script: |
       source activate arcs_CI
-      ./configure
       make -C Arcs clang-format
       make -C src clang-format
     displayName: Run clang-format
