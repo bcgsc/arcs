@@ -25,7 +25,8 @@ struct DistanceEstimate
 	  , dist(0)
 	  , maxDist(0)
 	  , jaccard(0.0)
-	{}
+	{
+	}
 };
 
 /**
@@ -47,7 +48,8 @@ struct DistSample
 	  , barcodesTail(0)
 	  , barcodesUnion(0)
 	  , barcodesIntersect(0)
-	{}
+	{
+	}
 };
 
 /** maps contig ID => intra-contig distance/barcode sample */
@@ -71,7 +73,8 @@ struct BarcodeStats
 	  , barcodes2(0)
 	  , barcodesUnion(0)
 	  , barcodesIntersect(0)
-	{}
+	{
+	}
 };
 
 /** possible contig pair orientations (e.g. HH = head-to-head) */
