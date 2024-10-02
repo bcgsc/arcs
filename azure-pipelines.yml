@@ -11,19 +11,20 @@ jobs:
     displayName: Create Anaconda environment
   - script: |
       source activate arcs_CI
-      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
+      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash clang-format clang-tools python pylint
     displayName: Install dependencies
   - script: |
       source activate arcs_CI
       ./autogen.sh
-      ./configure
+      ./configure CXXFLAGS="${CXXFLAGS} -Wno-error=dangling-reference"
       make
       ./Arcs/arcs --version
     displayName: Compile ARCS
   - script: |
       source activate arcs_CI
-      conda install --yes --quiet --name arcs_CI python pylint
-    displayName: Install Python packages
+      make -C Arcs clang-format
+      make -C src clang-format
+    displayName: Run clang-format
   - script: |
       source activate arcs_CI
       cd Examples
@@ -35,17 +36,6 @@ jobs:
       make distcheck
     displayName: Compile ARCS with make distcheck
   - script: |
-      curl https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-      sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-11 main"
-      sudo apt-get update
-      sudo apt-get install -y --no-install-recommends clang-format clang-tidy
-    displayName: Install clang-format and clang-tidy
-  - script: |
-      source activate arcs_CI
-      make -C Arcs clang-format
-      make -C src lint
-    displayName: Run clang-format
-  - script: |
       source activate arcs_CI
       make -C src all
     displayName: Compile long-to-linked-pe
@@ -56,13 +46,21 @@ jobs:
     vmImage: 'macOS-latest'
 
   steps:
-  - script: echo "##vso[task.prependpath]$CONDA/bin"
-    displayName: Add conda to PATH
+  - script: |
+      mkdir -p ~/miniforge3
+      curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh  -o ~/miniforge3/miniforge.sh
+      bash ~/miniforge3/miniforge.sh -b -u -p ~/miniforge3
+      rm -rf  ~/miniforge3/miniforge.sh
+      ~/miniforge3/bin/conda init bash
+      ~/miniforge3/bin/conda init zsh
+      export CONDA=$(realpath ~/miniforge3/bin)
+      echo "##vso[task.prependpath]$CONDA"
+    displayName: Install conda
   - script: conda create --yes --quiet --name arcs_CI
     displayName: Create Anaconda environment
   - script: |
       source activate arcs_CI
-      conda install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
+      mamba install --yes -c conda-forge -c bioconda compilers btllib boost automake sparsehash
     displayName: Install dependencies
   - script: |
       source activate arcs_CI

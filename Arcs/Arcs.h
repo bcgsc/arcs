@@ -99,7 +99,8 @@ struct ArcsParams
 	  , j_index(0.55)
 	  , threads(1)
 	  , arks(false)
-	{}
+	{
+	}
 };
 /** A contig end: (FASTA ID, head?) */
 typedef std::pair<std::string, bool> CI;
@@ -177,7 +178,8 @@ struct EdgeProperties
 	  , dist(std::numeric_limits<int>::max())
 	  , maxDist(std::numeric_limits<int>::max())
 	  , jaccard(-1.0f)
-	{}
+	{
+	}
 };
 
 template<class GraphT>
@@ -190,7 +192,8 @@ struct EdgePropertyWriter
 
 	EdgePropertyWriter(GraphT& g)
 	  : m_g(g)
-	{}
+	{
+	}
 
 	void operator()(std::ostream& out, const E& e) const
 	{
@@ -220,7 +223,8 @@ struct VertexPropertyWriter
 
 	VertexPropertyWriter(GraphT& g)
 	  : m_g(g)
-	{}
+	{
+	}
 	void operator()(std::ostream& out, const V& v) const { out << " [id=" << m_g[v].id << "]"; }
 };
 
