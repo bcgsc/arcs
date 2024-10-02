@@ -15,16 +15,16 @@ jobs:
     displayName: Install dependencies
   - script: |
       source activate arcs_CI
-      make -C Arcs clang-format
-      make -C src lint
-    displayName: Run clang-format
-  - script: |
-      source activate arcs_CI
       ./autogen.sh
       ./configure CXXFLAGS="${CXXFLAGS} -Wno-error=dangling-reference"
       make
       ./Arcs/arcs --version
     displayName: Compile ARCS
+  - script: |
+      source activate arcs_CI
+      make -C Arcs clang-format
+      make -C src lint
+    displayName: Run clang-format
   - script: |
       source activate arcs_CI
       cd Examples
