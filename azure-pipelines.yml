@@ -16,7 +16,7 @@ jobs:
   - script: |
       source activate arcs_CI
       ./autogen.sh
-      ./configure -Wno-error=dangling-reference
+      ./configure CXXFLAGS="${CXXFLAGS} -Wno-error=dangling-reference"
       make
       ./Arcs/arcs --version
     displayName: Compile ARCS
