@@ -101,8 +101,6 @@ There are three steps to the pipeline:
 
 When using the `-D`/`--dist_est` ARCS option to estimate gap sizes, the user is recommended to use LINKS v1.8.6 or later.
 
-An example bash script on how to run the ARCS+LINKS pipeline can be found at: Examples/pipeline_example.sh
-
 
 ### Running ARCS with linked reads (default mode) <a name=runlinked></a>
 
