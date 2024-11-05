@@ -7,6 +7,9 @@
 draft=draft
 reads=reads
 
+# Final file prefix - optional
+prefix?=""
+
 # Find the complete long read file name
 fastq_gz=$(shell test -f $(reads).fq.gz && echo "true")
 fastq=$(shell test -f $(reads).fq && echo "true")
@@ -147,6 +150,7 @@ help:
 	@echo "	reads           read name [reads]. File must have .fastq.gz or .fq.gz extension."
 	@echo " 			File can be uncompressed (.fastq, .fq) when using arcs-long or arks-long modes."
 	@echo "	time		logs time and memory usage to file for main steps (Set to 1 to enable logging)"	
+	@echo "	prefix		prefix for soft-link to final output scaffolds - optional"
 	@echo ""
 	@echo "    bwa Options:"
 	@echo ""
@@ -334,13 +338,25 @@ empty.fof:
 # default
 %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_s$s_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+ifneq ($(prefix), "")
+	ln -s $@ $(prefix).scaffolds.fa
+endif
 # long
 %_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_cut$(cut)_s$s_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+ifneq ($(prefix), "")
+	ln -s $@ $(prefix).scaffolds.fa
+endif
 # kmer
 %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+ifneq ($(prefix), "")
+	ln -s $@ $(prefix).scaffolds.fa
+endif
 # long kmer
 %_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.scaffolds.fa: %.renamed.fa empty.fof %_c$c_m$m_cut$(cut)_k$k_r$r_e$e_z$z_l$l_a$a.tigpair_checkpoint.tsv
 	$(gtime) LINKS -f $< -s empty.fof -b $(patsubst %.scaffolds.fa,%,$@) -l $l -a $a -z $z
+ifneq ($(prefix), "")
+	ln -s $@ $(prefix).scaffolds.fa
+endif
 
