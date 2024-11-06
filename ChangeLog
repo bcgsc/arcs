@@ -1,3 +1,9 @@
+2024-11-05 Lauren Coombe <lcoombe@bcgsc.ca>
+
+  * Release version 1.2.8
+  * Add optional parameter 'prefix' to `arcs-make` - if specified, soft-links the final scaffolds fasta file to a file with this prefix 
+  * Update documentation
+
 2024-03-25 Lauren Coombe <lcoombe@bcgsc.ca>
 
   * Release version 1.2.7
