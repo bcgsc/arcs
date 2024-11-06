@@ -81,6 +81,7 @@ export CXXFLAGS+=" -I /path/to/btllib/include"
 export LDFLAGS+=" -L /path/to/btllib/install/lib"
 ./configure && make
 ```
+If using the `arcs-make` Makefile, ensure that the directory where the `arcs` binary is located is on your PATH.
 
 ### ARCS+LINKS pipeline <a name=pipeline></a>
 
